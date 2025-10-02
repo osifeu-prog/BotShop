@@ -29,14 +29,14 @@ from telegram.ext import (
 if sys.platform.startswith("win") and hasattr(asyncio, "WindowsSelectorEventLoopPolicy"):
     asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
 
-# ENV
+# env
 env_path = Path(__file__).parent / '.env'
 load_dotenv(env_path, override=True)
 
 TOKEN = os.getenv("TELEGRAM_TOKEN", "").strip()
 PIC_DIR = os.getenv("IMAGE_LIBRARY_PATH", "./images").strip()
-PAYMENT_GROUP_ID = os.getenv("PAYMENT_GROUP_ID", "-1001699922921").strip()
-ADMIN_USER_ID = os.getenv("ADMIN_USER_ID", "224223270").strip()
+PAYMENT_GROUP_ID = int(os.getenv("PAYMENT_GROUP_ID", "-1001699922921").strip() or "-1001699922921")
+ADMIN_USER_ID = int(os.getenv("ADMIN_USER_ID", "224223270").strip() or "224223270")
 SITE_URL = os.getenv("SITE_URL", "https://osifeu-prog.github.io/OsifsCardShop").strip()
 
 if not TOKEN:
@@ -46,7 +46,7 @@ if not TOKEN:
 print(f"✅ טוקן נטען: {TOKEN[:10]}...")
 print(f"📁 תמונות: {PIC_DIR}")
 
-# לוגינג
+# logging
 logging.basicConfig(
     format="%(asctime)s [%(levelname)s] %(message)s",
     level=logging.INFO,
@@ -60,7 +60,7 @@ try:
         IMG_FILES = [str(p) for p in Path(PIC_DIR).iterdir()
                      if p.is_file() and p.suffix.lower() in {".jpg", ".jpeg", ".png", ".gif", ".webp"}]
         IMG_COUNT = len(IMG_FILES)
-        log.info(f"✅ נטענו {IMG_COUNT} תמונות מ-{PIC_DIR}")
+        log.info(f"✅ נטענו {IMG_COUNT} תמונות מ-./images")
     else:
         log.warning(f"❌ תיקיית תמונות לא נמצאה: {PIC_DIR}")
         IMG_FILES, IMG_COUNT = [], 0
@@ -82,16 +82,10 @@ GALLERY_CAPS = [
 # מצבי שיחה
 PRICE, FIRST_NAME, LAST_NAME, PHONE, PAYMENT_CONFIRMATION = range(5)
 
-# טקסטים של כפתורי תפריט (לזיהוי גם בתוך שיחה)
-MENU_TXT_CONTACT = "☎️ צור קשר 📞"
-MENU_TXT_SHOP    = "✍🏻 רכישת חנות 🎯"
-MENU_TXT_MAIN    = "🔄 תפריט ראשי 📚"
-MENU_TXT_SITE    = "🌐 אתר"
-
 # מקלדות
 REPLY_KB = ReplyKeyboardMarkup([
-    [KeyboardButton(MENU_TXT_CONTACT), KeyboardButton(MENU_TXT_SHOP)],
-    [KeyboardButton(MENU_TXT_MAIN), KeyboardButton(MENU_TXT_SITE)]
+    [KeyboardButton("☎️ צור קשר 📞"), KeyboardButton("✍🏻 רכישת חנות 🎯")],
+    [KeyboardButton("🔄 תפריט ראשי 📚"), KeyboardButton("🌐 אתר")]
 ], resize_keyboard=True)
 
 PAYMENT_KB = InlineKeyboardMarkup([
@@ -103,62 +97,32 @@ PAYMENT_KB = InlineKeyboardMarkup([
 ])
 
 BANK_TRANSFER_KB = InlineKeyboardMarkup([[
-    InlineKeyboardButton("📸 העלה אישור העברה", callback_data="upload_receipt")
+    InlineKeyboardButton("📸 העלה אישור תשלום", callback_data="upload_receipt")
 ]])
 
-# ========= עוזרי ניווט מתוך מצב שיחה =========
-
-async def _handle_menu_inside_conversation(update: Update, context: ContextTypes.DEFAULT_TYPE) -> bool:
-    """
-    אם בתוך שיחה המשתמש לחץ על אחד מכפתורי התפריט – נטפל ונצא מהשיחה.
-    מחזיר True אם טופל (וצריך END), אחרת False.
-    """
-    if not update.message or not update.message.text:
-        return False
-
-    txt = update.message.text.strip()
-    if txt == MENU_TXT_SHOP:
-        await open_shop(update, context)
-        return True
-    if txt == MENU_TXT_CONTACT:
-        await handle_contact(update, context)
-        return True
-    if txt == MENU_TXT_SITE:
-        await handle_website(update, context)
-        return True
-    if txt == MENU_TXT_MAIN:
-        await start(update, context)
-        return True
-
-    return False
-
-# ========== פונקציות הבוט ==========
+# ========= פונקציות =========
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     chat_id = update.effective_chat.id
     context.user_data.clear()
 
-    # תמונה רנדומלית
     if IMG_COUNT:
         img_path = random.choice(IMG_FILES)
         try:
             with open(img_path, "rb") as f:
                 await context.bot.send_photo(
-                    chat_id,
-                    f,
+                    chat_id, f,
                     caption="🎉 ברוכים הבאים ל-NIFTII!! משחק ה-NFT שמשגע את המדינה! 🔥"
                 )
         except Exception as e:
             log.error(f"שגיאה בשליחת תמונה: {e}")
 
-    # הודעות פתיחה
     await context.bot.send_message(
         chat_id,
         text="💎 *היום זה כבר לא חלום* — לכל אחד ואחת יכול להיות קניון!! 🛍️",
         parse_mode=constants.ParseMode.MARKDOWN
     )
 
-    # כפתור מידע
     info_kb = InlineKeyboardMarkup([[InlineKeyboardButton("📖 מידע", callback_data="open_shop")]])
     await context.bot.send_message(
         chat_id,
@@ -166,15 +130,9 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         reply_markup=info_kb
     )
 
-    # תפריט ראשי
-    await context.bot.send_message(
-        chat_id,
-        text="בחרו אפשרות נוספת מהתפריט למטה:",
-        reply_markup=REPLY_KB
-    )
+    await context.bot.send_message(chat_id, "בחרו אפשרות נוספת מהתפריט למטה:", reply_markup=REPLY_KB)
 
 async def open_shop(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    # תמיכה גם ב-callback query וגם בטקסט
     if update.callback_query:
         query = update.callback_query
         await query.answer()
@@ -191,16 +149,13 @@ async def open_shop(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     )
     await context.bot.send_message(chat_id, benefits_text, reply_markup=REPLY_KB)
 
-    # גלריה
     if IMG_COUNT > 0:
         media_group = []
         for idx, caption in enumerate(GALLERY_CAPS):
             if idx < len(IMG_FILES):
                 try:
                     with open(IMG_FILES[idx], "rb") as photo_file:
-                        media_group.append(
-                            InputMediaPhoto(media=photo_file, caption=caption, parse_mode=constants.ParseMode.MARKDOWN)
-                        )
+                        media_group.append(InputMediaPhoto(media=photo_file, caption=caption, parse_mode=constants.ParseMode.MARKDOWN))
                 except Exception as e:
                     log.error(f"שגיאה בטעינת תמונה {idx}: {e}")
 
@@ -216,14 +171,11 @@ async def open_shop(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
                     except Exception as e:
                         log.error(f"שגיאה בשליחת תמונה {idx}: {e}")
 
-    # הזמנה לדמו
     await context.bot.send_message(
         chat_id,
         "רוצים לראות איך זה עובד?\nהתנסו עכשיו בחינם! שלב ראשון בוחרים תמונה!\n\nבחר קלף זה",
         reply_markup=REPLY_KB
     )
-
-    # קלף ראשון
     await show_card(context, chat_id, 0)
 
 async def show_card(context: ContextTypes.DEFAULT_TYPE, chat_id: int, idx: int) -> None:
@@ -269,43 +221,23 @@ async def select_card(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int
     await query.answer()
     await context.bot.send_message(
         query.message.chat.id,
-        "5. איזה מחיר תרצו לגבות על קלף זה מחבריכם? כך תראו מה פוטנציאל התשואה שלכם מכל מכירה נוספת של הקלף שלכם:\n"
-        "6. אנא הזינו מחיר (בין 42-149 ₪):"
+        "5. איזה מחיר תרצו לגבות על קלף זה מחבריכם? כך תראו מה פוטנציאל התשואה שלכם מכל מכירה נוספת של הקלף שלכם:\n6. אנא הזינו מחיר (בין 42-149 ₪):"
     )
     return PRICE
 
-# ---------- קלטים בתוך השיחה (עם טיפול בכפתורי תפריט) ----------
-
 async def receive_price(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
-    # אם לחץ על כפתור תפריט – נטפל ונצא מהשיחה
-    if await _handle_menu_inside_conversation(update, context):
-        return ConversationHandler.END
-
-    text = (update.message.text or "").strip()
-
-    # נתעלם מפקודות /start וכד'
-    if text.startswith("/"):
-        await start(update, context)
-        return ConversationHandler.END
-
-    # נסה מספר
     try:
-        price = int(text)
+        price = int(update.message.text)
         if 42 <= price <= 149:
             context.user_data['price'] = price
             profit_percent = min(80, 30 + (price - 42) // 2)
-
             card_idx = context.user_data.get('current_card_idx', 0)
-            if IMG_FILES and 0 <= card_idx < len(IMG_FILES):
+            if IMG_FILES and card_idx < len(IMG_FILES):
                 with open(IMG_FILES[card_idx], "rb") as photo_file:
                     await update.message.reply_photo(
                         photo_file,
-                        caption=(
-                            f"👏 לפי המחיר שביקשתם ({price} ₪) אתם תרוויחו {profit_percent}% מכל מכירה חוזרת!!\n\n"
-                            "לאחר רכישת הקלף ב-39 ש\"ח בלבד תוכל לעשות עסקים!!"
-                        )
+                        caption=f"👏 לפי המחיר שביקשתם ({price} ₪) אתם תרוויחו {profit_percent}% מכל מכירה חוזרת!!\n\nלאחר רכישת הקלף ב-39 ש\"ח בלבד תוכל לעשות עסקים!!"
                     )
-
             await update.message.reply_text("מעולה! עכשיו נזדקק לפרטים שלכם:\n\nאנא הזינו את שמכם הפרטי:")
             return FIRST_NAME
         else:
@@ -316,24 +248,17 @@ async def receive_price(update: Update, context: ContextTypes.DEFAULT_TYPE) -> i
         return PRICE
 
 async def receive_first_name(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
-    if await _handle_menu_inside_conversation(update, context):
-        return ConversationHandler.END
     context.user_data['first_name'] = update.message.text
     await update.message.reply_text("📝 אנא הזינו את שם המשפחה:")
     return LAST_NAME
 
 async def receive_last_name(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
-    if await _handle_menu_inside_conversation(update, context):
-        return ConversationHandler.END
     context.user_data['last_name'] = update.message.text
     await update.message.reply_text("📞 אנא הזינו את מספר הטלפון:")
     return PHONE
 
 async def receive_phone(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
-    if await _handle_menu_inside_conversation(update, context):
-        return ConversationHandler.END
     context.user_data['phone'] = update.message.text
-
     await update.message.reply_text(
         "💳 **אפשרויות תשלום:**\n\n"
         "לרכישה דרך העברה בנקאית, או חשבונות המצורפים ניתן ללחוץ על הכפתורים התואמים.\n"
@@ -342,8 +267,6 @@ async def receive_phone(update: Update, context: ContextTypes.DEFAULT_TYPE) -> i
         parse_mode=constants.ParseMode.MARKDOWN
     )
     return ConversationHandler.END
-
-# ---------- תשלום/אישור ----------
 
 async def handle_payment_method(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     query = update.callback_query
@@ -369,34 +292,39 @@ async def handle_payment_method(update: Update, context: ContextTypes.DEFAULT_TY
 
 **לאחר ההעברה:**
 1. שמור/צלם את אישור ההעברה
-2. לחץ על '📸 העלה אישור העברה'
+2. לחץ על '📸 העלה אישור תשלום'
 3. העלה את תמונת האישור
 4. אנו ניצור איתך קשר תוך 24 שעות!"""
     }
 
-    method_data = payment_methods.get(query.data)
-    if method_data:
-        if isinstance(method_data, list):
-            for msg in method_data:
+    method = payment_methods.get(query.data)
+    if method:
+        if isinstance(method, list):
+            for msg in method:
                 await asyncio.sleep(0.3)
                 await query.message.reply_text(msg)
         else:
-            await query.message.reply_text(method_data)
+            await query.message.reply_text(method)
 
     if query.data == "payment_bank":
         await query.message.reply_text(
             "💳 **השלם רכישה - העברה בנקאית**\n\n"
-            "להשלמת התהליך, אנא לחץ על הכפתור '🛒 השלם רכישה'",
+            "להשלמת התהליך, לחץ '🛒 השלם רכישה'",
             reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("🛒 השלם רכישה", callback_data="final_purchase")]])
         )
-
-    if query.data == "final_purchase":
+    elif query.data == "final_purchase":
         await start_bank_transfer(update, context)
+        return
+
+    # תמיד להציג כפתור העלאת אישור
+    await query.message.reply_text(
+        "📸 לאחר שביצעת תשלום — לחץ כאן כדי להעלות צילום אישור:",
+        reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("📸 העלה אישור תשלום", callback_data="upload_receipt")]])
+    )
 
 async def start_bank_transfer(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     query = update.callback_query
     await query.answer()
-
     bank_details = """
 💼 **השלמת רכישה - העברה בנקאית**
 
@@ -425,9 +353,8 @@ async def upload_receipt(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     query = update.callback_query
     await query.answer()
     await query.message.reply_text(
-        "📸 **העלאת אישור העברה**\n\n"
-        "אנא העלה עכשיו את תמונת אישור ההעברה הבנקאית.\n"
-        "אפשר לצלם מסך מהאפליקציה או לצלם את האישור."
+        "📸 **העלאת אישור תשלום**\n\n"
+        "אנא העלה עכשיו את תמונת אישור התשלום (צילום מסך/קובץ תמונה)."
     )
     return PAYMENT_CONFIRMATION
 
@@ -435,69 +362,83 @@ async def receive_receipt(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
     user_data = context.user_data
     user_id = update.message.from_user.id
 
+    file = None
+    ext = ".jpg"
+
     if update.message.photo:
-        photo_file = await update.message.photo[-1].get_file()
-        photo_path = f"receipts/receipt_{user_id}_{update.message.message_id}.jpg"
-        os.makedirs("receipts", exist_ok=True)
-        await photo_file.download_to_drive(photo_path)
-
-        admin_message = (
-            "🛒 **רכישה חדשה - אישור העברה התקבל!**\n\n"
-            f"👤 **לקוח:** {user_data.get('first_name', 'N/A')} {user_data.get('last_name', 'N/A')}\n"
-            f"📞 **טלפון:** {user_data.get('phone', 'N/A')}\n"
-            f"💰 **מחיר שהתבקש:** {user_data.get('price', 'N/A')} ₪\n"
-            f"🆔 **User ID:** {user_id}\n"
-            f"👤 **Username:** @{update.message.from_user.username or 'N/A'}\n\n"
-            f"📧 **ליצירת קשר ישיר:** https://t.me/{update.message.from_user.username or 'N/A'}\n"
-            f"💬 **לשליחת בוט ייחודי:** User ID: {user_id}"
-        )
-
-        try:
-            with open(photo_path, "rb") as photo:
-                await context.bot.send_photo(chat_id=ADMIN_USER_ID, photo=photo, caption=admin_message)
-
-            await context.bot.send_message(chat_id=PAYMENT_GROUP_ID, text=admin_message)
-
-            with open(photo_path, "rb") as photo:
-                await update.message.reply_photo(
-                    photo,
-                    caption=(
-                        "✅ **אישור ההעברה התקבל!**\n\n"
-                        "📧 תוך 24 שעות ניצור איתך קשר ישיר בטלגרם\n"
-                        "🤖 לקבלת הבוט הייחודי שלך!\n\n"
-                        "👤 **פרטיך:**\n"
-                        f"שם: {user_data.get('first_name', 'N/A')} {user_data.get('last_name', 'N/A')}\n"
-                        f"טלפון: {user_data.get('phone', 'N/A')}\n\n"
-                        "📞 **לשאלות:** https://t.me/OsifFin/"
-                    )
-                )
-
-            await update.message.reply_text(
-                "💼 **יצירת קשר עסקי ישיר**\n\n"
-                "כעת נוצר קשר עסקי ישיר בינך לבין צוות NIFTII!\n\n"
-                "👨‍💼 **אוסיף אונגר** יוצר איתך קשר ישירות\n"
-                "📧 דרך הטלגרם האישי: https://t.me/OsifEU\n\n"
-                "תוך 24 שעות תקבל:\n"
-                "• בוט טלגרם ייחודי משלך\n"
-                "• הדרכה מלאה\n"
-                "• ליווי אישי\n\n"
-                "🎉 ברוך הבא לקהילת NIFTII!",
-                reply_markup=REPLY_KB
-            )
-
-        except Exception as e:
-            log.error(f"שגיאה בשליחת אישור: {e}")
-            await update.message.reply_text(
-                "❌ שגיאה בשליחת האישור. אנא פנה לתמיכה: https://t.me/OsifFin/",
-                reply_markup=REPLY_KB
-            )
+        file = await update.message.photo[-1].get_file()
+        ext = ".jpg"
+    elif update.message.document:
+        doc = update.message.document
+        if (doc.mime_type and doc.mime_type.startswith("image/")) or (doc.file_name and doc.file_name.lower().endswith((".jpg",".jpeg",".png",".webp"))):
+            file = await doc.get_file()
+            if doc.file_name:
+                for sfx in (".jpg",".jpeg",".png",".webp"):
+                    if doc.file_name.lower().endswith(sfx):
+                        ext = sfx
+                        break
+        else:
+            await update.message.reply_text("❌ אנא שלח תמונת אישור (כצילום או כקובץ תמונה).")
+            return PAYMENT_CONFIRMATION
     else:
-        await update.message.reply_text("❌ אנא העלה תמונה של אישור ההעברה.", reply_markup=BANK_TRANSFER_KB)
+        await update.message.reply_text("❌ אנא שלח תמונת אישור.")
         return PAYMENT_CONFIRMATION
 
-    return ConversationHandler.END
+    os.makedirs("receipts", exist_ok=True)
+    photo_path = f"receipts/receipt_{user_id}_{update.message.message_id}{ext}"
+    await file.download_to_drive(photo_path)
 
-# ---------- כלים/תפריט ----------
+    admin_message = (
+        "🛒 **רכישה חדשה - אישור תשלום התקבל!**\n\n"
+        f"👤 **לקוח:** {user_data.get('first_name','N/A')} {user_data.get('last_name','N/A')}\n"
+        f"📞 **טלפון:** {user_data.get('phone','N/A')}\n"
+        f"💰 **מחיר שהתבקש:** {user_data.get('price','N/A')} ₪\n"
+        f"🆔 **User ID:** {user_id}\n"
+        f"👤 **Username:** @{update.message.from_user.username or 'N/A'}\n\n"
+        f"📧 **יצירת קשר ישיר:** https://t.me/{update.message.from_user.username or 'N/A'}\n"
+        f"💬 **לבוט הייחודי:** User ID: {user_id}"
+    )
+
+    # למנהל
+    try:
+        with open(photo_path, "rb") as ph:
+            await context.bot.send_photo(chat_id=ADMIN_USER_ID, photo=ph, caption=admin_message)
+    except Exception as e:
+        log.error(f"שליחה למנהל נכשלה: {e}")
+
+    # לקבוצת תשלומים
+    try:
+        with open(photo_path, "rb") as ph:
+            await context.bot.send_photo(chat_id=PAYMENT_GROUP_ID, photo=ph, caption=admin_message)
+    except Exception as e:
+        log.error(f"שליחה לקבוצת תשלומים נכשלה: {e}")
+
+    # ללקוח
+    try:
+        with open(photo_path, "rb") as ph:
+            await update.message.reply_photo(
+                ph,
+                caption=(
+                    "✅ **אישור התשלום התקבל!**\n\n"
+                    "📧 תוך 24 שעות ניצור איתך קשר בטלגרם לקבלת הבוט הייחודי שלך.\n\n"
+                    "👤 **פרטיך:**\n"
+                    f"שם: {user_data.get('first_name','N/A')} {user_data.get('last_name','N/A')}\n"
+                    f"טלפון: {user_data.get('phone','N/A')}\n\n"
+                    "📞 **לשאלות:** https://t.me/OsifFin/"
+                )
+            )
+    except Exception as e:
+        log.error(f"שגיאה בשליחת אישור ללקוח: {e}")
+        await update.message.reply_text("❌ שגיאה בשליחת האישור. תמיכה: https://t.me/OsifFin/")
+
+    await update.message.reply_text(
+        "💼 **יצירת קשר עסקי ישיר**\n"
+        "👨‍💼 **אוסיף אונגר** יוצר איתך קשר ישירות: https://t.me/OsifEU\n"
+        "תוך 24 שעות תקבל: בוט ייחודי + הדרכה + ליווי.\n"
+        "🎉 ברוך הבא ל־NIFTII!",
+        reply_markup=REPLY_KB
+    )
+    return ConversationHandler.END
 
 async def handle_contact(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     await update.message.reply_text(
@@ -513,8 +454,6 @@ async def handle_main_menu(update: Update, context: ContextTypes.DEFAULT_TYPE) -
 
 async def handle_purchase_shop(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     await open_shop(update, context)
-
-# ---------- Router ל-callbackים ----------
 
 async def callback_router(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     query = update.callback_query
@@ -534,43 +473,31 @@ async def callback_router(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
     elif data in ["payment_tg", "payment_paypal", "payment_bit", "payment_bank", "final_purchase"]:
         await handle_payment_method(update, context)
 
-# ---------- הרצה מקומית (polling) – לא בשימוש בשרת webhook ----------
-
-def main():
-    if not TOKEN or TOKEN == "your_bot_token_here":
-        print("❌ שגיאה: TELEGRAM_TOKEN לא תקין!")
-        return
-
+# הערה: במצב webhook השרת (server.py) הוא שמריץ את ההנדלרים.
+# בלוק main להשקה מקומית (polling) נשאר אופציונלי:
+if __name__ == "__main__":
     app = Application.builder().token(TOKEN).build()
-
     conv_handler = ConversationHandler(
-        entry_points=[
-            CallbackQueryHandler(select_card, pattern="^select_card$"),
-            CallbackQueryHandler(upload_receipt, pattern="^upload_receipt$")
-        ],
+        entry_points=[CallbackQueryHandler(select_card, pattern="^select_card$"),
+                      CallbackQueryHandler(upload_receipt, pattern="^upload_receipt$")],
         states={
             PRICE: [MessageHandler(filters.TEXT & ~filters.COMMAND, receive_price)],
             FIRST_NAME: [MessageHandler(filters.TEXT & ~filters.COMMAND, receive_first_name)],
             LAST_NAME: [MessageHandler(filters.TEXT & ~filters.COMMAND, receive_last_name)],
             PHONE: [MessageHandler(filters.TEXT & ~filters.COMMAND, receive_phone)],
-            PAYMENT_CONFIRMATION: [MessageHandler(filters.PHOTO, receive_receipt)]
+            # קבלה גם כתמונה וגם כמסמך-תמונה
+            PAYMENT_CONFIRMATION: [MessageHandler(filters.PHOTO | filters.Document.IMAGE, receive_receipt)],
         },
         fallbacks=[],
-        per_message=True,  # חשוב גם בפולינג
+        per_chat=True,
+        per_message=False,
     )
-
     app.add_handler(CommandHandler("start", start))
     app.add_handler(conv_handler)
     app.add_handler(CallbackQueryHandler(callback_router))
-
-    app.add_handler(MessageHandler(filters.Text(MENU_TXT_CONTACT), handle_contact))
-    app.add_handler(MessageHandler(filters.Text(MENU_TXT_SITE), handle_website))
-    app.add_handler(MessageHandler(filters.Text(MENU_TXT_MAIN), handle_main_menu))
-    app.add_handler(MessageHandler(filters.Text(MENU_TXT_SHOP), handle_purchase_shop))
-
-    log.info("🤖 מתחיל את בוט NIFTII (polling)...")
-    print("🎉 הבוט מתחיל! לחץ Ctrl+C לעצירה.")
+    app.add_handler(MessageHandler(filters.Text("☎️ צור קשר 📞"), handle_contact))
+    app.add_handler(MessageHandler(filters.Text("🌐 אתר"), handle_website))
+    app.add_handler(MessageHandler(filters.Text("🔄 תפריט ראשי 📚"), handle_main_menu))
+    app.add_handler(MessageHandler(filters.Text("✍🏻 רכישת חנות 🎯"), handle_purchase_shop))
+    print("🎉 Polling מקומי. Ctrl+C לעצירה.")
     app.run_polling()
-
-if __name__ == "__main__":
-    main()
