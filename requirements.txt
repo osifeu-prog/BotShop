@@ -1,0 +1,4 @@
+﻿python-telegram-bot>=21.10,<22.0
+fastapi
+uvicorn
+python-dotenv
