@@ -1,12 +1,12 @@
-# server.py
 # -*- coding: utf-8 -*-
 import os
 import logging
-import secrets
+import asyncio
+from typing import Optional
 
 from dotenv import load_dotenv
 from fastapi import FastAPI, Request, HTTPException
-from fastapi.responses import PlainTextResponse, JSONResponse
+from fastapi.responses import JSONResponse, PlainTextResponse
 
 from telegram import Update
 from telegram.ext import (
@@ -18,30 +18,36 @@ from telegram.ext import (
     filters,
 )
 
-# המודול של הבוט שלך כפי שהוא בריפו
-import niftii_bot as B
+# --- env ---
+load_dotenv()
+PUBLIC_URL = os.getenv("PUBLIC_URL", "").strip()
+WEBHOOK_SECRET = os.getenv(
+    "WEBHOOK_SECRET",
+    "Q3Zb7r9kT2pX1mN4F8hU6wY0aBcDeGHi"  # ברירת מחדל תואמת למה שהשתמשת עד עכשיו
+).strip()
 
-# ===== לוגים + ENV =====
+# --- logging ---
 logging.basicConfig(
-    level=logging.INFO,
     format="%(asctime)s [%(levelname)s] %(message)s",
+    level=logging.INFO
 )
 log = logging.getLogger("server")
 
-load_dotenv(override=True)
+# --- import your bot module ---
+import niftii_bot as B  # <-- לא נוגעים בעיצוב שלך, רק משתמשים בו
 
-TOKEN = os.getenv("TELEGRAM_TOKEN", "").strip()
-PUBLIC_URL = os.getenv("PUBLIC_URL", "").strip()  # למשל: https://sweet-xxxxx.koyeb.app
-WEBHOOK_SECRET = os.getenv("WEBHOOK_SECRET", "").strip() or secrets.token_urlsafe(24)
+# --- FastAPI app ---
+app = FastAPI()
+telegram_app: Optional[Application] = None
 
-if not TOKEN:
-    raise RuntimeError("TELEGRAM_TOKEN is missing")
-
-# ===== בניית אפליקציית PTB =====
 def build_application() -> Application:
-    app = Application.builder().token(TOKEN).build()
+    """בונה את אפליקציית ה-Telegram ומחבר את כל ההנדלרים מהבוט שלך (B)."""
+    if not getattr(B, "TOKEN", ""):
+        raise RuntimeError("TELEGRAM_TOKEN חסר ב-niftii_bot.py או ב-.env")
 
-    # חשוב: להשתמש בקבועים של B (ולא range(5) מקומי)
+    app_ = Application.builder().token(B.TOKEN).build()
+
+    # Conversation (עם התיקון: per_message=False)
     conv_handler = ConversationHandler(
         entry_points=[
             CallbackQueryHandler(B.select_card, pattern=r"^select_card$"),
@@ -55,42 +61,46 @@ def build_application() -> Application:
             B.PAYMENT_CONFIRMATION: [MessageHandler(filters.PHOTO, B.receive_receipt)],
         },
         fallbacks=[],
-        per_message=True,  # קריטי כדי ש-CallbackQuery יעקבו אחרי כל הודעה
+        per_chat=True,
+        per_message=False,  # חשוב!
     )
 
-    app.add_handler(CommandHandler("start", B.start))
-    app.add_handler(conv_handler)
-    app.add_handler(CallbackQueryHandler(B.callback_router))
+    # Handlers מהבוט שלך
+    app_.add_handler(CommandHandler("start", B.start))
+    app_.add_handler(conv_handler)
+    app_.add_handler(CallbackQueryHandler(B.callback_router))
 
-    # הודעות טקסט (כפתורי ה-ReplyKeyboard)
-    app.add_handler(MessageHandler(filters.Text(B.MENU_TXT_CONTACT), B.handle_contact))
-    app.add_handler(MessageHandler(filters.Text(B.MENU_TXT_SITE), B.handle_website))
-    app.add_handler(MessageHandler(filters.Text(B.MENU_TXT_MAIN), B.handle_main_menu))
-    app.add_handler(MessageHandler(filters.Text(B.MENU_TXT_SHOP), B.handle_purchase_shop))
+    # Handlers לכפתורי תפריט (טקסט רגיל)
+    app_.add_handler(MessageHandler(filters.Text("☎️ צור קשר 📞"), B.handle_contact))
+    app_.add_handler(MessageHandler(filters.Text("🌐 אתר"), B.handle_website))
+    app_.add_handler(MessageHandler(filters.Text("🔄 תפריט ראשי 📚"), B.handle_main_menu))
+    app_.add_handler(MessageHandler(filters.Text("✍🏻 רכישת חנות 🎯"), B.handle_purchase_shop))
 
-    return app
-
-# ===== FastAPI =====
-app = FastAPI()
-telegram_app: Application | None = None
+    return app_
 
 @app.on_event("startup")
 async def on_startup():
     global telegram_app
+
+    # איטרציה נכונה ל-Windows/uvicorn אם צריך
+    if os.name == "nt":
+        try:
+            asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
+        except Exception:
+            pass
+
     telegram_app = build_application()
     await telegram_app.initialize()
     await telegram_app.start()
     log.info("Application started")
-    if PUBLIC_URL:
-        log.info(f"Public URL: {PUBLIC_URL}")
-    else:
-        log.warning("PUBLIC_URL is empty; set-webhook endpoint will fail until you set it.")
 
 @app.on_event("shutdown")
 async def on_shutdown():
+    global telegram_app
     if telegram_app:
         await telegram_app.stop()
         await telegram_app.shutdown()
+        log.info("Application stopped")
 
 @app.get("/healthz")
 def healthz():
@@ -104,8 +114,8 @@ def root():
 async def set_webhook():
     if not telegram_app:
         raise HTTPException(status_code=503, detail="Telegram app not ready")
-    if not PUBLIC_URL:
-        raise HTTPException(status_code=400, detail="PUBLIC_URL env var is missing")
+    if not PUBLIC_URL or not PUBLIC_URL.startswith("https://"):
+        raise HTTPException(status_code=400, detail="PUBLIC_URL env var is missing or not https")
     url = f"{PUBLIC_URL.rstrip('/')}/webhook/{WEBHOOK_SECRET}"
     ok = await telegram_app.bot.set_webhook(url=url, drop_pending_updates=True)
     return {"ok": ok, "set_to": url}
