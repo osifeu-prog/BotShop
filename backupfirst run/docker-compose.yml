@@ -1,0 +1,24 @@
+# botshop/docker-compose.yml
+version: "3.9"
+services:
+  botshop:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: slh_botshop
+    environment:
+      - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+      - TZ=Asia/Jerusalem
+      - ADMIN_IDS=${ADMIN_IDS}
+      - ADMIN_NAME=${ADMIN_NAME:-Admin}
+      - ENTRY_PRICE_NIS=${ENTRY_PRICE_NIS:-39}
+      - DEMO_GRANT_SLH=${DEMO_GRANT_SLH:-39}
+      - DEMO_GRANT_BNB=${DEMO_GRANT_BNB:-0.05}
+      - PAYMENT_LINK_BASE=${PAYMENT_LINK_BASE:-https://pay.example.com/checkout}
+      - GROUP_CHAT_ID=${GROUP_CHAT_ID}
+      - GROUP_INVITE_LINK=${GROUP_INVITE_LINK}
+      - STORE_PATH=/data/store.json
+    volumes:
+      - ./data:/data
+    restart: unless-stopped

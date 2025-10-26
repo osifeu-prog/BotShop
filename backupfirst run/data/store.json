@@ -1,0 +1,5 @@
+{
+  "users": {},         // chat_id -> { "paid": false, "wallet": "", "joined_at": 0 }
+  "balances": {},      // chat_id -> { "slh": 0.0, "bnb": 0.0 }
+  "orders": []         // { "id": int, "type": "transfer"|"buy"|"sell", "from": chat_id, "to": chat_id, "amount": float, "asset": "SLH"|"BNB", "ts": int, "status": "open"|"done"|"cancel" }
+}
