@@ -1,24 +1,28 @@
-import os
-from telegram.ext import Application, CommandHandler, MessageHandler, filters
-from .utils.logger import setup_logger
-from .handlers import user as user_handlers
+import os, logging
+from dotenv import load_dotenv
 
-def build_app():
-    token = os.getenv("TELEGRAM_BOT_TOKEN","")
-    if not token:
-        raise RuntimeError("TELEGRAM_BOT_TOKEN is required")
-    log = setup_logger()
-    app = Application.builder().token(token).build()
+try:
+    from telegram import Update
+    from telegram.ext import Application, CommandHandler, ContextTypes
+except Exception as e:
+    raise RuntimeError("python-telegram-bot not installed. Check requirements.txt") from e
 
-    app.add_handler(CommandHandler("start", user_handlers.cmd_start))
-    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, user_handlers.on_text))
+load_dotenv()
+LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO").upper()
+logging.basicConfig(level=getattr(logging, LOG_LEVEL, logging.INFO))
+log = logging.getLogger("Botshop")
 
-    log.info("Application built")
-    return app
+async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.message.reply_text("🤖 Botshop is alive ✅  |  /start")
 
 def main():
-    app = build_app()
-    app.run_polling(allowed_updates=filters.UpdateType.ALL_TYPES)
+    token = os.getenv("TELEGRAM_BOT_TOKEN", "")
+    if not token:
+        raise RuntimeError("TELEGRAM_BOT_TOKEN missing")
+    app = Application.builder().token(token).build()
+    app.add_handler(CommandHandler("start", cmd_start))
+    log.info("Starting polling…")
+    app.run_polling(allowed_updates=Update.ALL_TYPES)
 
 if __name__ == "__main__":
     main()
