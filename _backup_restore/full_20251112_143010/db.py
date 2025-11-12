@@ -1,4 +1,4 @@
-# db.py
+﻿# db.py
 import os
 import logging
 from contextlib import contextmanager
@@ -16,7 +16,7 @@ if not DATABASE_URL:
 
 
 def get_conn():
-    """מחזיר חיבור ל-Postgres או None אם אין DATABASE_URL"""
+    """×‍×—×–×™×¨ ×—×™×‘×•×¨ ×œ-Postgres ×گ×• None ×گ×‌ ×گ×™×ں DATABASE_URL"""
     if not DATABASE_URL:
         return None
     conn = psycopg2.connect(DATABASE_URL, cursor_factory=psycopg2.extras.DictCursor)
@@ -43,8 +43,8 @@ def db_cursor():
 
 def init_schema() -> None:
     """
-    מריץ CREATE TABLE IF NOT EXISTS לכל הטבלאות.
-    לא מוחק ולא שובר כלום, רק מוסיף אם חסר.
+    ×‍×¨×™×¥ CREATE TABLE IF NOT EXISTS ×œ×›×œ ×”×ک×‘×œ×گ×•×ھ.
+    ×œ×گ ×‍×•×—×§ ×•×œ×گ ×©×•×‘×¨ ×›×œ×•×‌, ×¨×§ ×‍×•×،×™×£ ×گ×‌ ×—×،×¨.
     """
     if not DATABASE_URL:
         logger.warning("init_schema called but DATABASE_URL not set.")
@@ -55,7 +55,7 @@ def init_schema() -> None:
             logger.warning("No DB cursor available in init_schema.")
             return
 
-        # payments – כבר קיימת אצלך, כאן רק לוודא
+        # payments â€“ ×›×‘×¨ ×§×™×™×‍×ھ ×گ×¦×œ×ڑ, ×›×گ×ں ×¨×§ ×œ×•×•×“×گ
         cur.execute(
             """
             CREATE TABLE IF NOT EXISTS payments (
@@ -71,7 +71,7 @@ def init_schema() -> None:
             """
         )
 
-        # users – רשימת משתמשים
+        # users â€“ ×¨×©×™×‍×ھ ×‍×©×ھ×‍×©×™×‌
         cur.execute(
             """
             CREATE TABLE IF NOT EXISTS users (
@@ -82,7 +82,7 @@ def init_schema() -> None:
             """
         )
 
-        # referrals – הפניות
+        # referrals â€“ ×”×¤× ×™×•×ھ
         cur.execute(
             """
             CREATE TABLE IF NOT EXISTS referrals (
@@ -96,7 +96,7 @@ def init_schema() -> None:
             """
         )
 
-        # rewards – פרסים/נקודות (SLH, NFT, SHARE וכו')
+        # rewards â€“ ×¤×¨×،×™×‌/× ×§×•×“×•×ھ (SLH, NFT, SHARE ×•×›×•')
         cur.execute(
             """
             CREATE TABLE IF NOT EXISTS rewards (
@@ -113,7 +113,7 @@ def init_schema() -> None:
             """
         )
 
-        # metrics – מונים גלובליים (למשל start_image_views)
+        # metrics â€“ ×‍×•× ×™×‌ ×’×œ×•×‘×œ×™×™×‌ (×œ×‍×©×œ start_image_views)
         cur.execute(
             """
             CREATE TABLE IF NOT EXISTS metrics (
@@ -132,7 +132,7 @@ def init_schema() -> None:
 
 def log_payment(user_id: int, username: Optional[str], pay_method: str) -> None:
     """
-    רושם תשלום במצב 'pending' (כשהמשתמש שולח צילום אישור).
+    ×¨×•×©×‌ ×ھ×©×œ×•×‌ ×‘×‍×¦×‘ 'pending' (×›×©×”×‍×©×ھ×‍×© ×©×•×œ×— ×¦×™×œ×•×‌ ×گ×™×©×•×¨).
     """
     with db_cursor() as (conn, cur):
         if cur is None:
@@ -149,7 +149,7 @@ def log_payment(user_id: int, username: Optional[str], pay_method: str) -> None:
 
 def update_payment_status(user_id: int, status: str, reason: Optional[str]) -> None:
     """
-    מעדכן את הסטטוס של התשלום האחרון של משתמש מסוים.
+    ×‍×¢×“×›×ں ×گ×ھ ×”×،×ک×ک×•×، ×©×œ ×”×ھ×©×œ×•×‌ ×”×گ×—×¨×•×ں ×©×œ ×‍×©×ھ×‍×© ×‍×،×•×™×‌.
     status: 'approved' / 'rejected' / 'pending'
     """
     with db_cursor() as (conn, cur):
@@ -175,13 +175,13 @@ def update_payment_status(user_id: int, status: str, reason: Optional[str]) -> N
 
 
 # =========================
-# users / referrals – למערכת ניקוד ו-Leaderboard
+# users / referrals â€“ ×œ×‍×¢×¨×›×ھ × ×™×§×•×“ ×•-Leaderboard
 # =========================
 
 def store_user(user_id: int, username: Optional[str]) -> None:
     """
-    שומר/מעדכן משתמש בטבלת users.
-    אם קיים – מעדכן username.
+    ×©×•×‍×¨/×‍×¢×“×›×ں ×‍×©×ھ×‍×© ×‘×ک×‘×œ×ھ users.
+    ×گ×‌ ×§×™×™×‌ â€“ ×‍×¢×“×›×ں username.
     """
     with db_cursor() as (conn, cur):
         if cur is None:
@@ -199,7 +199,7 @@ def store_user(user_id: int, username: Optional[str]) -> None:
 
 def add_referral(referrer_id: int, referred_id: int, source: str) -> None:
     """
-    מוסיף רשומת הפנייה.
+    ×‍×•×،×™×£ ×¨×©×•×‍×ھ ×”×¤× ×™×™×”.
     """
     with db_cursor() as (conn, cur):
         if cur is None:
@@ -216,7 +216,7 @@ def add_referral(referrer_id: int, referred_id: int, source: str) -> None:
 
 def get_top_referrers(limit: int = 10) -> List[Dict[str, Any]]:
     """
-    מחזיר את המפנים הטופ לפי סך נקודות / מספר הפניות.
+    ×‍×—×–×™×¨ ×گ×ھ ×”×‍×¤× ×™×‌ ×”×ک×•×¤ ×œ×¤×™ ×،×ڑ × ×§×•×“×•×ھ / ×‍×،×¤×¨ ×”×¤× ×™×•×ھ.
     """
     with db_cursor() as (conn, cur):
         if cur is None:
@@ -240,12 +240,12 @@ def get_top_referrers(limit: int = 10) -> List[Dict[str, Any]]:
 
 
 # =========================
-# דוחות על תשלומים
+# ×“×•×—×•×ھ ×¢×œ ×ھ×©×œ×•×‍×™×‌
 # =========================
 
 def get_monthly_payments(year: int, month: int) -> List[Dict[str, Any]]:
     """
-    מחזיר פילוח לפי שיטת תשלום וסטטוס לחודש נתון.
+    ×‍×—×–×™×¨ ×¤×™×œ×•×— ×œ×¤×™ ×©×™×ک×ھ ×ھ×©×œ×•×‌ ×•×،×ک×ک×•×، ×œ×—×•×“×© × ×ھ×•×ں.
     """
     with db_cursor() as (conn, cur):
         if cur is None:
@@ -269,7 +269,7 @@ def get_monthly_payments(year: int, month: int) -> List[Dict[str, Any]]:
 
 def get_approval_stats() -> Optional[Dict[str, Any]]:
     """
-    מחזיר סטטיסטיקה כללית על statuses מהמכלול.
+    ×‍×—×–×™×¨ ×،×ک×ک×™×،×ک×™×§×” ×›×œ×œ×™×ھ ×¢×œ statuses ×‍×”×‍×›×œ×•×œ.
     """
     with db_cursor() as (conn, cur):
         if cur is None:
@@ -291,12 +291,12 @@ def get_approval_stats() -> Optional[Dict[str, Any]]:
 
 
 # =========================
-# rewards – בסיס ל-NFT / SLH / SHARE
+# rewards â€“ ×‘×،×™×، ×œ-NFT / SLH / SHARE
 # =========================
 
 def create_reward(user_id: int, reward_type: str, reason: str, points: int = 0) -> None:
     """
-    יוצר רשומת Reward במצב 'pending'.
+    ×™×•×¦×¨ ×¨×©×•×‍×ھ Reward ×‘×‍×¦×‘ 'pending'.
     """
     with db_cursor() as (conn, cur):
         if cur is None:
@@ -312,8 +312,8 @@ def create_reward(user_id: int, reward_type: str, reason: str, points: int = 0) 
 
 def get_user_total_points(user_id: int, reward_type: Optional[str] = None) -> int:
     """
-    מחזיר סך נקודות למשתמש מתוך rewards.
-    אם reward_type לא None – מסנן לפי סוג (למשל 'SHARE').
+    ×‍×—×–×™×¨ ×،×ڑ × ×§×•×“×•×ھ ×œ×‍×©×ھ×‍×© ×‍×ھ×•×ڑ rewards.
+    ×گ×‌ reward_type ×œ×گ None â€“ ×‍×،× ×ں ×œ×¤×™ ×،×•×’ (×œ×‍×©×œ 'SHARE').
     """
     with db_cursor() as (conn, cur):
         if cur is None:
@@ -344,12 +344,12 @@ def get_user_total_points(user_id: int, reward_type: Optional[str] = None) -> in
 
 
 # =========================
-# metrics – מונים גלובליים
+# metrics â€“ ×‍×•× ×™×‌ ×’×œ×•×‘×œ×™×™×‌
 # =========================
 
 def increment_metric(key: str, amount: int = 1) -> int:
     """
-    מעלה מונה גלובלי ומחזיר את הערך החדש.
+    ×‍×¢×œ×” ×‍×•× ×” ×’×œ×•×‘×œ×™ ×•×‍×—×–×™×¨ ×گ×ھ ×”×¢×¨×ڑ ×”×—×“×©.
     """
     with db_cursor() as (conn, cur):
         if cur is None:
@@ -370,7 +370,7 @@ def increment_metric(key: str, amount: int = 1) -> int:
 
 def get_metric(key: str) -> int:
     """
-    מחזיר את ערך המונה או 0 אם לא קיים.
+    ×‍×—×–×™×¨ ×گ×ھ ×¢×¨×ڑ ×”×‍×•× ×” ×گ×• 0 ×گ×‌ ×œ×گ ×§×™×™×‌.
     """
     with db_cursor() as (conn, cur):
         if cur is None:
@@ -381,3 +381,27 @@ def get_metric(key: str) -> int:
         )
         row = cur.fetchone()
         return int(row["value"]) if row else 0
+
+def get_user_points(user_id: int) -> int:
+    """
+    מחזיר את סך נקודות ההפניה למשתמש מסוים.
+    """
+    with db_cursor() as (conn, cur):
+        if cur is None:
+            return 0
+        cur.execute(
+            """
+            SELECT COALESCE(SUM(points), 0) AS total_points
+            FROM referrals
+            WHERE referrer_id = %s;
+            """,
+            (user_id,),
+        )
+        row = cur.fetchone()
+        if not row:
+            return 0
+        try:
+            return int(row["total_points"])
+        except Exception:
+            return int(row[0])
+
