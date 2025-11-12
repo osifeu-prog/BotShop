@@ -1,15 +1,13 @@
-# main.py
+﻿# main.py
 import os
 import logging
 from collections import deque
 from contextlib import asynccontextmanager
 from datetime import datetime
 from http import HTTPStatus
-from typing import Deque, Set, Literal, Optional, Dict, Any
+from typing import Deque, Set, Literal, Optional, Dict, Any, List
 
 from fastapi import FastAPI, Request, Response, HTTPException
-from fastapi.middleware.cors import CORSMiddleware
-
 from telegram import (
     Update,
     InlineKeyboardMarkup,
@@ -24,6 +22,9 @@ from telegram.ext import (
     filters,
 )
 
+# =========================
+# ×œ×•×’×™× ×’ ×‘×،×™×،×™
+# =========================
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
@@ -31,7 +32,7 @@ logging.basicConfig(
 logger = logging.getLogger("gateway-bot")
 
 # =========================
-# DB
+# DB ×گ×•×¤×¦×™×•× ×œ×™ (db.py)
 # =========================
 try:
     from db import (
@@ -44,12 +45,7 @@ try:
         get_monthly_payments,
         get_approval_stats,
         create_reward,
-        set_promoter_bank,
-        get_promoter_bank,
-        increment_metric,
-        get_metric,
-        get_share_points,
-        get_top_sharers,
+        get_user_points,
     )
     DB_AVAILABLE = True
     logger.info("DB module loaded successfully, DB logging enabled.")
@@ -58,10 +54,10 @@ except Exception as e:
     DB_AVAILABLE = False
 
 # =========================
-# ENV
+# ×‍×©×ھ× ×™ ×،×‘×™×‘×” ×—×™×•× ×™×™×‌
 # =========================
 BOT_TOKEN = os.environ.get("BOT_TOKEN")
-WEBHOOK_URL = os.environ.get("WEBHOOK_URL")
+WEBHOOK_URL = os.environ.get("WEBHOOK_URL")  # ×—×™×™×‘ ×œ×›×œ×•×œ /webhook ×‘×،×•×£
 
 if not BOT_TOKEN:
     raise RuntimeError("BOT_TOKEN environment variable is not set")
@@ -71,76 +67,94 @@ if not WEBHOOK_URL:
 
 logger.info("Starting bot with WEBHOOK_URL=%s", WEBHOOK_URL)
 
+# =========================
+# ×§×‘×•×¢×™×‌ ×©×œ ×”×‍×¢×¨×›×ھ ×©×œ×ڑ
+# =========================
+
+# ×§×‘×•×¦×ھ ×”×§×”×™×œ×” (×گ×—×¨×™ ×گ×™×©×•×¨ ×ھ×©×œ×•×‌)
 COMMUNITY_GROUP_LINK = "https://t.me/+HIzvM8sEgh1kNWY0"
-COMMUNITY_GROUP_ID = -1002981609404
+COMMUNITY_GROUP_ID = -1002981609404  # ×œ×گ ×—×•×‘×” ×œ×©×™×‍×•×© ×›×¨×’×¢
 
+# ×§×‘×•×¦×ھ ×ھ×‍×™×›×”
 SUPPORT_GROUP_LINK = "https://t.me/+1ANn25HeVBoxNmRk"
-SUPPORT_GROUP_ID = -1001651506661
+SUPPORT_GROUP_ID = -1001651506661  # ×›×¨×’×¢ ×¨×§ ×œ×™× ×§
 
+# ×‍×ھ×›× ×ھ ×”×‍×¢×¨×›×ھ (×گ×ھ×”)
 DEVELOPER_USER_ID = 224223270
+
+# ×§×‘×•×¦×ھ ×œ×•×’×™×‌ ×•×ھ×©×œ×•×‍×™×‌ (×¨×§ ×œ×‍×گ×¨×’× ×™×‌, ×œ×گ ×™×•×¦×’ ×œ×‍×©×ھ×‍×©)
 PAYMENTS_LOG_CHAT_ID = -1001748319682
 
-PAYBOX_URL = os.environ.get("PAYBOX_URL", "https://links.payboxapp.com/1SNfaJ6XcYb")
+# ×œ×™× ×§×™ ×ھ×©×œ×•×‌ (×‍×”-ENV ×¢×‌ ×‘×¨×™×¨×ھ ×‍×—×“×œ)
+PAYBOX_URL = os.environ.get(
+    "PAYBOX_URL",
+    "https://links.payboxapp.com/1SNfaJ6XcYb",
+)
 BIT_URL = os.environ.get(
     "BIT_URL",
     "https://www.bitpay.co.il/app/share-info?i=190693822888_19l4oyvE",
 )
-PAYPAL_URL = os.environ.get("PAYPAL_URL", "https://paypal.me/osifdu")
+PAYPAL_URL = os.environ.get(
+    "PAYPAL_URL",
+    "https://paypal.me/osifdu",
+)
 
+# ×œ×™× ×§ ×œ×“×£ ×”× ×—×™×ھ×” (GitHub Pages) â€“ ×‘×©×‘×™×œ ×›×¤×ھ×•×¨ ×”×©×™×ھ×•×£
 LANDING_URL = os.environ.get(
     "LANDING_URL",
-    "https://slh-nft.com/",
+    "https://osifeu-prog.github.io/botshop/",
 )
 
-# שם משתמש של הבוט בטלגרם – חשוב מאוד להפניות נכונות
-# לדוגמה: Buy_My_Shop_bot
-BOT_USERNAME = os.environ.get("BOT_USERNAME", "Buy_My_Shop_bot")
-
+# Token ×§×ک×ں ×œ×“×©×‘×•×¨×“ API (/admin/stats)
 ADMIN_DASH_TOKEN = os.environ.get("ADMIN_DASH_TOKEN")
+BOT_USERNAME = os.environ.get("BOT_USERNAME")  # למשל "Buy_My_Shop_bot" או "Test_7337_bot"
 
-START_IMAGE_PATH = os.environ.get("START_IMAGE_PATH", "assets/start_banner.jpg")
-
-BANK_DETAILS_BASE = (
-    "בנק הפועלים\n"
-    "סניף כפר גנים (153)\n"
-    "חשבון 73462\n"
-    "המוטב: קאופמן צביקה\n"
+# × ×ھ×™×‘ ×”×ھ×‍×•× ×” ×”×¨×گ×©×™×ھ ×©×œ /start
+START_IMAGE_PATH = os.environ.get(
+    "START_IMAGE_PATH",
+    "assets/start_banner.jpg",  # ×ھ×•×•×“×گ ×©×”×ھ×‍×•× ×” ×”×–×• ×§×™×™×‍×ھ ×‘×¤×¨×•×™×§×ک
 )
 
+# ×¤×¨×ک×™ ×ھ×©×œ×•×‌
 BANK_DETAILS = (
-    "🏦 *תשלום בהעברה בנקאית*\n\n"
-    f"{BANK_DETAILS_BASE}\n\n"
-    "סכום: *39 ש\"ח*\n"
-)
-
-TON_DETAILS = (
-    "💎 *תשלום ב-TON (טלגרם קריפטו)*\n\n"
-    "אם יש לך כבר ארנק טלגרם (TON Wallet), אפשר לשלם גם ישירות בקריפטו.\n\n"
-    "ארנק לקבלת התשלום:\n"
-    "`UQCr743gEr_nqV_0SBkSp3CtYS_15R3LDLBvLmKeEv7XdGvp`\n\n"
-    "סכום: *39 ש\"ח* (שווה ערך ב-TON)\n\n"
-    "👀 בקרוב נחלק גם טוקני *SLH* ייחודיים על רשת TON וחלק מהמשתתפים יקבלו NFT\n"
-    "על פעילות, שיתופים והשתתפות בקהילה.\n"
+    "ًںڈ¦ *×ھ×©×œ×•×‌ ×‘×”×¢×‘×¨×” ×‘× ×§×گ×™×ھ*\n\n"
+    "×‘× ×§ ×”×¤×•×¢×œ×™×‌\n"
+    "×،× ×™×£ ×›×¤×¨ ×’× ×™×‌ (153)\n"
+    "×—×©×‘×•×ں 73462\n"
+    "×”×‍×•×ک×‘: ×§×گ×•×¤×‍×ں ×¦×‘×™×§×”\n\n"
+    "×،×›×•×‌: *39 ×©\"×—*\n"
 )
 
 PAYBOX_DETAILS = (
-    "📲 *תשלום בביט / פייבוקס / PayPal*\n\n"
-    "אפשר לשלם דרך האפליקציות שלך בביט או פייבוקס.\n"
-    "קישורי התשלום המעודכנים מופיעים בכפתורים למטה.\n\n"
-    "סכום: *39 ש\"ח*\n"
+    "ًں“² *×ھ×©×œ×•×‌ ×‘×‘×™×ک / ×¤×™×™×‘×•×§×، / PayPal*\n\n"
+    "×گ×¤×©×¨ ×œ×©×œ×‌ ×“×¨×ڑ ×”×گ×¤×œ×™×§×¦×™×•×ھ ×©×œ×ڑ ×‘×‘×™×ک ×گ×• ×¤×™×™×‘×•×§×،.\n"
+    "×§×™×©×•×¨×™ ×”×ھ×©×œ×•×‌ ×”×‍×¢×•×“×›× ×™×‌ ×‍×•×¤×™×¢×™×‌ ×‘×›×¤×ھ×•×¨×™×‌ ×œ×‍×ک×”.\n\n"
+    "×،×›×•×‌: *39 ×©\"×—*\n"
 )
 
-ADMIN_IDS = {DEVELOPER_USER_ID}
+TON_DETAILS = (
+    "ًں’ژ *×ھ×©×œ×•×‌ ×‘-TON (×ک×œ×’×¨×‌ ×§×¨×™×¤×ک×•)*\n\n"
+    "×گ×‌ ×™×© ×œ×ڑ ×›×‘×¨ ×گ×¨× ×§ ×ک×œ×’×¨×‌ (TON Wallet), ×گ×¤×©×¨ ×œ×©×œ×‌ ×’×‌ ×™×©×™×¨×•×ھ ×‘×§×¨×™×¤×ک×•.\n\n"
+    "×گ×¨× ×§ ×œ×§×‘×œ×ھ ×”×ھ×©×œ×•×‌:\n"
+    "`UQCr743gEr_nqV_0SBkSp3CtYS_15R3LDLBvLmKeEv7XdGvp`\n\n"
+    "×،×›×•×‌: *39 ×©\"×—* (×©×•×•×” ×¢×¨×ڑ ×‘-TON)\n\n"
+    "ًں‘€ ×‘×§×¨×•×‘ × ×—×œ×§ ×’×‌ ×ک×•×§× ×™ *SLH* ×™×™×—×•×“×™×™×‌ ×¢×œ ×¨×©×ھ TON ×•×—×œ×§ ×‍×”×‍×©×ھ×ھ×¤×™×‌ ×™×§×‘×œ×• NFT\n"
+    "×¢×œ ×¤×¢×™×œ×•×ھ, ×©×™×ھ×•×¤×™×‌ ×•×”×©×ھ×ھ×¤×•×ھ ×‘×§×”×™×œ×”.\n"
+)
+
+# ×گ×“×‍×™× ×™×‌ ×©×™×›×•×œ×™×‌ ×œ×گ×©×¨ / ×œ×“×—×•×ھ ×ھ×©×œ×•×‌
+ADMIN_IDS = {DEVELOPER_USER_ID}  # ×گ×¤×©×¨ ×œ×”×•×،×™×£ ×¢×•×“ IDs ×گ×‌ ×ھ×¨×¦×”
+
 PayMethod = Literal["bank", "paybox", "ton"]
 
 # =========================
-# Dedup
+# Dedup â€“ ×‍× ×™×¢×ھ ×›×¤×™×œ×•×ھ ×ھ×’×•×‘×•×ھ
 # =========================
 _processed_ids: Deque[int] = deque(maxlen=1000)
 _processed_set: Set[int] = set()
 
-
 def is_duplicate_update(update: Update) -> bool:
+    """×‘×•×“×§ ×گ×‌ update ×›×‘×¨ ×ک×•×¤×œ (×¢×´×¤ update_id)"""
     if update is None:
         return False
     uid = update.update_id
@@ -148,15 +162,16 @@ def is_duplicate_update(update: Update) -> bool:
         return True
     _processed_set.add(uid)
     _processed_ids.append(uid)
+    # × ×™×§×•×™ ×،×ک ×œ×¤×™ ×”-deque
     if len(_processed_set) > len(_processed_ids) + 10:
         valid = set(_processed_ids)
         _processed_set.intersection_update(valid)
     return False
 
-
 # =========================
-# bot_data stores + paid flags
+# ×–×™×›×¨×•×ں ×¤×©×•×ک ×œ×ھ×©×œ×•×‍×™×‌ ×گ×—×¨×•× ×™×‌ + ×“×—×™×•×ھ ×‍×‍×ھ×™× ×•×ھ
 # =========================
+# bot_data["payments"][user_id] => dict ×¢×‌ ×¤×¨×ک×™ ×”×¢×،×§×” ×”×گ×—×¨×•× ×”
 def get_payments_store(context: ContextTypes.DEFAULT_TYPE) -> Dict[int, Dict[str, Any]]:
     store = context.application.bot_data.get("payments")
     if store is None:
@@ -164,7 +179,7 @@ def get_payments_store(context: ContextTypes.DEFAULT_TYPE) -> Dict[int, Dict[str
         context.application.bot_data["payments"] = store
     return store
 
-
+# bot_data["pending_rejects"][admin_id] = target_user_id
 def get_pending_rejects(context: ContextTypes.DEFAULT_TYPE) -> Dict[int, int]:
     store = context.application.bot_data.get("pending_rejects")
     if store is None:
@@ -172,167 +187,136 @@ def get_pending_rejects(context: ContextTypes.DEFAULT_TYPE) -> Dict[int, int]:
         context.application.bot_data["pending_rejects"] = store
     return store
 
-
-def mark_user_paid(context: ContextTypes.DEFAULT_TYPE, user_id: int) -> None:
-    """
-    שומר בזיכרון (in-memory) שמזהה המשתמש הזה כבר עבר אישור תשלום.
-    אם הבוט מופעל מחדש – המידע הזה מתאפס, אבל כל פעם שתאשר תשלום מחדש,
-    המשתמש יחזור לרשימה.
-    """
-    app_data = context.application.bot_data
-    paid = app_data.get("paid_users")
-    if paid is None:
-        paid = set()
-        app_data["paid_users"] = paid
-    paid.add(user_id)
-
-
-def is_user_paid(context: ContextTypes.DEFAULT_TYPE, user_id: int) -> bool:
-    """
-    בודק (in-memory) אם המשתמש כבר סומן כמשתמש ששילם ואושר.
-    """
-    paid = context.application.bot_data.get("paid_users")
-    if not paid:
-        return False
-    return user_id in paid
-
-
 # =========================
-# Telegram Application
+# ×گ×¤×œ×™×§×¦×™×™×ھ Telegram
 # =========================
 ptb_app: Application = (
     Application.builder()
-    .updater(None)
+    .updater(None)  # ×گ×™×ں polling â€“ ×¨×§ webhook
     .token(BOT_TOKEN)
     .build()
 )
 
 # =========================
-# Keyboards
+# ×¢×–×¨×™ UI (×‍×§×©×™×‌)
 # =========================
-def main_menu_keyboard() -> InlineKeyboardMarkup:
-    return InlineKeyboardMarkup(
-        [
-            [InlineKeyboardButton("🚀 הצטרפות לקהילת העסקים (39 ₪)", callback_data="join")],
-            [InlineKeyboardButton("ℹ מה אני מקבל?", callback_data="info")],
-            [InlineKeyboardButton("🔗 שתף את שער הקהילה", callback_data="share")],
-            [InlineKeyboardButton("🆘 תמיכה", callback_data="support")],
-        ]
-    )
 
+def main_menu_keyboard() -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup([
+        [
+            InlineKeyboardButton("ًںڑ€ ×”×¦×ک×¨×¤×•×ھ ×œ×§×”×™×œ×ھ ×”×¢×،×§×™×‌ (39 â‚ھ)", callback_data="join"),
+        ],
+        [
+            InlineKeyboardButton("â„¹ ×‍×” ×گ× ×™ ×‍×§×‘×œ?", callback_data="info"),
+        ],
+        [
+            InlineKeyboardButton("ًں”— ×©×ھ×£ ×گ×ھ ×©×¢×¨ ×”×§×”×™×œ×”", callback_data="share"),
+        ],
+        [
+            InlineKeyboardButton("ًں†ک ×ھ×‍×™×›×”", callback_data="support"),
+        ],
+    ])
 
 def payment_methods_keyboard() -> InlineKeyboardMarkup:
-    return InlineKeyboardMarkup(
+    """×‘×—×™×¨×ھ ×،×•×’ ×ھ×©×œ×•×‌ (×œ×•×’×™ â€“ ×œ×گ ×œ×™× ×§×™×‌)"""
+    return InlineKeyboardMarkup([
         [
-            [InlineKeyboardButton("🏦 העברה בנקאית", callback_data="pay_bank")],
-            [InlineKeyboardButton("📲 ביט / פייבוקס / PayPal", callback_data="pay_paybox")],
-            [InlineKeyboardButton("💎 טלגרם (TON)", callback_data="pay_ton")],
-            [InlineKeyboardButton("⬅ חזרה לתפריט ראשי", callback_data="back_main")],
-        ]
-    )
-
+            InlineKeyboardButton("ًںڈ¦ ×”×¢×‘×¨×” ×‘× ×§×گ×™×ھ", callback_data="pay_bank"),
+        ],
+        [
+            InlineKeyboardButton("ًں“² ×‘×™×ک / ×¤×™×™×‘×•×§×، / PayPal", callback_data="pay_paybox"),
+        ],
+        [
+            InlineKeyboardButton("ًں’ژ ×ک×œ×’×¨×‌ (TON)", callback_data="pay_ton"),
+        ],
+        [
+            InlineKeyboardButton("â¬… ×—×–×¨×” ×œ×ھ×¤×¨×™×ک ×¨×گ×©×™", callback_data="back_main"),
+        ],
+    ])
 
 def payment_links_keyboard() -> InlineKeyboardMarkup:
-    return InlineKeyboardMarkup(
-        [
-            [InlineKeyboardButton("📲 תשלום בפייבוקס", url=PAYBOX_URL)],
-            [InlineKeyboardButton("📲 תשלום בביט", url=BIT_URL)],
-            [InlineKeyboardButton("💳 תשלום ב-PayPal", url=PAYPAL_URL)],
-            [InlineKeyboardButton("⬅ חזרה לתפריט ראשי", callback_data="back_main")],
-        ]
-    )
-
+    """×›×¤×ھ×•×¨×™ ×œ×™× ×§×™×‌ ×گ×‍×™×ھ×™×™×‌ ×œ×ھ×©×œ×•×‌"""
+    buttons = [
+        [InlineKeyboardButton("ًں“² ×ھ×©×œ×•×‌ ×‘×¤×™×™×‘×•×§×،", url=PAYBOX_URL)],
+        [InlineKeyboardButton("ًں“² ×ھ×©×œ×•×‌ ×‘×‘×™×ک", url=BIT_URL)],
+        [InlineKeyboardButton("ًں’³ ×ھ×©×œ×•×‌ ×‘-PayPal", url=PAYPAL_URL)],
+        [InlineKeyboardButton("â¬… ×—×–×¨×” ×œ×ھ×¤×¨×™×ک ×¨×گ×©×™", callback_data="back_main")],
+    ]
+    return InlineKeyboardMarkup(buttons)
 
 def support_keyboard() -> InlineKeyboardMarkup:
-    return InlineKeyboardMarkup(
+    return InlineKeyboardMarkup([
         [
-            [InlineKeyboardButton("קבוצת תמיכה", url=SUPPORT_GROUP_LINK)],
-            [InlineKeyboardButton("פניה למתכנת המערכת", url=f"tg://user?id={DEVELOPER_USER_ID}")],
-            [InlineKeyboardButton("⬅ חזרה לתפריט ראשי", callback_data="back_main")],
-        ]
-    )
-
-
-def admin_approval_keyboard(user_id: int, owner_id: Optional[int] = None) -> InlineKeyboardMarkup:
-    """
-    אם owner_id קיים – הכפתורים יכילו גם אותו, כדי שנדע מי המנהל האישי של העסקה.
-    פורמט callback:
-      adm_approve:<user_id>[:<owner_id>]
-    """
-    if owner_id is not None:
-        suffix = f"{user_id}:{owner_id}"
-    else:
-        suffix = f"{user_id}"
-
-    return InlineKeyboardMarkup(
+            InlineKeyboardButton("×§×‘×•×¦×ھ ×ھ×‍×™×›×”", url=SUPPORT_GROUP_LINK),
+        ],
         [
-            [
-                InlineKeyboardButton("✅ אשר תשלום", callback_data=f"adm_approve:{suffix}"),
-                InlineKeyboardButton("❌ דחה תשלום", callback_data=f"adm_reject:{suffix}"),
-            ],
-        ]
-    )
+            InlineKeyboardButton("×¤× ×™×” ×œ×‍×ھ×›× ×ھ ×”×‍×¢×¨×›×ھ", url=f"tg://user?id={DEVELOPER_USER_ID}"),
+        ],
+        [
+            InlineKeyboardButton("â¬… ×—×–×¨×” ×œ×ھ×¤×¨×™×ک ×¨×گ×©×™", callback_data="back_main"),
+        ],
+    ])
 
+def admin_approval_keyboard(user_id: int) -> InlineKeyboardMarkup:
+    """×›×¤×ھ×•×¨×™ ×گ×™×©×•×¨/×“×—×™×™×” ×œ×œ×•×’×™×‌"""
+    return InlineKeyboardMarkup([
+        [
+            InlineKeyboardButton("âœ… ×گ×©×¨ ×ھ×©×œ×•×‌", callback_data=f"adm_approve:{user_id}"),
+            InlineKeyboardButton("â‌Œ ×“×—×” ×ھ×©×œ×•×‌", callback_data=f"adm_reject:{user_id}"),
+        ],
+    ])
 
 def admin_menu_keyboard() -> InlineKeyboardMarkup:
-    return InlineKeyboardMarkup(
+    """×ھ×¤×¨×™×ک ×گ×“×‍×™×ں"""
+    return InlineKeyboardMarkup([
         [
-            [InlineKeyboardButton("📊 סטטוס מערכת", callback_data="adm_status")],
-            [InlineKeyboardButton("📈 מוני תמונה", callback_data="adm_counters")],
-            [InlineKeyboardButton("💡 רעיונות לפיצ'רים", callback_data="adm_ideas")],
-        ]
-    )
-
+            InlineKeyboardButton("ًں“ٹ ×،×ک×ک×•×، ×‍×¢×¨×›×ھ", callback_data="adm_status"),
+        ],
+        [
+            InlineKeyboardButton("ًں“ˆ ×‍×•× ×™ ×ھ×‍×•× ×”", callback_data="adm_counters"),
+        ],
+        [
+            InlineKeyboardButton("ًں’، ×¨×¢×™×•× ×•×ھ ×œ×¤×™×¦'×¨×™×‌", callback_data="adm_ideas"),
+        ],
+    ])
 
 # =========================
-# Start image + metrics
+# ×¢×•×–×¨: ×©×œ×™×—×ھ ×ھ×‍×•× ×ھ ×”-START ×¢×‌ ×‍×•× ×™×‌
 # =========================
-async def send_start_image(
-    context: ContextTypes.DEFAULT_TYPE, chat_id: int, mode: str = "view"
-) -> None:
-    views = 0
-    downloads = 0
 
-    if DB_AVAILABLE:
-        try:
-            if mode == "view":
-                views = increment_metric("start_image_views", 1)
-                downloads = get_metric("start_image_downloads")
-            elif mode == "download":
-                downloads = increment_metric("start_image_downloads", 1)
-                views = get_metric("start_image_views")
-            else:  # reminder
-                views = get_metric("start_image_views")
-                downloads = get_metric("start_image_downloads")
-        except Exception as e:
-            logger.error("Failed to update metrics: %s", e)
-    else:
-        app_data = context.application.bot_data
-        views = app_data.get("start_image_views", 0)
-        downloads = app_data.get("start_image_downloads", 0)
-        if mode == "view":
-            views += 1
-            app_data["start_image_views"] = views
-        elif mode == "download":
-            downloads += 1
-            app_data["start_image_downloads"] = downloads
+async def send_start_image(context: ContextTypes.DEFAULT_TYPE, chat_id: int, mode: str = "view") -> None:
+    """
+    mode:
+      - "view": ×”×¦×’×” ×‘-/start, ×‍×¢×œ×” ×‍×•× ×” ×¦×¤×™×•×ھ
+      - "download": ×¢×•×ھ×§ ×‍×‍×•×،×¤×¨ ×œ×‍×©×ھ×‍×© ×گ×—×¨×™ ×گ×™×©×•×¨ ×ھ×©×œ×•×‌
+      - "reminder": ×ھ×–×›×•×¨×ھ ×‘×§×‘×•×¦×ھ ×œ×•×’×™×‌ â€“ ×‘×œ×™ ×œ×©× ×•×ھ ×‍×•× ×™×‌
+    """
+    app_data = context.application.bot_data
 
+    views = app_data.get("start_image_views", 0)
+    downloads = app_data.get("start_image_downloads", 0)
+
+    caption = ""
     if mode == "view":
+        views += 1
+        app_data["start_image_views"] = views
         caption = (
-            "🌐 שער הכניסה לקהילת העסקים\n"
-            f"מספר הצגה כולל: *{views}*\n"
+            f"ًںŒگ ×©×¢×¨ ×”×›× ×™×،×” ×œ×§×”×™×œ×ھ ×”×¢×،×§×™×‌\n"
+            f"×‍×،×¤×¨ ×”×¦×’×” ×›×•×œ×œ: *{views}*\n"
         )
     elif mode == "download":
+        downloads += 1
+        app_data["start_image_downloads"] = downloads
         caption = (
-            "🎁 זה העותק הממוספר שלך של שער הקהילה.\n"
-            f"מספר סידורי לעותק: *#{downloads}*\n"
+            "ًںژپ ×–×” ×”×¢×•×ھ×§ ×”×‍×‍×•×،×¤×¨ ×©×œ×ڑ ×©×œ ×©×¢×¨ ×”×§×”×™×œ×”.\n"
+            f"×‍×،×¤×¨ ×،×™×“×•×¨×™ ×œ×¢×•×ھ×§: *#{downloads}*\n"
         )
-    else:
+    elif mode == "reminder":
         caption = (
-            "⏰ תזכורת: בדוק שהלינקים של PayBox / Bit / PayPal עדיין תקפים.\n\n"
-            f"מצב מונים כרגע:\n"
-            f"• הצגות תמונה: {views}\n"
-            f"• עותקים ממוספרים שנשלחו: {downloads}\n"
+            "âڈ° ×ھ×–×›×•×¨×ھ: ×‘×“×•×§ ×©×”×œ×™× ×§×™×‌ ×©×œ PayBox / Bit / PayPal ×¢×“×™×™×ں ×ھ×§×¤×™×‌.\n\n"
+            f"×‍×¦×‘ ×‍×•× ×™×‌ ×›×¨×’×¢:\n"
+            f"â€¢ ×”×¦×’×•×ھ ×ھ×‍×•× ×”: {views}\n"
+            f"â€¢ ×¢×•×ھ×§×™×‌ ×‍×‍×•×،×¤×¨×™×‌ ×©× ×©×œ×—×•: {downloads}\n"
         )
 
     try:
@@ -348,54 +332,55 @@ async def send_start_image(
     except Exception as e:
         logger.error("Failed to send start image: %s", e)
 
-
 # =========================
-# Handlers
+# Handlers â€“ ×œ×•×’×™×§×ھ ×”×‘×•×ک
 # =========================
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """×ھ×©×•×‘×ھ /start â€“ ×©×¢×¨ ×”×›× ×™×،×” ×œ×§×”×™×œ×” + ×”×¤× ×™×•×ھ (referrals)"""
     message = update.message or update.effective_message
     if not message:
         return
 
     user = update.effective_user
 
+    # 1. ×©×•×‍×¨×™×‌ ×‍×©×ھ×‍×© ×‘-DB (×گ×‌ ×گ×¤×©×¨)
     if DB_AVAILABLE and user:
         try:
             store_user(user.id, user.username)
         except Exception as e:
             logger.error("Failed to store user: %s", e)
 
-    # /start ref<id> (מפיץ) – בלי ה-underscore
+    # 2. ×ک×™×¤×•×œ ×‘-deep link: /start ref_<referrer_id>
     if message.text and message.text.startswith("/start") and user:
         parts = message.text.split()
-        if len(parts) > 1 and parts[1].startswith("ref"):
+        if len(parts) > 1 and parts[1].startswith("ref_"):
             try:
-                referrer_id = int(parts[1].split("ref", 1)[1])
+                referrer_id = int(parts[1].split("ref_")[1])
                 if DB_AVAILABLE and referrer_id != user.id:
                     add_referral(referrer_id, user.id, source="bot_start")
-                context.user_data["referrer_id"] = referrer_id
             except Exception as e:
                 logger.error("Failed to add referral: %s", e)
 
+    # 3. ×ھ×‍×•× ×” ×‍×‍×•×،×¤×¨×ھ
     await send_start_image(context, message.chat_id, mode="view")
 
+    # 4. ×ک×§×،×ک ×•×ھ×¤×¨×™×ک
     text = (
-        "ברוך הבא לשער הכניסה לקהילת העסקים שלנו 🌐\n\n"
-        "כאן אתה מצטרף למערכת של *עסקים, שותפים וקהל יוצר ערך* סביב:\n"
-        "• שיווק רשתי חכם\n"
-        "• נכסים דיגיטליים (NFT, טוקני SLH)\n"
-        "• מתנות, הפתעות ופרסים על פעילות ושיתופים\n\n"
-        "מה תקבל בהצטרפות?\n"
-        "✅ גישה לקבוצת עסקים פרטית\n"
-        "✅ למידה משותפת איך לייצר הכנסות משיווק האקו-סיסטם שלנו\n"
-        "✅ גישה למבצעים שיחולקו רק בקהילה\n"
-        "✅ השתתפות עתידית בחלוקת טוקני *SLH* ו-NFT ייחודיים למשתתפים פעילים\n"
-        "✅ נקודות על שיתופים – כל לחיצה על כפתור השיתוף מזכה ב-*5 נקודות*.\n\n"
-        "הנקודות יוכלו בעתיד להיפדות למטבע קריפטו ייחודי לקהילה.\n\n"
-        "דמי הצטרפות חד־פעמיים: *39 ש\"ח*.\n\n"
-        "לאחר אישור התשלום *תקבל קישור לקהילת העסקים*.\n\n"
-        "כדי להתחיל – בחר באפשרות הרצויה:"
+        "×‘×¨×•×ڑ ×”×‘×گ ×œ×©×¢×¨ ×”×›× ×™×،×” ×œ×§×”×™×œ×ھ ×”×¢×،×§×™×‌ ×©×œ× ×• ًںŒگ\n\n"
+        "×›×گ×ں ×گ×ھ×” ×‍×¦×ک×¨×£ ×œ×‍×¢×¨×›×ھ ×©×œ *×¢×،×§×™×‌, ×©×•×ھ×¤×™×‌ ×•×§×”×œ ×™×•×¦×¨ ×¢×¨×ڑ* ×،×‘×™×‘:\n"
+        "â€¢ ×©×™×•×•×§ ×¨×©×ھ×™ ×—×›×‌\n"
+        "â€¢ × ×›×،×™×‌ ×“×™×’×™×ک×œ×™×™×‌ (NFT, ×ک×•×§× ×™ SLH)\n"
+        "â€¢ ×‍×ھ× ×•×ھ, ×”×¤×ھ×¢×•×ھ ×•×¤×¨×،×™×‌ ×¢×œ ×¤×¢×™×œ×•×ھ ×•×©×™×ھ×•×¤×™×‌\n\n"
+        "×‍×” ×ھ×§×‘×œ ×‘×”×¦×ک×¨×¤×•×ھ?\n"
+        "âœ… ×’×™×©×” ×œ×§×‘×•×¦×ھ ×¢×،×§×™×‌ ×¤×¨×ک×™×ھ\n"
+        "âœ… ×œ×‍×™×“×” ×‍×©×•×ھ×¤×ھ ×گ×™×ڑ ×œ×™×™×¦×¨ ×”×›× ×،×•×ھ ×‍×©×™×•×•×§ ×”×گ×§×•-×،×™×،×ک×‌ ×©×œ× ×•\n"
+        "âœ… ×’×™×©×” ×œ×‍×‘×¦×¢×™×‌ ×©×™×—×•×œ×§×• ×¨×§ ×‘×§×”×™×œ×”\n"
+        "âœ… ×”×©×ھ×ھ×¤×•×ھ ×¢×ھ×™×“×™×ھ ×‘×—×œ×•×§×ھ ×ک×•×§× ×™ *SLH* ×•-NFT ×™×™×—×•×“×™×™×‌ ×œ×‍×©×ھ×ھ×¤×™×‌ ×¤×¢×™×œ×™×‌\n"
+        "âœ… ×‍× ×’× ×•×ں × ×™×§×•×“ ×œ×‍×™ ×©×‍×‘×™×گ ×—×‘×¨×™×‌ â€“ ×©×™×•×¦×’ ×‘×§×”×™×œ×”\n\n"
+        "×“×‍×™ ×”×¦×ک×¨×¤×•×ھ ×—×“ض¾×¤×¢×‍×™×™×‌: *39 ×©\"×—*.\n\n"
+        "×œ×گ×—×¨ ×گ×™×©×•×¨ ×”×ھ×©×œ×•×‌ *×ھ×§×‘×œ ×§×™×©×•×¨ ×œ×§×”×™×œ×ھ ×”×¢×،×§×™×‌*.\n\n"
+        "×›×“×™ ×œ×”×ھ×—×™×œ â€“ ×‘×—×¨ ×‘×گ×¤×©×¨×•×ھ ×”×¨×¦×•×™×”:"
     )
 
     await message.reply_text(
@@ -404,165 +389,126 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         reply_markup=main_menu_keyboard(),
     )
 
-
 async def info_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """×‍×™×“×¢ ×¢×œ ×”×”×ک×‘×•×ھ"""
     query = update.callback_query
     await query.answer()
 
     text = (
-        "ℹ *מה מקבלים בקהילה?*\n\n"
-        "🚀 גישה לקבוצת עסקים סגורה.\n"
-        "📚 תכנים על שיווק, מכירות ונכסים דיגיטליים.\n"
-        "🎁 מתנות דיגיטליות, NFT והטבות ייחודיות.\n"
-        "💎 טוקני *SLH* עתידיים על פעילות ושיתופים.\n"
-        "🏆 משחק נקודות: כל שיתוף דרך הבוט מזכה ב-5 נקודות, "
-        "והמצטיינים יזכו בפרסים.\n\n"
-        "דמי הצטרפות חד־פעמיים: *39 ש\"ח*.\n\n"
-        "כדי להצטרף – בחר אמצעי תשלום:"
+        "â„¹ *×‍×” ×‍×§×‘×œ×™×‌ ×‘×§×”×™×œ×”?*\n\n"
+        "ًںڑ€ ×’×™×©×” ×œ×§×‘×•×¦×ھ ×¢×،×§×™×‌ ×،×’×•×¨×” ×©×‘×” ×‍×©×ھ×¤×™×‌ ×¨×¢×™×•× ×•×ھ, ×©×™×ھ×•×¤×™ ×¤×¢×•×œ×” ×•×”×–×“×‍× ×•×™×•×ھ.\n"
+        "ًں“ڑ ×”×“×¨×›×•×ھ ×¢×œ ×©×™×•×•×§ ×¨×©×ھ×™, ×‘× ×™×™×ھ ×§×”×™×œ×”, ×‍×›×™×¨×•×ھ ×گ×•× ×œ×™×™×ں ×•× ×›×،×™×‌ ×“×™×’×™×ک×œ×™×™×‌.\n"
+        "ًںژپ ×‍×ھ× ×•×ھ ×“×™×’×™×ک×œ×™×•×ھ, NFT ×•×”×ک×‘×•×ھ ×©×™×—×•×œ×§×• ×‘×ھ×•×ڑ ×”×§×”×™×œ×”.\n"
+        "ًں’ژ ×‘×¢×ھ×™×“ ×”×§×¨×•×‘ â€“ ×—×œ×•×§×ھ ×ک×•×§× ×™ *SLH* ×¢×œ ×¤×¢×™×œ×•×ھ, ×©×™×ھ×•×¤×™×‌ ×•×”×¤× ×™×•×ھ.\n"
+        "ًںڈ† ×‍× ×’× ×•×ں × ×™×§×•×“ ×œ×‍×™ ×©×‍×‘×™×گ ×—×‘×¨×™×‌ â€“ ×©×™×•×¦×’ ×‘×§×‘×•×¦×” ×•×™×§×‘×œ ×¢×“×™×¤×•×ھ ×‘×‍×‘×¦×¢×™×‌.\n\n"
+        "×“×‍×™ ×”×¦×ک×¨×¤×•×ھ ×—×“ض¾×¤×¢×‍×™×™×‌: *39 ×©\"×—*.\n\n"
+        "×›×“×™ ×œ×”×¦×ک×¨×£ â€“ ×‘×—×¨ ×گ×‍×¦×¢×™ ×ھ×©×œ×•×‌:"
     )
 
     await query.edit_message_text(
-        text, parse_mode="Markdown", reply_markup=payment_methods_keyboard()
+        text,
+        parse_mode="Markdown",
+        reply_markup=payment_methods_keyboard(),
     )
-
 
 async def join_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """×œ×—×™×¦×” ×¢×œ '×”×¦×ک×¨×¤×•×ھ ×œ×§×”×™×œ×”'"""
     query = update.callback_query
     await query.answer()
 
     text = (
-        "🔑 *הצטרפות לקהילת העסקים – 39 ש\"ח*\n\n"
-        "בחר את אמצעי התשלום המתאים לך:\n"
-        "• העברה בנקאית (יתכן לחשבון של המפיץ שהביא אותך)\n"
-        "• ביט / פייבוקס / PayPal\n"
-        "• טלגרם (TON)\n\n"
-        "לאחר ביצוע התשלום:\n"
-        "1. שלח כאן *צילום מסך או תמונה* של אישור התשלום.\n"
-        "2. הבוט יעביר את האישור למארגנים לבדיקה.\n"
-        "3. לאחר אישור ידני תקבל קישור לקהילת העסקים.\n\n"
-        "אין קישור לקהילה לפני אישור תשלום."
+        "ًں”‘ *×”×¦×ک×¨×¤×•×ھ ×œ×§×”×™×œ×ھ ×”×¢×،×§×™×‌ â€“ 39 ×©\"×—*\n\n"
+        "×‘×—×¨ ×گ×ھ ×گ×‍×¦×¢×™ ×”×ھ×©×œ×•×‌ ×”×‍×ھ×گ×™×‌ ×œ×ڑ:\n"
+        "â€¢ ×”×¢×‘×¨×” ×‘× ×§×گ×™×ھ\n"
+        "â€¢ ×‘×™×ک / ×¤×™×™×‘×•×§×، / PayPal\n"
+        "â€¢ ×ک×œ×’×¨×‌ (TON)\n\n"
+        "×œ×گ×—×¨ ×‘×™×¦×•×¢ ×”×ھ×©×œ×•×‌:\n"
+        "1. ×©×œ×— ×›×گ×ں *×¦×™×œ×•×‌ ×‍×،×ڑ ×گ×• ×ھ×‍×•× ×”* ×©×œ ×گ×™×©×•×¨ ×”×ھ×©×œ×•×‌.\n"
+        "2. ×”×‘×•×ک ×™×¢×‘×™×¨ ×گ×ھ ×”×گ×™×©×•×¨ ×œ×‍×گ×¨×’× ×™×‌ ×œ×‘×“×™×§×”.\n"
+        "3. ×œ×گ×—×¨ ×گ×™×©×•×¨ ×™×“× ×™ ×ھ×§×‘×œ ×§×™×©×•×¨ ×œ×§×”×™×œ×ھ ×”×¢×،×§×™×‌.\n\n"
+        "×©×™×‍×• ×œ×‘: *×گ×™×ں ×§×™×©×•×¨ ×œ×§×”×™×œ×” ×œ×¤× ×™ ×گ×™×©×•×¨ ×ھ×©×œ×•×‌.*"
     )
 
     await query.edit_message_text(
-        text, parse_mode="Markdown", reply_markup=payment_methods_keyboard()
+        text,
+        parse_mode="Markdown",
+        reply_markup=payment_methods_keyboard(),
     )
-
 
 async def support_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """×‍×،×ڑ ×ھ×‍×™×›×”"""
     query = update.callback_query
     await query.answer()
 
     text = (
-        "🆘 *תמיכה ועזרה*\n\n"
-        f"• קבוצת תמיכה: {SUPPORT_GROUP_LINK}\n"
-        f"• פניה ישירה למתכנת המערכת: `tg://user?id={DEVELOPER_USER_ID}`\n\n"
-        "או חזור לתפריט הראשי:"
+        "ًں†ک *×ھ×‍×™×›×” ×•×¢×–×¨×”*\n\n"
+        "×‘×›×œ ×©×œ×‘ ×گ×¤×©×¨ ×œ×§×‘×œ ×¢×–×¨×” ×‘×گ×—×“ ×”×¢×¨×•×¦×™×‌ ×”×‘×گ×™×‌:\n\n"
+        f"â€¢ ×§×‘×•×¦×ھ ×ھ×‍×™×›×”: {SUPPORT_GROUP_LINK}\n"
+        f"â€¢ ×¤× ×™×” ×™×©×™×¨×” ×œ×‍×ھ×›× ×ھ ×”×‍×¢×¨×›×ھ: `tg://user?id={DEVELOPER_USER_ID}`\n\n"
+        "×گ×• ×—×–×•×¨ ×œ×ھ×¤×¨×™×ک ×”×¨×گ×©×™:"
     )
 
     await query.edit_message_text(
-        text, parse_mode="Markdown", reply_markup=support_keyboard()
+        text,
+        parse_mode="Markdown",
+        reply_markup=support_keyboard(),
     )
-
 
 async def share_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """
-    שתף את שער הקהילה:
-    - לפני תשלום מאושר: מציג הודעה שהאופציה נפתחת רק לאחר תשלום.
-    - אחרי תשלום מאושר: נותן טקסט שיתוף + לינק אישי לאתר + לבוט.
-    """
+    """כפתור 'שתף את שער הקהילה'  שולח למשתמש את הלינק האישי שלו לבוט + נקודות."""
     query = update.callback_query
     await query.answer()
+    user = query.from_user
 
-    user = update.effective_user
-    if not user:
-        return
-    user_id = user.id
+    # בוחר שם בוט נקי מתוך BOT_USERNAME או מתוך האובייקט של הבוט
+    base_username = BOT_USERNAME or (getattr(context.bot, "username", None) or "")
+    uname = (base_username or "").strip()
+    if uname.startswith("@"):
+        uname = uname[1:]
 
-    # אם המשתמש עדיין לא אושר כתשלום – נחסום את השיתוף
-    if not is_user_paid(context, user_id):
-        text = (
-            "🔐 *פיצ׳ר השיתוף נפתח רק לאחר תשלום מאושר*\n\n"
-            "כדי לקבל בוט שיתופים אישי ונקודות על כל שיתוף, "
-            "צריך קודם להשלים תשלום חד־פעמי של 39 ש\"ח ולאשר אותו.\n\n"
-            "1️⃣ בחר בתפריט: \"🚀 הצטרפות לקהילת העסקים (39 ₪)\"\n"
-            "2️⃣ בחר אמצעי תשלום\n"
-            "3️⃣ שלח צילום מסך של האישור לבוט\n"
-            "4️⃣ אחרי אישור ידני תקבל ממני:\n"
-            "   • קישור לקהילת העסקים\n"
-            "   • קלף ממוספר אישי\n"
-            "   • הסבר ולינק שיתוף אישי שדרכו תצבור נקודות.\n"
-        )
-        await query.message.reply_text(text, parse_mode="Markdown")
-        return
+    share_link = ""
+    if uname and user:
+        share_link = f"https://t.me/{uname}?start=ref{user.id}"
+        share_link = share_link.replace(" ", "")
 
-    # מפה – משתמש ששילם ואושר (סומן בזיכרון)
-    base_bot_url = f"https://t.me/{BOT_USERNAME}"
-
-    # קישור אישי לבוט עם פרמטר ref<user_id> (ללא underscore כדי לא לשבור Markdown)
-    share_link = f"{base_bot_url}?start=ref{user_id}"
-
-    # קישור לשער האתר עם ref=<user_id> כדי לדעת מי הביא מי
-    sep = "&" if "?" in LANDING_URL else "?"
-    landing_with_ref = f"{LANDING_URL}{sep}ref={user_id}"
-
-    text = (
-        "🔗 *שתף את שער הקהילה*\n\n"
-        "מהבוט הזה אתה משתף את *שער האתר הרשמי* של המשחק, עם קרדיט הפניה אישי שלך.\n\n"
-        "העתק ושלח את הטקסט הבא לחברים / סטורי / סטטוס:\n\n"
-        f"\"אני משחק במשחק קהילת העסקים שלנו – כניסה דרך השער: {landing_with_ref}\"\n\n"
-        "קישור ישיר לבוט שלך (עם קרדיט הפניה בתחתית המסך):\n"
-        f"{share_link}\n\n"
-        "כל שימוש בכפתור השיתוף בבוט מזכה אותך ב-*5 נקודות*.\n"
-        "בהמשך הנקודות ייפדו למטבע קריפטו יחודי לקהילה ופרסים נוספים.\n"
-    )
-
-    await query.message.reply_text(text, parse_mode="Markdown")
-
-    if DB_AVAILABLE and user_id:
+    # מחשב נקודות הפניה מה-DB
+    points = 0
+    if DB_AVAILABLE and user:
         try:
-            create_reward(
-                user_id,
-                "SHARE_POINTS",
-                "נקודות על שימוש בכפתור שיתוף",
-                points=5,
-            )
+            points = get_user_points(user.id)
         except Exception as e:
-            logger.error("Failed to credit share points: %s", e)
+            logger.error("Failed to get user points in share_callback for %s: %s", user.id, e)
 
+    if not share_link:
+        text = "לא הצלחתי לחשב כרגע את לינק ההפניה האישי שלך. נסה שוב מאוחר יותר."
+    else:
+        text = f"""📣 עכשיו אתה חלק מהמשחק של המפיצים בקהילה!
+
+1️⃣ כל שיתוף של שער הקהילה דרך כפתור השיתוף בבוט מזכה אותך ב-5 נקודות.
+2️⃣ בהמשך הנקודות ייפדו למטבע קריפטו ייחודי (SLH) ופרסים נוספים.
+3️⃣ אתה יכול להגדיר חשבון בנק אישי לקבלת תשלומים מההפניות שלך:
+   כתוב: /setbank ואז פרטי הבנק שלך (שורה אחת).
+
+לינק הפניה האישי שלך לבוט:
+{share_link}
+
+לצפייה בנקודות שלך ולוח המפיצים:
+/mypanel  לוח אישי
+/shareboard  לוח שיתופים ציבורי
+
+נקודות שצברת עד עכשיו: {points}
+"""
+
+    await query.message.reply_text(text)
 
 async def back_main_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """חזרה לתפריט ראשי"""
     query = update.callback_query
     await query.answer()
     fake_update = Update(update_id=update.update_id, message=query.message)
     await start(fake_update, context)
-
-
-def build_bank_details_for_user(context: ContextTypes.DEFAULT_TYPE) -> str:
-    """
-    מחזיר טקסט בנק למשתמש – אם הגיע דרך referrer שהוא מפיץ עם בנק משלו, נשתמש בו.
-    אחרת – הבנק הבסיסי.
-    """
-    referrer_id = context.user_data.get("referrer_id")
-    if not DB_AVAILABLE or not referrer_id:
-        return BANK_DETAILS
-
-    try:
-        custom = get_promoter_bank(referrer_id)
-    except Exception as e:
-        logger.error("Failed to get promoter bank: %s", e)
-        custom = None
-
-    if not custom:
-        return BANK_DETAILS
-
-    return (
-        "🏦 *תשלום בהעברה בנקאית למפיץ שהביא אותך*\n\n"
-        f"{custom}\n\n"
-        "סכום: *39 ש\"ח*\n"
-    )
-
-
 async def payment_method_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """×‘×—×™×¨×ھ ×گ×‍×¦×¢×™ ×ھ×©×œ×•×‌"""
     query = update.callback_query
     await query.answer()
     data = query.data
@@ -572,7 +518,7 @@ async def payment_method_callback(update: Update, context: ContextTypes.DEFAULT_
 
     if data == "pay_bank":
         method = "bank"
-        details_text = build_bank_details_for_user(context)
+        details_text = BANK_DETAILS
     elif data == "pay_paybox":
         method = "paybox"
         details_text = PAYBOX_DETAILS
@@ -587,74 +533,81 @@ async def payment_method_callback(update: Update, context: ContextTypes.DEFAULT_
 
     text = (
         f"{details_text}\n"
-        "לאחר ביצוע התשלום:\n"
-        "1. שלח כאן *צילום מסך או תמונה* של אישור התשלום.\n"
-        "2. הבוט יעביר את האישור למארגנים לבדיקה.\n"
-        "3. לאחר אישור ידני תקבל קישור לקהילת העסקים.\n"
+        "×œ×گ×—×¨ ×‘×™×¦×•×¢ ×”×ھ×©×œ×•×‌:\n"
+        "1. ×©×œ×— ×›×گ×ں *×¦×™×œ×•×‌ ×‍×،×ڑ ×گ×• ×ھ×‍×•× ×”* ×©×œ ×گ×™×©×•×¨ ×”×ھ×©×œ×•×‌.\n"
+        "2. ×”×‘×•×ک ×™×¢×‘×™×¨ ×گ×ھ ×”×گ×™×©×•×¨ ×œ×‍×گ×¨×’× ×™×‌ ×œ×‘×“×™×§×”.\n"
+        "3. ×œ×گ×—×¨ ×گ×™×©×•×¨ ×™×“× ×™ ×ھ×§×‘×œ ×§×™×©×•×¨ ×œ×§×”×™×œ×ھ ×”×¢×،×§×™×‌.\n"
     )
 
+    # ×›×گ×ں ×‍×•×¤×™×¢×™×‌ ×”×›×¤×ھ×•×¨×™×‌ ×”×گ×‍×™×ھ×™×™×‌ ×©×œ ×”×ھ×©×œ×•×‌
     await query.edit_message_text(
-        text, parse_mode="Markdown", reply_markup=payment_links_keyboard()
+        text,
+        parse_mode="Markdown",
+        reply_markup=payment_links_keyboard(),
     )
-
 
 # =========================
-# תשלומים
+# ×œ×•×’×™×§×ھ ×ھ×©×œ×•×‌ + DB + ×œ×•×’×™×‌
 # =========================
 
 async def handle_payment_photo(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """
+    ×¦×™×œ×•×‌ ×©×‍×’×™×¢ ×‍×”×‍×©×ھ×‍×© â€“ × × ×™×— ×©×–×” ×گ×™×©×•×¨ ×ھ×©×œ×•×‌:
+    1. × × ×،×” ×œ×”×¢×‘×™×¨ ×œ×§×‘×•×¦×ھ ×”×œ×•×’×™×‌ PAYMENTS_LOG_CHAT_ID
+    2. × ×©×‍×•×¨ ×¤×¨×ک×™ ×ھ×©×œ×•×‌ ×گ×—×¨×•×ں ×‘×‍×‘× ×” ×‘×–×™×›×¨×•×ں
+    3. ×گ×‌ ×”×œ×•×’×™×‌ × ×›×©×œ×™×‌ â€“ × ×©×œ×— ×گ×œ×™×ڑ (DEVELOPER_USER_ID) ×”×•×“×¢×”
+    4. ×‍×—×–×™×¨×™×‌ ×œ×‍×©×ھ×‍×© ×”×•×“×¢×ھ '×‘×‘×“×™×§×”'
+    5. ×گ×‌ DB ×–×‍×™×ں â€“ ×¨×•×©×‍×™×‌ ×¨×©×•×‍×ھ 'pending' ×‘×ک×‘×œ×”
+    """
     message = update.message
     if not message or not message.photo:
         return
 
     user = update.effective_user
     chat_id = message.chat_id
-    username = f"@{user.username}" if user and user.username else "(ללא שם משתמש)"
+    username = f"@{user.username}" if user and user.username else "(×œ×œ×گ ×©×‌ ×‍×©×ھ×‍×©)"
 
     pay_method = context.user_data.get("last_pay_method", "unknown")
     pay_method_text = {
-        "bank": "העברה בנקאית",
-        "paybox": "ביט / פייבוקס / PayPal",
-        "ton": "טלגרם (TON)",
-        "unknown": "לא ידוע",
-    }.get(pay_method, "לא ידוע")
-
-    # מי המפיץ שהביא את המשתמש הזה (אם יש)?
-    referrer_id = context.user_data.get("referrer_id")
-    owner_id = referrer_id or DEVELOPER_USER_ID  # מנהל העסקאות עבור המשתמש הזה
+        "bank": "×”×¢×‘×¨×” ×‘× ×§×گ×™×ھ",
+        "paybox": "×‘×™×ک / ×¤×™×™×‘×•×§×، / PayPal",
+        "ton": "×ک×œ×’×¨×‌ (TON)",
+        "unknown": "×œ×گ ×™×“×•×¢",
+    }.get(pay_method, "×œ×گ ×™×“×•×¢")
 
     caption_log = (
-        "📥 התקבל אישור תשלום חדש.\n\n"
+        "ًں“¥ ×”×ھ×§×‘×œ ×گ×™×©×•×¨ ×ھ×©×œ×•×‌ ×—×“×©.\n\n"
         f"user_id = {user.id}\n"
         f"username = {username}\n"
         f"from chat_id = {chat_id}\n"
-        f"שיטת תשלום: {pay_method_text}\n"
-        f"מנהל העסקה (owner_id): {owner_id}\n\n"
-        "לאישור (עבור אדמין ראשי):\n"
+        f"×©×™×ک×ھ ×ھ×©×œ×•×‌: {pay_method_text}\n\n"
+        "×œ×گ×™×©×•×¨:\n"
         f"/approve {user.id}\n"
-        f"/reject {user.id} <סיבה>\n"
-        "(או להשתמש בכפתורי האישור/דחייה מתחת להודעה זו)\n"
+        f"/reject {user.id} <×،×™×‘×”>\n"
+        "(×گ×• ×œ×”×©×ھ×‍×© ×‘×›×¤×ھ×•×¨×™ ×”×گ×™×©×•×¨/×“×—×™×™×” ×‍×ھ×—×ھ ×œ×”×•×“×¢×” ×–×•)\n"
     )
 
+    # × ×™×§×— ×گ×ھ ×”×ھ×‍×•× ×” ×”×’×“×•×œ×” ×‘×™×•×ھ×¨
     photo = message.photo[-1]
     file_id = photo.file_id
 
+    # × ×©×‍×•×¨ ×‘×–×™×›×¨×•×ں ×گ×ھ ×¤×¨×ک×™ ×”×ھ×©×œ×•×‌ ×”×گ×—×¨×•×ں ×©×œ ×”×‍×©×ھ×‍×©
     payments = get_payments_store(context)
     payments[user.id] = {
         "file_id": file_id,
         "pay_method": pay_method_text,
         "username": username,
         "chat_id": chat_id,
-        "owner_id": owner_id,
     }
 
+    # ×œ×•×’ ×œ-DB (×گ×•×¤×¦×™×•× ×œ×™)
     if DB_AVAILABLE:
         try:
             log_payment(user.id, username, pay_method_text)
         except Exception as e:
             logger.error("Failed to log payment to DB: %s", e)
 
-    # שליחה לקבוצת לוגים מרכזית (בשבילך)
+    # × × ×،×” ×œ×©×œ×•×— ×œ×§×‘×•×¦×ھ ×œ×•×’×™×‌
     try:
         await context.bot.send_photo(
             chat_id=PAYMENTS_LOG_CHAT_ID,
@@ -664,92 +617,44 @@ async def handle_payment_photo(update: Update, context: ContextTypes.DEFAULT_TYP
         )
     except Exception as e:
         logger.error("Failed to forward payment photo to log group: %s", e)
+        # ×’×™×‘×•×™: × ×©×œ×— ×گ×œ×™×ڑ ×‘×¤×¨×ک×™
         try:
             await context.bot.send_photo(
                 chat_id=DEVELOPER_USER_ID,
                 photo=file_id,
-                caption="(Fallback – לא הצלחתי לשלוח לקבוצת לוגים)\n\n"
-                + caption_log,
+                caption="(Fallback â€“ ×œ×گ ×”×¦×œ×—×ھ×™ ×œ×©×œ×•×— ×œ×§×‘×•×¦×ھ ×œ×•×’×™×‌)\n\n" + caption_log,
                 reply_markup=admin_approval_keyboard(user.id),
             )
         except Exception as e2:
-            logger.error("Failed to send fallback payment: %s", e2)
-
-    # בנוסף – שליחה למנהל האישי (המפיץ שהביא אותו), אם זה לא אתה
-    if owner_id != DEVELOPER_USER_ID:
-        try:
-            personal_caption = (
-                "📥 התקבל אישור תשלום חדש של משתמש שהגיע דרך הלינק שלך.\n\n"
-                f"user_id = {user.id}\n"
-                f"username = {username}\n"
-                f"שיטת תשלום: {pay_method_text}\n\n"
-                "אתה יכול לאשר או לדחות את התשלום בכפתורים מטה.\n"
-            )
-            await context.bot.send_photo(
-                chat_id=owner_id,
-                photo=file_id,
-                caption=personal_caption,
-                reply_markup=admin_approval_keyboard(user.id, owner_id=owner_id),
-            )
-        except Exception as e:
-            logger.error("Failed to send payment to personal owner %s: %s", owner_id, e)
+            logger.error("Failed to send fallback payment to developer: %s", e2)
 
     await message.reply_text(
-        "תודה! אישור התשלום התקבל ונשלח לבדיקה ✅\n"
-        "לאחר אישור ידני תקבל ממני קישור להצטרפות לקהילת העסקים.\n\n"
-        "אם יש שאלה דחופה – אפשר לפנות גם לקבוצת התמיכה.",
+        "×ھ×•×“×”! ×گ×™×©×•×¨ ×”×ھ×©×œ×•×‌ ×”×ھ×§×‘×œ ×•× ×©×œ×— ×œ×‘×“×™×§×” âœ…\n"
+        "×œ×گ×—×¨ ×گ×™×©×•×¨ ×™×“× ×™ ×ھ×§×‘×œ ×‍×‍× ×™ ×§×™×©×•×¨ ×œ×”×¦×ک×¨×¤×•×ھ ×œ×§×”×™×œ×ھ ×”×¢×،×§×™×‌.\n\n"
+        "×گ×‌ ×™×© ×©×گ×œ×” ×“×—×•×¤×” â€“ ×گ×¤×©×¨ ×œ×¤× ×•×ھ ×’×‌ ×œ×§×‘×•×¦×ھ ×”×ھ×‍×™×›×”.",
         reply_markup=support_keyboard(),
     )
 
-
 # =========================
-# אישור / דחייה
+# ×¢×•×–×¨×™×‌ ×œ×گ×™×©×•×¨/×“×—×™×™×” â€“ ×‍×©×•×ھ×£ ×œ×›×¤×ھ×•×¨×™×‌ ×•×œ×¤×§×•×“×•×ھ
 # =========================
 
-async def do_approve(
-    target_id: int, context: ContextTypes.DEFAULT_TYPE, source_message
-) -> None:
-    # נסמן בזיכרון שהמשתמש הזה אושר כתשלום – פותח לו את השיתוף
-    mark_user_paid(context, target_id)
-
+async def do_approve(target_id: int, context: ContextTypes.DEFAULT_TYPE, source_message) -> None:
+    """×œ×•×’×™×§×ھ ×گ×™×©×•×¨ ×ھ×©×œ×•×‌ â€“ ×‍×©×•×ھ×¤×ھ ×œ-/approve ×•×œ×›×¤×ھ×•×¨"""
     text = (
-        "✅ התשלום שלך אושר!\n\n"
-        "ברוך הבא לקהילת העסקים שלנו 🎉\n"
-        "הנה הקישור להצטרפות לקהילה:\n"
+        "âœ… ×”×ھ×©×œ×•×‌ ×©×œ×ڑ ×گ×•×©×¨!\n\n"
+        "×‘×¨×•×ڑ ×”×‘×گ ×œ×§×”×™×œ×ھ ×”×¢×،×§×™×‌ ×©×œ× ×• ًںژ‰\n"
+        "×”× ×” ×”×§×™×©×•×¨ ×œ×”×¦×ک×¨×¤×•×ھ ×œ×§×”×™×œ×”:\n"
         f"{COMMUNITY_GROUP_LINK}\n\n"
-        "בהודעה הבאה אשלח לך את הקלף הממוספר שלך, "
-        "וגם הסבר איך להפוך למפיץ ולקבל נקודות על שיתופים.\n"
+        "×•×›×‍×• ×©×”×‘×ک×—× ×• â€“ ×§×‘×œ ×گ×ھ ×”×¢×•×ھ×§ ×”×‍×‍×•×،×¤×¨ ×©×œ×ڑ ×©×œ ×©×¢×¨ ×”×§×”×™×œ×” ×‘×”×•×“×¢×” × ×¤×¨×“×ھ ًںژپ\n"
+        "× ×™×¤×’×© ×‘×¤× ×™×‌ ًں™Œ"
     )
-
     try:
         await context.bot.send_message(chat_id=target_id, text=text)
-
-        # עותק ממוספר של התמונה
+        # ×©×œ×™×—×ھ ×”×¢×•×ھ×§ ×”×‍×‍×•×،×¤×¨ ×©×œ ×”×ھ×‍×•× ×”
         await send_start_image(context, target_id, mode="download")
 
-        # מסר נוסף – פאנל מפיץ זוטר
-        base_bot_url = f"https://t.me/{BOT_USERNAME}"
-        share_link = f"{base_bot_url}?start=ref{target_id}"
-        points = get_share_points(target_id) if DB_AVAILABLE else 0
-
-        promo_text = (
-            "📣 עכשיו אתה חלק מהמשחק של המפיצים בקהילה!\n\n"
-            "1️⃣ כל שיתוף של שער הקהילה דרך כפתור השיתוף בבוט מזכה אותך ב-*5 נקודות*.\n"
-            "2️⃣ בהמשך הנקודות ייפדו למטבע קריפטו ייחודי (SLH) ופרסים נוספים.\n"
-            "3️⃣ אתה יכול להגדיר חשבון בנק אישי לקבלת תשלומים מההפניות שלך:\n"
-            "   כתוב: /set_bank ואז פרטי הבנק שלך (שורה אחת).\n\n"
-            "לינק הפניה האישי שלך לבוט:\n"
-            f"{share_link}\n\n"
-            "לצפייה בנקודות שלך ולוח המפיצים:\n"
-            "/my_panel – לוח אישי\n"
-            "/share_board – לוח שיתופים ציבורי\n\n"
-            f"נקודות שצברת עד עכשיו: {points}\n"
-        )
-
-        await context.bot.send_message(
-            chat_id=target_id, text=promo_text, parse_mode="Markdown"
-        )
-
+        # ×¢×“×›×•×ں ×،×ک×ک×•×، ×‘-DB
         if DB_AVAILABLE:
             try:
                 update_payment_status(target_id, "approved", None)
@@ -758,30 +663,27 @@ async def do_approve(
 
         if source_message:
             await source_message.reply_text(
-                f"אושר ונשלח קישור + קלף ממוספר + פאנל מפיץ למשתמש {target_id}."
+                f"×گ×•×©×¨ ×•× ×©×œ×— ×§×™×©×•×¨ + ×¢×•×ھ×§ ×‍×‍×•×،×¤×¨ ×œ×‍×©×ھ×‍×© {target_id}."
             )
     except Exception as e:
         logger.error("Failed to send approval message: %s", e)
         if source_message:
-            await source_message.reply_text(
-                f"שגיאה בשליחת הודעה למשתמש {target_id}: {e}"
-            )
+            await source_message.reply_text(f"×©×’×™×گ×” ×‘×©×œ×™×—×ھ ×”×•×“×¢×” ×œ×‍×©×ھ×‍×© {target_id}: {e}")
 
-
-async def do_reject(
-    target_id: int, reason: str, context: ContextTypes.DEFAULT_TYPE, source_message
-) -> None:
+async def do_reject(target_id: int, reason: str, context: ContextTypes.DEFAULT_TYPE, source_message) -> None:
+    """×œ×•×’×™×§×ھ ×“×—×™×™×ھ ×ھ×©×œ×•×‌ â€“ ×‍×©×•×ھ×¤×ھ ×œ-/reject ×•×œ×–×¨×™×‍×ھ ×›×¤×ھ×•×¨"""
     payments = context.application.bot_data.get("payments", {})
     payment_info = payments.get(target_id)
 
     base_text = (
-        "לצערנו לא הצלחנו לאמת את התשלום שנשלח.\n\n"
-        f"סיבה: {reason}\n\n"
-        "אם לדעתך מדובר בטעות – אנא פנה אלינו עם פרטי התשלום או נסה לשלוח מחדש."
+        "×œ×¦×¢×¨× ×• ×œ×گ ×”×¦×œ×—× ×• ×œ×گ×‍×ھ ×گ×ھ ×”×ھ×©×œ×•×‌ ×©× ×©×œ×—.\n\n"
+        f"×،×™×‘×”: {reason}\n\n"
+        "×گ×‌ ×œ×“×¢×ھ×ڑ ×‍×“×•×‘×¨ ×‘×ک×¢×•×ھ â€“ ×گ× ×گ ×¤× ×” ×گ×œ×™× ×• ×¢×‌ ×¤×¨×ک×™ ×”×ھ×©×œ×•×‌ ×گ×• × ×،×” ×œ×©×œ×•×— ×‍×—×“×©."
     )
 
     try:
         if payment_info and payment_info.get("file_id"):
+            # ×©×œ×™×—×ھ ×¦×™×œ×•×‌ + ×”×،×‘×¨
             await context.bot.send_photo(
                 chat_id=target_id,
                 photo=payment_info["file_id"],
@@ -790,6 +692,7 @@ async def do_reject(
         else:
             await context.bot.send_message(chat_id=target_id, text=base_text)
 
+        # ×¢×“×›×•×ں ×،×ک×ک×•×، ×‘-DB
         if DB_AVAILABLE:
             try:
                 update_payment_status(target_id, "rejected", reason)
@@ -798,217 +701,138 @@ async def do_reject(
 
         if source_message:
             await source_message.reply_text(
-                f"התשלום של המשתמש {target_id} נדחה והודעה נשלחה עם הסיבה."
+                f"×”×ھ×©×œ×•×‌ ×©×œ ×”×‍×©×ھ×‍×© {target_id} × ×“×—×” ×•×”×•×“×¢×” × ×©×œ×—×” ×¢×‌ ×”×،×™×‘×”."
             )
     except Exception as e:
         logger.error("Failed to send rejection message: %s", e)
         if source_message:
             await source_message.reply_text(
-                f"שגיאה בשליחת הודעת דחייה למשתמש {target_id}: {e}"
+                f"×©×’×™×گ×” ×‘×©×œ×™×—×ھ ×”×•×“×¢×ھ ×“×—×™×™×” ×œ×‍×©×ھ×‍×© {target_id}: {e}"
             )
 
+# =========================
+# ×گ×™×©×•×¨/×“×—×™×™×” â€“ ×¤×§×•×“×•×ھ ×ک×§×،×ک
+# =========================
 
 async def approve_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """×گ×™×©×•×¨ ×ھ×©×œ×•×‌ ×œ×‍×©×ھ×‍×©: /approve <user_id>"""
     if update.effective_user is None or update.effective_user.id not in ADMIN_IDS:
         await update.effective_message.reply_text(
-            "אין לך הרשאה לבצע פעולה זו.\n"
-            "אם אתה חושב שזו טעות – דבר עם המתכנת: @OsifEU"
+            "×گ×™×ں ×œ×ڑ ×”×¨×©×گ×” ×œ×‘×¦×¢ ×¤×¢×•×œ×” ×–×•.\n"
+            "×گ×‌ ×گ×ھ×” ×—×•×©×‘ ×©×–×• ×ک×¢×•×ھ â€“ ×“×‘×¨ ×¢×‌ ×”×‍×ھ×›× ×ھ: @OsifEU"
         )
         return
 
     if not context.args:
-        await update.effective_message.reply_text("שימוש: /approve <user_id>")
+        await update.effective_message.reply_text("×©×™×‍×•×©: /approve <user_id>")
         return
 
     try:
         target_id = int(context.args[0])
     except ValueError:
-        await update.effective_message.reply_text("user_id חייב להיות מספרי.")
+        await update.effective_message.reply_text("user_id ×—×™×™×‘ ×œ×”×™×•×ھ ×‍×،×¤×¨×™.")
         return
 
     await do_approve(target_id, context, update.effective_message)
 
-
 async def reject_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """×“×—×™×™×ھ ×ھ×©×œ×•×‌ ×œ×‍×©×ھ×‍×©: /reject <user_id> <×،×™×‘×”>"""
     if update.effective_user is None or update.effective_user.id not in ADMIN_IDS:
         await update.effective_message.reply_text(
-            "אין לך הרשאה לבצע פעולה זו.\n"
-            "אם אתה חושב שזו טעות – דבר עם המתכנת: @OsifEU"
+            "×گ×™×ں ×œ×ڑ ×”×¨×©×گ×” ×œ×‘×¦×¢ ×¤×¢×•×œ×” ×–×•.\n"
+            "×گ×‌ ×گ×ھ×” ×—×•×©×‘ ×©×–×• ×ک×¢×•×ھ â€“ ×“×‘×¨ ×¢×‌ ×”×‍×ھ×›× ×ھ: @OsifEU"
         )
         return
 
     if len(context.args) < 2:
-        await update.effective_message.reply_text("שימוש: /reject <user_id> <סיבה>")
+        await update.effective_message.reply_text("×©×™×‍×•×©: /reject <user_id> <×،×™×‘×”>")
         return
 
     try:
         target_id = int(context.args[0])
     except ValueError:
-        await update.effective_message.reply_text("user_id חייב להיות מספרי.")
+        await update.effective_message.reply_text("user_id ×—×™×™×‘ ×œ×”×™×•×ھ ×‍×،×¤×¨×™.")
         return
 
     reason = " ".join(context.args[1:])
     await do_reject(target_id, reason, context, update.effective_message)
 
-
 # =========================
-# כפתורי אדמין (כולל בעלי בוט אישי)
-# =========================
-
-async def admin_approve_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    query = update.callback_query
-    await query.answer()
-    admin = query.from_user
-
-    data = query.data or ""
-    try:
-        _, rest = data.split(":", 1)
-        parts = rest.split(":")
-        user_id_str = parts[0]
-        target_id = int(user_id_str)
-        owner_id = int(parts[1]) if len(parts) > 1 else None
-    except Exception:
-        await query.answer("שגיאה בנתוני המשתמש.", show_alert=True)
-        return
-
-    # רק אדמין ראשי או בעל הבוט האישי (owner_id) יכול לאשר
-    if admin.id not in ADMIN_IDS and (owner_id is None or admin.id != owner_id):
-        await query.answer(
-            "אין לך הרשאה לאשר תשלום זה.\nאם אתה חושב שזו טעות – דבר עם @OsifEU",
-            show_alert=True,
-        )
-        return
-
-    await do_approve(target_id, context, query.message)
-
-
-async def admin_reject_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    query = update.callback_query
-    await query.answer()
-    admin = query.from_user
-
-    data = query.data or ""
-    try:
-        _, rest = data.split(":", 1)
-        parts = rest.split(":")
-        user_id_str = parts[0]
-        target_id = int(user_id_str)
-        owner_id = int(parts[1]) if len(parts) > 1 else None
-    except Exception:
-        await query.answer("שגיאה בנתוני המשתמש.", show_alert=True)
-        return
-
-    # רק אדמין ראשי או בעל הבוט האישי (owner_id) יכול לדחות
-    if admin.id not in ADMIN_IDS and (owner_id is None or admin.id != owner_id):
-        await query.answer(
-            "אין לך הרשאה לדחות תשלום זה.\nאם אתה חושב שזו טעות – דבר עם @OsifEU",
-            show_alert=True,
-        )
-        return
-
-    pending = get_pending_rejects(context)
-    pending[admin.id] = target_id
-
-    await query.message.reply_text(
-        f"❌ בחרת לדחות את התשלום של המשתמש {target_id}.\n"
-        "שלח עכשיו את סיבת הדחייה בהודעה אחת (טקסט), והיא תישלח אליו יחד עם צילום התשלום."
-    )
-
-
-async def admin_reject_reason_handler(
-    update: Update, context: ContextTypes.DEFAULT_TYPE
-) -> None:
-    user = update.effective_user
-    if user is None:
-        return
-
-    pending = get_pending_rejects(context)
-    if user.id not in pending:
-        # לא באמצע תהליך דחייה
-        return
-
-    target_id = pending.pop(user.id)
-    reason = update.message.text.strip()
-    await do_reject(target_id, reason, context, update.effective_message)
-
-
-# =========================
-# לוח מפנים / שיתופים / Rewards
+# Leaderboard / ×،×ک×ک×™×،×ک×™×§×•×ھ / Rewards â€“ ×¤×§×•×“×•×ھ ×گ×“×‍×™×ں
 # =========================
 
-async def admin_leaderboard_command(
-    update: Update, context: ContextTypes.DEFAULT_TYPE
-) -> None:
+async def admin_leaderboard_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """×œ×•×— ×‍×¤× ×™×‌ â€“ /leaderboard"""
     if update.effective_user is None or update.effective_user.id not in ADMIN_IDS:
         await update.effective_message.reply_text(
-            "אין לך הרשאה לצפות בלוח המפנים.\n"
-            "אם אתה חושב שזו טעות – דבר עם המתכנת: @OsifEU"
+            "×گ×™×ں ×œ×ڑ ×”×¨×©×گ×” ×œ×¦×¤×•×ھ ×‘×œ×•×— ×”×‍×¤× ×™×‌.\n"
+            "×گ×‌ ×گ×ھ×” ×—×•×©×‘ ×©×–×• ×ک×¢×•×ھ â€“ ×“×‘×¨ ×¢×‌ ×”×‍×ھ×›× ×ھ: @OsifEU"
         )
         return
 
     if not DB_AVAILABLE:
-        await update.effective_message.reply_text("DB לא פעיל כרגע.")
+        await update.effective_message.reply_text("DB ×œ×گ ×¤×¢×™×œ ×›×¨×’×¢.")
         return
 
     try:
-        rows = get_top_referrers(10)
+        rows: List[Dict[str, Any]] = get_top_referrers(10)
     except Exception as e:
         logger.error("Failed to get top referrers: %s", e)
-        await update.effective_message.reply_text("שגיאה בקריאת נתוני הפניות.")
+        await update.effective_message.reply_text("×©×’×™×گ×” ×‘×§×¨×™×گ×ھ × ×ھ×•× ×™ ×”×¤× ×™×•×ھ.")
         return
 
     if not rows:
-        await update.effective_message.reply_text("אין עדיין נתוני הפניות.")
+        await update.effective_message.reply_text("×گ×™×ں ×¢×“×™×™×ں × ×ھ×•× ×™ ×”×¤× ×™×•×ھ.")
         return
 
-    lines = ["🏆 *לוח מפנים – Top 10* \n"]
+    lines = ["ًںڈ† *×œ×•×— ×‍×¤× ×™×‌ â€“ Top 10* \n"]
     rank = 1
     for row in rows:
         rid = row["referrer_id"]
         uname = row["username"] or f"ID {rid}"
         total = row["total_referrals"]
         points = row["total_points"]
-        lines.append(f"{rank}. {uname} – {total} הפניות ({points} נק׳)")
+        lines.append(f"{rank}. {uname} â€“ {total} ×”×¤× ×™×•×ھ ({points} × ×§×³)")
         rank += 1
 
     await update.effective_message.reply_text(
-        "\n".join(lines), parse_mode="Markdown"
+        "\n".join(lines),
+        parse_mode="Markdown",
     )
 
-
-async def admin_payments_stats_command(
-    update: Update, context: ContextTypes.DEFAULT_TYPE
-) -> None:
+async def admin_payments_stats_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """×“×•×— ×ھ×©×œ×•×‍×™×‌ â€“ /payments_stats"""
     if update.effective_user is None or update.effective_user.id not in ADMIN_IDS:
         await update.effective_message.reply_text(
-            "אין לך הרשאה לצפות בסטטיסטיקות.\n"
-            "אם אתה צריך גישה – דבר עם המתכנת: @OsifEU"
+            "×گ×™×ں ×œ×ڑ ×”×¨×©×گ×” ×œ×¦×¤×•×ھ ×‘×،×ک×ک×™×،×ک×™×§×•×ھ.\n"
+            "×گ×‌ ×گ×ھ×” ×¦×¨×™×ڑ ×’×™×©×” â€“ ×“×‘×¨ ×¢×‌ ×”×‍×ھ×›× ×ھ: @OsifEU"
         )
         return
 
     if not DB_AVAILABLE:
-        await update.effective_message.reply_text("DB לא פעיל כרגע.")
+        await update.effective_message.reply_text("DB ×œ×گ ×¤×¢×™×œ ×›×¨×’×¢.")
         return
 
     now = datetime.utcnow()
-    year, month = now.year, now.month
+    year = now.year
+    month = now.month
 
     try:
         rows = get_monthly_payments(year, month)
         stats = get_approval_stats()
     except Exception as e:
         logger.error("Failed to get payment stats: %s", e)
-        await update.effective_message.reply_text("שגיאה בקריאת נתוני תשלום.")
+        await update.effective_message.reply_text("×©×’×™×گ×” ×‘×§×¨×™×گ×ھ × ×ھ×•× ×™ ×ھ×©×œ×•×‌.")
         return
 
-    lines = [f"📊 *דוח תשלומים – {month:02d}/{year}* \n"]
+    lines = [f"ًں“ٹ *×“×•×— ×ھ×©×œ×•×‍×™×‌ â€“ {month:02d}/{year}* \n"]
 
     if rows:
-        lines.append("*לפי אמצעי תשלום וסטטוס:*")
+        lines.append("*×œ×¤×™ ×گ×‍×¦×¢×™ ×ھ×©×œ×•×‌ ×•×،×ک×ک×•×،:*")
         for row in rows:
             lines.append(f"- {row['pay_method']} / {row['status']}: {row['count']}")
     else:
-        lines.append("אין תשלומים בחודש זה.")
+        lines.append("×گ×™×ں ×ھ×©×œ×•×‍×™×‌ ×‘×—×•×“×© ×–×”.")
 
     if stats and stats.get("total", 0) > 0:
         total = stats["total"]
@@ -1016,36 +840,38 @@ async def admin_payments_stats_command(
         rejected = stats["rejected"]
         pending = stats["pending"]
         approval_rate = round(approved * 100 / total, 1) if total else 0.0
-        lines.append("\n*סטטוס כללי:*")
-        lines.append(f"- אושרו: {approved}")
-        lines.append(f"- נדחו: {rejected}")
-        lines.append(f"- ממתינים: {pending}")
-        lines.append(f"- אחוז אישור: {approval_rate}%")
+        lines.append("\n*×،×ک×ک×•×، ×›×œ×œ×™:*")
+        lines.append(f"- ×گ×•×©×¨×•: {approved}")
+        lines.append(f"- × ×“×—×•: {rejected}")
+        lines.append(f"- ×‍×‍×ھ×™× ×™×‌: {pending}")
+        lines.append(f"- ×گ×—×•×– ×گ×™×©×•×¨: {approval_rate}%")
     else:
-        lines.append("\nאין עדיין נתונים כלליים.")
+        lines.append("\n×گ×™×ں ×¢×“×™×™×ں × ×ھ×•× ×™×‌ ×›×œ×œ×™×™×‌.")
 
     await update.effective_message.reply_text(
-        "\n".join(lines), parse_mode="Markdown"
+        "\n".join(lines),
+        parse_mode="Markdown",
     )
 
-
-async def admin_reward_slh_command(
-    update: Update, context: ContextTypes.DEFAULT_TYPE
-) -> None:
+async def admin_reward_slh_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """
+    ×™×¦×™×¨×ھ Reward ×™×“× ×™ ×œ×‍×©×ھ×‍×© â€“ ×œ×“×•×’×‍×”:
+    /reward_slh <user_id> <points> <reason...>
+    """
     if update.effective_user is None or update.effective_user.id not in ADMIN_IDS:
         await update.effective_message.reply_text(
-            "אין לך הרשאה ליצור Rewards.\n"
-            "אם אתה צריך גישה – דבר עם המתכנת: @OsifEU"
+            "×گ×™×ں ×œ×ڑ ×”×¨×©×گ×” ×œ×™×¦×•×¨ Rewards.\n"
+            "×گ×‌ ×گ×ھ×” ×¦×¨×™×ڑ ×’×™×©×” â€“ ×“×‘×¨ ×¢×‌ ×”×‍×ھ×›× ×ھ: @OsifEU"
         )
         return
 
     if not DB_AVAILABLE:
-        await update.effective_message.reply_text("DB לא פעיל כרגע.")
+        await update.effective_message.reply_text("DB ×œ×گ ×¤×¢×™×œ ×›×¨×’×¢.")
         return
 
     if len(context.args) < 3:
         await update.effective_message.reply_text(
-            "שימוש: /reward_slh <user_id> <points> <reason...>"
+            "×©×™×‍×•×©: /reward_slh <user_id> <points> <reason...>"
         )
         return
 
@@ -1053,9 +879,7 @@ async def admin_reward_slh_command(
         target_id = int(context.args[0])
         points = int(context.args[1])
     except ValueError:
-        await update.effective_message.reply_text(
-            "user_id ו-points חייבים להיות מספריים."
-        )
+        await update.effective_message.reply_text("user_id ×•-points ×—×™×™×‘×™×‌ ×œ×”×™×•×ھ ×‍×،×¤×¨×™×™×‌.")
         return
 
     reason = " ".join(context.args[2:])
@@ -1064,255 +888,225 @@ async def admin_reward_slh_command(
         create_reward(target_id, "SLH", reason, points)
     except Exception as e:
         logger.error("Failed to create reward: %s", e)
-        await update.effective_message.reply_text("שגיאה ביצירת Reward.")
+        await update.effective_message.reply_text("×©×’×™×گ×” ×‘×™×¦×™×¨×ھ Reward.")
         return
 
+    # ×”×•×“×¢×” ×œ×‍×©×ھ×‍×© (×¢×“×™×™×ں ×œ×œ×گ mint ×گ×‍×™×ھ×™ â€“ ×œ×•×’×™)
     try:
         await update.effective_message.reply_text(
-            f"נוצר Reward SLH למשתמש {target_id} ({points} נק׳): {reason}"
+            f"× ×•×¦×¨ Reward SLH ×œ×‍×©×ھ×‍×© {target_id} ({points} × ×§×³): {reason}"
         )
 
         await ptb_app.bot.send_message(
             chat_id=target_id,
             text=(
-                "🎁 קיבלת Reward על הפעילות שלך בקהילה!\n\n"
-                f"סוג: *SLH* ({points} נק׳)\n"
-                f"סיבה: {reason}\n\n"
-                "Reward זה יצטרף למאזן שלך ויהווה בסיס להנפקת מטבעות/נכסים "
-                "דיגיטליים בעתיד."
+                "ًںژپ ×§×™×‘×œ×ھ Reward ×¢×œ ×”×¤×¢×™×œ×•×ھ ×©×œ×ڑ ×‘×§×”×™×œ×”!\n\n"
+                f"×،×•×’: *SLH* ({points} × ×§×³)\n"
+                f"×،×™×‘×”: {reason}\n\n"
+                "Reward ×–×” ×™×گ×،×£ ×œ×‍×گ×–×ں ×©×œ×ڑ ×•×™×گ×¤×©×¨ ×”× ×¤×§×ھ ×‍×ک×‘×¢×•×ھ/× ×›×،×™×‌ "
+                "×“×™×’×™×ک×œ×™×™×‌ ×œ×¤×™ ×”×‍×“×™× ×™×•×ھ ×©×ھ×¤×•×¨×،×‌ ×‘×§×”×™×œ×”."
             ),
             parse_mode="Markdown",
         )
     except Exception as e:
         logger.error("Failed to notify user about reward: %s", e)
 
-
-async def share_board_command(
-    update: Update, context: ContextTypes.DEFAULT_TYPE
-) -> None:
-    """לוח שיתופים ציבורי – /share_board (לא רק אדמין)"""
-    if not DB_AVAILABLE:
-        await update.effective_message.reply_text(
-            "לוח השיתופים לא פעיל כרגע (DB כבוי)."
-        )
-        return
-
-    try:
-        rows = get_top_sharers(20)
-    except Exception as e:
-        logger.error("Failed to get top sharers: %s", e)
-        await update.effective_message.reply_text("שגיאה בקריאת נתוני שיתופים.")
-        return
-
-    if not rows:
-        await update.effective_message.reply_text("אין עדיין נקודות על שיתופים.")
-        return
-
-    lines = ["📣 *לוח שיתופים – Top 20* \n"]
-    rank = 1
-    for row in rows:
-        uid = row["user_id"]
-        uname = row["username"] or f"ID {uid}"
-        pts = row["total_points"]
-        lines.append(f"{rank}. {uname} – {pts} נק׳ שיתוף")
-        rank += 1
-
-    await update.effective_message.reply_text(
-        "\n".join(lines), parse_mode="Markdown"
-    )
-
-
 # =========================
-# פאנל מפיץ זוטר – /set_bank /my_panel
+# ×گ×™×©×•×¨/×“×—×™×™×” â€“ ×›×¤×ھ×•×¨×™ ×گ×“×‍×™×ں
 # =========================
 
-async def set_bank_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    user = update.effective_user
-    if user is None:
-        return
-
-    if not DB_AVAILABLE:
-        await update.effective_message.reply_text(
-            "שמירת פרטי הבנק זמינה רק כשה-DB פעיל."
-        )
-        return
-
-    if not context.args:
-        await update.effective_message.reply_text(
-            "שימוש: /set_bank <פרטי הבנק בשורה אחת>\n"
-            "לדוגמה:\n"
-            "/set_bank בנק הפועלים, סניף 153, חשבון 123456, המוטב: ישראל ישראלי"
-        )
-        return
-
-    bank_details = " ".join(context.args)
-
-    try:
-        set_promoter_bank(user.id, bank_details)
-    except Exception as e:
-        logger.error("Failed to set promoter bank: %s", e)
-        await update.effective_message.reply_text("שגיאה בשמירת פרטי הבנק.")
-        return
-
-    await update.effective_message.reply_text(
-        "פרטי הבנק שלך נשמרו כמפיץ ✅\n"
-        "משתמשים שיגיעו דרך הלינק האישי שלך ויבחרו תשלום בהעברה בנקאית "
-        "יקבלו את פרטי הבנק האלה לתשלום."
-    )
-
-
-async def my_panel_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    user = update.effective_user
-    if user is None:
-        return
-
-    user_id = user.id
-
-    base_bot_url = f"https://t.me/{BOT_USERNAME}"
-    share_link = f"{base_bot_url}?start=ref{user_id}"
-    points = get_share_points(user_id) if DB_AVAILABLE else 0
-    bank_details = None
-
-    if DB_AVAILABLE:
-        try:
-            bank_details = get_promoter_bank(user_id)
-        except Exception as e:
-            logger.error("Failed to get promoter bank in my_panel: %s", e)
-
-    bank_text = (
-        bank_details
-        if bank_details
-        else "לא הוגדרו עדיין פרטי בנק אישיים. השתמש ב-/set_bank כדי להגדיר."
-    )
-
-    text = (
-        "📊 *פאנל מפיץ אישי*\n\n"
-        f"user_id: `{user_id}`\n\n"
-        f"*נקודות שיתוף שצברת:* {points}\n\n"
-        "*פרטי בנק למקבלי תשלום מההפניות שלך:*\n"
-        f"{bank_text}\n\n"
-        "*לינק הפניה אישי לבוט:*\n"
-        f"{share_link}\n\n"
-        "פקודות זמינות:\n"
-        "/set_bank – הגדרת/עדכון פרטי בנק\n"
-        "/share_board – צפייה בלוח השיתופים הכללי\n"
-    )
-
-    await update.effective_message.reply_text(text, parse_mode="Markdown")
-
-
-# =========================
-# help / admin menu
-# =========================
-
-async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    message = update.message or update.effective_message
-    if not message:
-        return
-
-    text = (
-        "/start – פתיחת שער הקהילה\n"
-        "/help – עזרה\n"
-        "/my_panel – פאנל מפיץ אישי (למי שהצטרף)\n"
-        "/share_board – לוח שיתופים ציבורי\n\n"
-        "לאחר תשלום – שלח צילום מסך של האישור לבוט.\n\n"
-        "למארגנים / אדמינים:\n"
-        "/admin – תפריט אדמין\n"
-        "/leaderboard – לוח מפנים\n"
-        "/payments_stats – דוח תשלומים\n"
-        "/reward_slh – יצירת Reward SLH\n"
-        "/approve / /reject – ניהול תשלומים\n"
-    )
-
-    await message.reply_text(text)
-
-
-async def admin_menu_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    if update.effective_user is None or update.effective_user.id not in ADMIN_IDS:
-        await update.effective_message.reply_text(
-            "אין לך הרשאה לתפריט אדמין.\n"
-            "אם אתה צריך גישה – דבר עם המתכנת: @OsifEU"
-        )
-        return
-
-    text = (
-        "🛠 *תפריט אדמין – Buy My Shop*\n\n"
-        "בחר אחת מהאפשרויות:\n"
-        "• סטטוס מערכת (DB, Webhook, לינקים)\n"
-        "• מוני תמונת שער\n"
-        "• רעיונות לפיצ'רים עתידיים\n\n"
-        "פקודות נוספות:\n"
-        "/leaderboard – לוח מפנים\n"
-        "/payments_stats – דוח תשלומים\n"
-        "/reward_slh – יצירת Reward SLH\n"
-    )
-
-    await update.effective_message.reply_text(
-        text, parse_mode="Markdown", reply_markup=admin_menu_keyboard()
-    )
-
-
-async def admin_menu_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+async def admin_approve_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """×›×¤×ھ×•×¨ '×گ×©×¨ ×ھ×©×œ×•×‌' ×‘×œ×•×’×™×‌"""
     query = update.callback_query
     await query.answer()
     admin = query.from_user
 
     if admin.id not in ADMIN_IDS:
         await query.answer(
-            "אין לך הרשאה.\nאם אתה חושב שזו טעות – דבר עם @OsifEU",
+            "×گ×™×ں ×œ×ڑ ×”×¨×©×گ×”.\n×گ×‌ ×گ×ھ×” ×—×•×©×‘ ×©×–×• ×ک×¢×•×ھ â€“ ×“×‘×¨ ×¢×‌ @OsifEU",
+            show_alert=True,
+        )
+        return
+
+    data = query.data or ""
+    try:
+        _, user_id_str = data.split(":", 1)
+        target_id = int(user_id_str)
+    except Exception:
+        await query.answer("×©×’×™×گ×” ×‘× ×ھ×•× ×™ ×”×‍×©×ھ×‍×©.", show_alert=True)
+        return
+
+    await do_approve(target_id, context, query.message)
+
+async def admin_reject_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """×›×¤×ھ×•×¨ '×“×—×” ×ھ×©×œ×•×‌' â€“ ×‍×‘×§×© ×‍×”×گ×“×‍×™×ں ×،×™×‘×” ×‘×”×•×“×¢×” ×”×‘×گ×” ×©×œ×•"""
+    query = update.callback_query
+    await query.answer()
+    admin = query.from_user
+
+    if admin.id not in ADMIN_IDS:
+        await query.answer(
+            "×گ×™×ں ×œ×ڑ ×”×¨×©×گ×”.\n×گ×‌ ×گ×ھ×” ×—×•×©×‘ ×©×–×• ×ک×¢×•×ھ â€“ ×“×‘×¨ ×¢×‌ @OsifEU",
+            show_alert=True,
+        )
+        return
+
+    data = query.data or ""
+    try:
+        _, user_id_str = data.split(":", 1)
+        target_id = int(user_id_str)
+    except Exception:
+        await query.answer("×©×’×™×گ×” ×‘× ×ھ×•× ×™ ×”×‍×©×ھ×‍×©.", show_alert=True)
+        return
+
+    pending = get_pending_rejects(context)
+    pending[admin.id] = target_id
+
+    await query.message.reply_text(
+        f"â‌Œ ×‘×—×¨×ھ ×œ×“×—×•×ھ ×گ×ھ ×”×ھ×©×œ×•×‌ ×©×œ ×”×‍×©×ھ×‍×© {target_id}.\n"
+        "×©×œ×— ×¢×›×©×™×• ×گ×ھ ×،×™×‘×ھ ×”×“×—×™×™×” ×‘×”×•×“×¢×” ×گ×—×ھ (×ک×§×،×ک), ×•×”×™×گ ×ھ×™×©×œ×— ×گ×œ×™×• ×™×—×“ ×¢×‌ ×¦×™×œ×•×‌ ×”×ھ×©×œ×•×‌."
+    )
+
+async def admin_reject_reason_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """
+    ×”×•×“×¢×ھ ×ک×§×،×ک ×‍×گ×“×‍×™×ں ×گ×—×¨×™ ×©×œ×—×¥ '×“×—×” ×ھ×©×œ×•×‌':
+    ×‍×©×ھ×‍×©×™×‌ ×‘×–×” ×›×،×™×‘×” ×œ×“×—×™×™×”.
+    """
+    user = update.effective_user
+    if user is None or user.id not in ADMIN_IDS:
+        return
+
+    pending = get_pending_rejects(context)
+    if user.id not in pending:
+        return  # ×گ×™×ں ×“×—×™×™×” ×‍×‍×ھ×™× ×” ×¢×‘×•×¨ ×”×گ×“×‍×™×ں ×”×–×”
+
+    target_id = pending.pop(user.id)
+    reason = update.message.text.strip()
+    await do_reject(target_id, reason, context, update.effective_message)
+
+# =========================
+# ×¢×–×¨×” + ×ھ×¤×¨×™×ک ×گ×“×‍×™×ں
+# =========================
+
+async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """×¢×–×¨×” ×‘×،×™×،×™×ھ"""
+    message = update.message or update.effective_message
+    if not message:
+        return
+
+    text = (
+        "/start â€“ ×”×ھ×—×œ×” ×‍×—×“×© ×•×ھ×¤×¨×™×ک ×¨×گ×©×™\n"
+        "/help â€“ ×¢×–×¨×”\n\n"
+        "×گ×—×¨×™ ×‘×™×¦×•×¢ ×ھ×©×œ×•×‌ â€“ ×©×œ×— ×¦×™×œ×•×‌ ×‍×،×ڑ ×©×œ ×”×گ×™×©×•×¨ ×œ×‘×•×ک.\n\n"
+        "×œ×©×™×ھ×•×£ ×©×¢×¨ ×”×§×”×™×œ×”: ×›×¤×ھ×•×¨ 'ًں”— ×©×ھ×£ ×گ×ھ ×©×¢×¨ ×”×§×”×™×œ×”' ×‘×ھ×¤×¨×™×ک ×”×¨×گ×©×™.\n\n"
+        "×œ×‍×گ×¨×’× ×™×‌ / ×گ×“×‍×™× ×™×‌:\n"
+        "/admin â€“ ×ھ×¤×¨×™×ک ×گ×“×‍×™×ں\n"
+        "/leaderboard â€“ ×œ×•×— ×‍×¤× ×™×‌ (Top 10)\n"
+        "/payments_stats â€“ ×،×ک×ک×™×،×ک×™×§×•×ھ ×ھ×©×œ×•×‍×™×‌\n"
+        "/reward_slh <user_id> <points> <reason> â€“ ×™×¦×™×¨×ھ Reward ×œ-SLH\n"
+        "/approve <user_id> â€“ ×گ×™×©×•×¨ ×ھ×©×œ×•×‌\n"
+        "/reject <user_id> <×،×™×‘×”> â€“ ×“×—×™×™×ھ ×ھ×©×œ×•×‌\n"
+        "×گ×• ×©×™×‍×•×© ×‘×›×¤×ھ×•×¨×™ ×”×گ×™×©×•×¨/×“×—×™×™×” ×œ×™×“ ×›×œ ×ھ×©×œ×•×‌ ×‘×œ×•×’×™×‌."
+    )
+
+    await message.reply_text(text)
+
+async def admin_menu_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """×¤×§×•×“×ھ /admin â€“ ×ھ×¤×¨×™×ک ×گ×“×‍×™×ں"""
+    if update.effective_user is None or update.effective_user.id not in ADMIN_IDS:
+        await update.effective_message.reply_text(
+            "×گ×™×ں ×œ×ڑ ×”×¨×©×گ×” ×œ×ھ×¤×¨×™×ک ×گ×“×‍×™×ں.\n"
+            "×گ×‌ ×گ×ھ×” ×¦×¨×™×ڑ ×’×™×©×” â€“ ×“×‘×¨ ×¢×‌ ×”×‍×ھ×›× ×ھ: @OsifEU"
+        )
+        return
+
+    text = (
+        "ًں›  *×ھ×¤×¨×™×ک ×گ×“×‍×™×ں â€“ Buy My Shop*\n\n"
+        "×‘×—×¨ ×گ×—×ھ ×‍×”×گ×¤×©×¨×•×™×•×ھ:\n"
+        "â€¢ ×،×ک×ک×•×، ×‍×¢×¨×›×ھ (DB, Webhook, ×œ×™× ×§×™×‌)\n"
+        "â€¢ ×‍×•× ×™ ×ھ×‍×•× ×ھ ×©×¢×¨ (×›×‍×” ×¤×¢×‍×™×‌ ×”×•×¦×’×”/× ×©×œ×—×”)\n"
+        "â€¢ ×¨×¢×™×•× ×•×ھ ×œ×¤×™×¦'×¨×™×‌ ×¢×ھ×™×“×™×™×‌ ×œ×‘×•×ک\n\n"
+        "×¤×§×•×“×•×ھ × ×•×،×¤×•×ھ:\n"
+        "/leaderboard â€“ ×œ×•×— ×‍×¤× ×™×‌\n"
+        "/payments_stats â€“ ×“×•×— ×ھ×©×œ×•×‍×™×‌\n"
+        "/reward_slh â€“ ×™×¦×™×¨×ھ Reward SLH\n"
+    )
+
+    await update.effective_message.reply_text(
+        text,
+        parse_mode="Markdown",
+        reply_markup=admin_menu_keyboard(),
+    )
+
+async def admin_menu_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """×ک×™×¤×•×œ ×‘×›×¤×ھ×•×¨×™ ×ھ×¤×¨×™×ک ×”×گ×“×‍×™×ں"""
+    query = update.callback_query
+    await query.answer()
+    admin = query.from_user
+
+    if admin.id not in ADMIN_IDS:
+        await query.answer(
+            "×گ×™×ں ×œ×ڑ ×”×¨×©×گ×”.\n×گ×‌ ×گ×ھ×” ×—×•×©×‘ ×©×–×• ×ک×¢×•×ھ â€“ ×“×‘×¨ ×¢×‌ @OsifEU",
             show_alert=True,
         )
         return
 
     data = query.data
 
+    app_data = context.application.bot_data
+    views = app_data.get("start_image_views", 0)
+    downloads = app_data.get("start_image_downloads", 0)
+
     if data == "adm_status":
-        views = get_metric("start_image_views") if DB_AVAILABLE else 0
-        downloads = get_metric("start_image_downloads") if DB_AVAILABLE else 0
         text = (
-            "📊 *סטטוס מערכת*\n\n"
-            f"• DB: {'פעיל' if DB_AVAILABLE else 'כבוי'}\n"
-            f"• Webhook URL: `{WEBHOOK_URL}`\n"
-            f"• LANDING_URL: `{LANDING_URL}`\n"
-            f"• PAYBOX_URL: `{PAYBOX_URL}`\n"
-            f"• BIT_URL: `{BIT_URL}`\n"
-            f"• PAYPAL_URL: `{PAYPAL_URL}`\n\n"
-            "מוני תמונה (מה-DB):\n"
-            f"• הצגות: {views}\n"
-            f"• עותקים ממוספרים: {downloads}\n"
+            "ًں“ٹ *×،×ک×ک×•×، ×‍×¢×¨×›×ھ*\n\n"
+            f"â€¢ DB: {'×¤×¢×™×œ' if DB_AVAILABLE else '×›×‘×•×™'}\n"
+            f"â€¢ Webhook URL: `{WEBHOOK_URL}`\n"
+            f"â€¢ LANDING_URL: `{LANDING_URL}`\n"
+            f"â€¢ PAYBOX_URL: `{PAYBOX_URL}`\n"
+            f"â€¢ BIT_URL: `{BIT_URL}`\n"
+            f"â€¢ PAYPAL_URL: `{PAYPAL_URL}`\n"
         )
         await query.message.edit_text(
-            text, parse_mode="Markdown", reply_markup=admin_menu_keyboard()
+            text,
+            parse_mode="Markdown",
+            reply_markup=admin_menu_keyboard(),
         )
 
     elif data == "adm_counters":
-        views = get_metric("start_image_views") if DB_AVAILABLE else 0
-        downloads = get_metric("start_image_downloads") if DB_AVAILABLE else 0
         text = (
-            "📈 *מוני תמונת שער*\n\n"
-            f"• מספר הצגות (start): {views}\n"
-            f"• עותקים ממוספרים שנשלחו אחרי אישור: {downloads}\n"
-            "הנתונים נשמרים ב-DB ולא מתאפסים בהפעלה מחדש."
+            "ًں“ˆ *×‍×•× ×™ ×ھ×‍×•× ×ھ ×©×¢×¨*\n\n"
+            f"â€¢ ×‍×،×¤×¨ ×”×¦×’×•×ھ (start): {views}\n"
+            f"â€¢ ×¢×•×ھ×§×™×‌ ×‍×‍×•×،×¤×¨×™×‌ ×©× ×©×œ×—×• ×گ×—×¨×™ ×گ×™×©×•×¨: {downloads}\n\n"
+            "×”×‍×•× ×™×‌ ×‍×گ×•×¤×،×™×‌ ×‘×›×œ ×”×¤×¢×œ×” ×‍×—×“×© ×©×œ ×”×‘×•×ک (in-memory)."
         )
         await query.message.edit_text(
-            text, parse_mode="Markdown", reply_markup=admin_menu_keyboard()
+            text,
+            parse_mode="Markdown",
+            reply_markup=admin_menu_keyboard(),
         )
 
     elif data == "adm_ideas":
         text = (
-            "💡 *רעיונות לפיצ'רים עתידיים לבוט*\n\n"
-            "1. טבלת ניקוד דינמית באתר על בסיס API ציבורי.\n"
-            "2. אינטגרציה מלאה ל-NFT/SLH.\n"
-            "3. משימות יומיות עם נקודות ותוכן אוטומטי מבוט נוסף.\n"
-            "4. Dashboard וובי מפורט לניתוח פעילות.\n"
+            "ًں’، *×¨×¢×™×•× ×•×ھ ×œ×¤×™×¦'×¨×™×‌ ×¢×ھ×™×“×™×™×‌ ×œ×‘×•×ک*\n\n"
+            "1. ×‍×¢×¨×›×ھ × ×™×§×•×“ ×‍×œ×گ×” ×œ×‍×¤× ×™×‌ (Leaderboard ×‘×§×‘×•×¦×”).\n"
+            "2. ×“×•×—×•×ھ ×‍×ھ×§×“×‍×™×‌ ×™×•×ھ×¨ ×‘-DB:\n"
+            "   â€¢ ×¤×™×œ×•×— ×œ×¤×™ ×–×‍× ×™×‌\n"
+            "   â€¢ ×¤×™×œ×•×— ×œ×¤×™ ×‍×§×•×¨ ×”×¤× ×™×”.\n"
+            "3. ×”× ×¤×§×ھ × ×›×،×™×‌ ×“×™×’×™×ک×œ×™×™×‌ (NFT / SLH) ×گ×•×ک×•×‍×ک×™×ھ ×œ×‍×©×ھ×ھ×¤×™×‌:\n"
+            "   â€¢ ×œ×¤×™ ×‍×،×¤×¨ ×”×¤× ×™×•×ھ\n"
+            "   â€¢ ×œ×¤×™ ×¨×‍×ھ ×¤×¢×™×œ×•×ھ ×‘×§×”×™×œ×”.\n"
+            "4. ×“×©×‘×•×¨×“ ×•×•×‘×™ ×§×ک×ں (Read-only) ×œ×”×¦×’×ھ ×”×،×ک×ک×™×،×ک×™×§×•×ھ.\n"
+            "5. ×گ×™× ×ک×’×¨×¦×™×” ×¢×‌ ×‘×•×ک×™ ×ھ×•×›×ں / ×§×•×•×،×ک×™×‌ ×©×‍×–×™× ×™×‌ ×گ×ھ ×گ×•×ھ×” ×‍×¢×¨×›×ھ × ×§×•×“×•×ھ.\n"
         )
         await query.message.edit_text(
-            text, parse_mode="Markdown", reply_markup=admin_menu_keyboard()
+            text,
+            parse_mode="Markdown",
+            reply_markup=admin_menu_keyboard(),
         )
 
-
 # =========================
-# register handlers
+# ×¨×™×©×•×‌ handlers
 # =========================
 
 ptb_app.add_handler(CommandHandler("start", start))
@@ -1323,9 +1117,6 @@ ptb_app.add_handler(CommandHandler("reject", reject_command))
 ptb_app.add_handler(CommandHandler("leaderboard", admin_leaderboard_command))
 ptb_app.add_handler(CommandHandler("payments_stats", admin_payments_stats_command))
 ptb_app.add_handler(CommandHandler("reward_slh", admin_reward_slh_command))
-ptb_app.add_handler(CommandHandler("set_bank", set_bank_command))
-ptb_app.add_handler(CommandHandler("my_panel", my_panel_command))
-ptb_app.add_handler(CommandHandler("share_board", share_board_command))
 
 ptb_app.add_handler(CallbackQueryHandler(info_callback, pattern="^info$"))
 ptb_app.add_handler(CallbackQueryHandler(join_callback, pattern="^join$"))
@@ -1333,37 +1124,40 @@ ptb_app.add_handler(CallbackQueryHandler(support_callback, pattern="^support$"))
 ptb_app.add_handler(CallbackQueryHandler(share_callback, pattern="^share$"))
 ptb_app.add_handler(CallbackQueryHandler(back_main_callback, pattern="^back_main$"))
 ptb_app.add_handler(CallbackQueryHandler(payment_method_callback, pattern="^pay_"))
-ptb_app.add_handler(
-    CallbackQueryHandler(admin_menu_callback, pattern="^adm_(status|counters|ideas)$")
-)
+ptb_app.add_handler(CallbackQueryHandler(admin_menu_callback, pattern="^adm_(status|counters|ideas)$"))
 ptb_app.add_handler(CallbackQueryHandler(admin_approve_callback, pattern="^adm_approve:"))
 ptb_app.add_handler(CallbackQueryHandler(admin_reject_callback, pattern="^adm_reject:"))
 
-ptb_app.add_handler(
-    MessageHandler(filters.PHOTO & filters.ChatType.PRIVATE, handle_payment_photo)
-)
-ptb_app.add_handler(
-    MessageHandler(filters.TEXT & filters.ALL, admin_reject_reason_handler)
-)
+# ×›×œ ×ھ×‍×•× ×” ×‘×¤×¨×ک×™ â€“ × × ×™×— ×›×گ×™×©×•×¨ ×ھ×©×œ×•×‌
+ptb_app.add_handler(MessageHandler(filters.PHOTO & filters.ChatType.PRIVATE, handle_payment_photo))
 
+# ×”×•×“×¢×ھ ×ک×§×،×ک ×‍×گ×“×‍×™×ں â€“ ×گ×‌ ×™×© ×“×—×™×™×” ×‍×‍×ھ×™× ×”
+ptb_app.add_handler(MessageHandler(filters.TEXT & filters.User(list(ADMIN_IDS)), admin_reject_reason_handler))
 
 # =========================
-# JobQueue – reminder
+# JobQueue â€“ ×ھ×–×›×•×¨×ھ ×›×œ 6 ×™×‍×™×‌ ×œ×¢×“×›×•×ں ×œ×™× ×§×™×‌
 # =========================
 
 async def remind_update_links(context: ContextTypes.DEFAULT_TYPE) -> None:
     await send_start_image(context, PAYMENTS_LOG_CHAT_ID, mode="reminder")
 
-
 # =========================
-# FastAPI + webhook
+# FastAPI + lifespan
 # =========================
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    """
+    ×‘×–×‍×ں ×¢×œ×™×™×ھ ×”×©×¨×ھ:
+    1. ×‍×’×“×™×¨×™×‌ webhook ×‘-Telegram ×œ-WEBHOOK_URL
+    2. ×‍×¤×¢×™×œ×™×‌ ×گ×ھ ×گ×¤×œ×™×§×¦×™×™×ھ ×”-Telegram
+    3. ×‍×¤×¢×™×œ×™×‌ JobQueue ×œ×ھ×–×›×•×¨×ھ ×›×œ 6 ×™×‍×™×‌
+    4. ×گ×‌ ×™×© DB â€“ ×‍×¨×™×‍×™×‌ schema
+    """
     logger.info("Setting Telegram webhook to %s", WEBHOOK_URL)
     await ptb_app.bot.setWebhook(url=WEBHOOK_URL, allowed_updates=Update.ALL_TYPES)
 
+    # init DB schema ×گ×‌ ×–×‍×™×ں
     if DB_AVAILABLE:
         try:
             init_schema()
@@ -1375,38 +1169,32 @@ async def lifespan(app: FastAPI):
         logger.info("Starting Telegram Application")
         await ptb_app.start()
 
+        # ×ھ×–×›×•×¨×ھ ×›×œ 6 ×™×‍×™×‌
         if ptb_app.job_queue:
             ptb_app.job_queue.run_repeating(
                 remind_update_links,
-                interval=6 * 24 * 60 * 60,
+                interval=6 * 24 * 60 * 60,  # 6 ×™×‍×™×‌ ×‘×©× ×™×•×ھ
                 first=6 * 24 * 60 * 60,
             )
 
         yield
-
         logger.info("Stopping Telegram Application")
         await ptb_app.stop()
 
-
 app = FastAPI(lifespan=lifespan)
 
-# לאפשר ל-GitHub Pages / דף המשחק למשוך את ה-API הציבורי
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=False,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
-
+# =========================
+# Routes â€“ Webhook + Health + Admin Stats API
+# =========================
 
 @app.post("/webhook")
 async def telegram_webhook(request: Request) -> Response:
+    """× ×§×•×“×ھ ×”-webhook ×©×ک×œ×’×¨×‌ ×§×•×¨×گ ×گ×œ×™×”"""
     data = await request.json()
     update = Update.de_json(data, ptb_app.bot)
 
     if is_duplicate_update(update):
-        logger.warning("Duplicate update_id=%s – ignoring", update.update_id)
+        logger.warning("Duplicate update_id=%s â€“ ignoring", update.update_id)
         return Response(status_code=HTTPStatus.OK.value)
 
     await ptb_app.process_update(update)
@@ -1415,6 +1203,7 @@ async def telegram_webhook(request: Request) -> Response:
 
 @app.get("/health")
 async def health():
+    """Healthcheck ×œ-Railway / × ×™×ک×•×¨"""
     return {
         "status": "ok",
         "service": "telegram-gateway-community-bot",
@@ -1424,6 +1213,10 @@ async def health():
 
 @app.get("/admin/stats")
 async def admin_stats(token: str = ""):
+    """
+    ×“×©×‘×•×¨×“ API ×§×ک×ں ×œ×§×¨×™×گ×” ×‘×œ×‘×“.
+    ×œ×”×©×ھ×‍×© ×‘-ADMIN_DASH_TOKEN ×‘-ENV.
+    """
     if not ADMIN_DASH_TOKEN or token != ADMIN_DASH_TOKEN:
         raise HTTPException(status_code=401, detail="Unauthorized")
 
@@ -1434,7 +1227,6 @@ async def admin_stats(token: str = ""):
         stats = get_approval_stats()
         monthly = get_monthly_payments(datetime.utcnow().year, datetime.utcnow().month)
         top_ref = get_top_referrers(5)
-        top_share = get_top_sharers(5)
     except Exception as e:
         logger.error("Failed to get admin stats: %s", e)
         raise HTTPException(status_code=500, detail="DB error")
@@ -1444,33 +1236,5 @@ async def admin_stats(token: str = ""):
         "payments_stats": stats,
         "monthly_breakdown": monthly,
         "top_referrers": top_ref,
-        "top_sharers": top_share,
     }
 
-
-@app.get("/public/share_board")
-async def public_share_board():
-    """
-    API ציבורי לטבלת השיתופים.
-    מחזיר JSON: { items: [ {user_id, username, points}, ... ] }
-    """
-    if not DB_AVAILABLE:
-        return {"items": []}
-
-    try:
-        rows = get_top_sharers(50)
-    except Exception as e:
-        logger.error("Failed to get public share board: %s", e)
-        raise HTTPException(status_code=500, detail="DB error")
-
-    items = []
-    for row in rows:
-        items.append(
-            {
-                "user_id": row["user_id"],
-                "username": row["username"],
-                "points": row["total_points"],
-            }
-        )
-
-    return {"items": items}
