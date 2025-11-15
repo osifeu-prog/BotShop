@@ -45,6 +45,8 @@ try:
         get_monthly_payments,
         get_approval_stats,
         create_reward,
+        increment_metric,
+        get_metric,
     )
     DB_AVAILABLE = True
     logger.info("DB module loaded successfully, DB logging enabled.")
@@ -319,7 +321,15 @@ async def send_start_image(context: ContextTypes.DEFAULT_TYPE, chat_id: int, mod
 
     try:
         with open(START_IMAGE_PATH, "rb") as f:
-            await context.bot.send_photo(
+            if DB_AVAILABLE:
+        try:
+            if mode == "view":
+                increment_metric("start_image_views", 1)
+            elif mode == "download":
+                increment_metric("start_image_downloads", 1)
+        except Exception as e:
+            logger.error("Failed to increment metrics: %s", e)
+    await context.bot.send_photo(
                 chat_id=chat_id,
                 photo=f,
                 caption=caption,
@@ -579,7 +589,15 @@ async def handle_payment_photo(update: Update, context: ContextTypes.DEFAULT_TYP
 
     # ננסה לשלוח לקבוצת לוגים
     try:
-        await context.bot.send_photo(
+        if DB_AVAILABLE:
+        try:
+            if mode == "view":
+                increment_metric("start_image_views", 1)
+            elif mode == "download":
+                increment_metric("start_image_downloads", 1)
+        except Exception as e:
+            logger.error("Failed to increment metrics: %s", e)
+    await context.bot.send_photo(
             chat_id=PAYMENTS_LOG_CHAT_ID,
             photo=file_id,
             caption=caption_log,
@@ -589,7 +607,15 @@ async def handle_payment_photo(update: Update, context: ContextTypes.DEFAULT_TYP
         logger.error("Failed to forward payment photo to log group: %s", e)
         # גיבוי: נשלח אליך בפרטי
         try:
-            await context.bot.send_photo(
+            if DB_AVAILABLE:
+        try:
+            if mode == "view":
+                increment_metric("start_image_views", 1)
+            elif mode == "download":
+                increment_metric("start_image_downloads", 1)
+        except Exception as e:
+            logger.error("Failed to increment metrics: %s", e)
+    await context.bot.send_photo(
                 chat_id=DEVELOPER_USER_ID,
                 photo=file_id,
                 caption="(Fallback – לא הצלחתי לשלוח לקבוצת לוגים)\n\n" + caption_log,
@@ -654,7 +680,15 @@ async def do_reject(target_id: int, reason: str, context: ContextTypes.DEFAULT_T
     try:
         if payment_info and payment_info.get("file_id"):
             # שליחת צילום + הסבר
-            await context.bot.send_photo(
+            if DB_AVAILABLE:
+        try:
+            if mode == "view":
+                increment_metric("start_image_views", 1)
+            elif mode == "download":
+                increment_metric("start_image_downloads", 1)
+        except Exception as e:
+            logger.error("Failed to increment metrics: %s", e)
+    await context.bot.send_photo(
                 chat_id=target_id,
                 photo=payment_info["file_id"],
                 caption=base_text,
@@ -1201,11 +1235,17 @@ async def admin_stats(token: str = ""):
         logger.error("Failed to get admin stats: %s", e)
         raise HTTPException(status_code=500, detail="DB error")
 
+    metrics = {
+        "start_image_views": get_metric("start_image_views"),
+        "start_image_downloads": get_metric("start_image_downloads"),
+    }
+
     return {
         "db": "enabled",
         "payments_stats": stats,
         "monthly_breakdown": monthly,
         "top_referrers": top_ref,
+        "metrics": metrics,
     }
 
 
@@ -1296,3 +1336,5 @@ async def entry_start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
     )
 
 # סוף שער מערכת v2
+
+
