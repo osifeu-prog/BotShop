@@ -2423,3 +2423,328 @@ async def api_token_sales(limit: int = Query(50, ge=1, le=200)):
 async def api_posts(limit: int = Query(20, ge=1, le=200)):
     \"\"\"Feed פוסטים קהילתיים עבור SLHNET Social. כרגע מחזיר רשימה ריקה עד חיבור /post מהבוט.\"\"\"
     return {"items": []}
+# === SLHNET extra DB + APIs + bot commands ===
+import logging as _slh_logging
+
+_slh_logger = _slh_logging.getLogger("slhnet-extra")
+
+def _slhnet_get_conn():
+    \"\"\"חיבור בסיסי ל-Postgres דרך DATABASE_URL / DATABASE_PUBLIC_URL.\"\"\"
+    import os
+    import psycopg2  # type: ignore
+    dsn = os.getenv("DATABASE_URL") or os.getenv("DATABASE_PUBLIC_URL")
+    if not dsn:
+        raise RuntimeError("SLHNET: DATABASE_URL/DATABASE_PUBLIC_URL not set")
+    # בריילווי יש כבר SSL; sslmode=require נותן עוד שכבת הגנה
+    return psycopg2.connect(dsn, sslmode="require")
+
+def _slhnet_ensure_extra_tables():
+    try:
+        conn = _slhnet_get_conn()
+    except Exception as e:
+        _slh_logger.warning("SLHNET: cannot connect DB for extra tables: %s", e)
+        return
+    cur = conn.cursor()
+    # טבלת מכירות SLH בבורסה הפנימית
+    cur.execute(
+        \"\"\"
+        CREATE TABLE IF NOT EXISTS token_sales (
+            id BIGSERIAL PRIMARY KEY,
+            tg_user_id BIGINT,
+            username TEXT,
+            wallet_address TEXT,
+            amount_slh NUMERIC(36, 8),
+            price_nis NUMERIC(18, 2),
+            tx_hash TEXT,
+            tx_status TEXT,
+            created_at TIMESTAMPTZ DEFAULT now()
+        );
+        \"\"\"
+    )
+    # טבלת פוסטים של הרשת החברתית
+    cur.execute(
+        \"\"\"
+        CREATE TABLE IF NOT EXISTS posts (
+            id BIGSERIAL PRIMARY KEY,
+            tg_user_id BIGINT,
+            username TEXT,
+            title TEXT,
+            content TEXT,
+            link_url TEXT,
+            created_at TIMESTAMPTZ DEFAULT now()
+        );
+        \"\"\"
+    )
+    # טבלת ארנקים (קישור משתמש טלגרם לכתובת BSC)
+    cur.execute(
+        \"\"\"
+        CREATE TABLE IF NOT EXISTS wallets (
+            tg_user_id BIGINT PRIMARY KEY,
+            username TEXT,
+            first_name TEXT,
+            last_name TEXT,
+            bsc_address TEXT,
+            is_slh_holder BOOLEAN DEFAULT FALSE,
+            updated_at TIMESTAMPTZ DEFAULT now()
+        );
+        \"\"\"
+    )
+    conn.commit()
+    cur.close()
+    conn.close()
+    _slh_logger.info("SLHNET: extra tables ensured (token_sales, posts, wallets).")
+
+try:
+    _slhnet_ensure_extra_tables()
+except Exception as e:
+    _slh_logger.warning("SLHNET: ensure_extra_tables failed: %s", e)
+
+@app.get("/api/token/price")
+async def api_token_price():
+    \"\"\"שער SLH רשמי עבור SLHNET (נסמך על SLH_NIS או 444 ברירת מחדל).\"\"\"
+    import os
+    try:
+        price = float(os.getenv("SLH_NIS", "444"))
+    except Exception:
+        price = 444.0
+    return {
+        "symbol": "SLH",
+        "chain": "BSC",
+        "network": "BSC Mainnet",
+        "official_price_nis": price,
+        "currency": "ILS",
+    }
+
+@app.get("/api/token/sales")
+async def api_token_sales(limit: int = 50):
+    \"\"\"Feed מכירות SLH עבור האתר (מבוסס על טבלת token_sales).\"\"\"
+    import psycopg2  # type: ignore
+    import psycopg2.extras  # type: ignore
+    rows = []
+    try:
+        conn = _slhnet_get_conn()
+        cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+        cur.execute(
+            \"\"\"
+            SELECT id,
+                   tg_user_id,
+                   username,
+                   wallet_address,
+                   amount_slh,
+                   price_nis,
+                   tx_hash,
+                   tx_status,
+                   created_at
+            FROM token_sales
+            ORDER BY created_at DESC
+            LIMIT %s
+            \"\"\",
+            (limit,),
+        )
+        rows = cur.fetchall()
+        cur.close()
+        conn.close()
+    except Exception as e:
+        _slh_logger.warning("SLHNET: token_sales query failed: %s", e)
+        return {"items": []}
+    items = []
+    for r in rows:
+        items.append({
+            "id": r.get("id"),
+            "tg_user_id": r.get("tg_user_id"),
+            "username": r.get("username"),
+            "wallet_address": r.get("wallet_address"),
+            "amount_slh": float(r["amount_slh"]) if r.get("amount_slh") is not None else None,
+            "price_nis": float(r["price_nis"]) if r.get("price_nis") is not None else None,
+            "tx_hash": r.get("tx_hash"),
+            "tx_status": r.get("tx_status"),
+            "created_at": r.get("created_at").isoformat() if r.get("created_at") else None,
+        })
+    return {"items": items}
+
+@app.get("/api/posts")
+async def api_posts(limit: int = 20):
+    \"\"\"Feed פוסטים קהילתיים עבור SLHNET Social (מבוסס טבלת posts).\"\"\"
+    import psycopg2  # type: ignore
+    import psycopg2.extras  # type: ignore
+    rows = []
+    try:
+        conn = _slhnet_get_conn()
+        cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+        cur.execute(
+            \"\"\"
+            SELECT id,
+                   tg_user_id,
+                   username,
+                   title,
+                   content,
+                   link_url,
+                   created_at
+            FROM posts
+            ORDER BY created_at DESC
+            LIMIT %s
+            \"\"\",
+            (limit,),
+        )
+        rows = cur.fetchall()
+        cur.close()
+        conn.close()
+    except Exception as e:
+        _slh_logger.warning("SLHNET: posts query failed: %s", e)
+        return {"items": []}
+    items = []
+    for r in rows:
+        items.append({
+            "id": r.get("id"),
+            "tg_user_id": r.get("tg_user_id"),
+            "username": r.get("username"),
+            "title": r.get("title"),
+            "content": r.get("content"),
+            "link_url": r.get("link_url"),
+            "created_at": r.get("created_at").isoformat() if r.get("created_at") else None,
+        })
+    return {"items": items}
+
+# === פקודות בוט נוספות: /wallet ו-/post מחוברות ל-DB ===
+from telegram import Update  # type: ignore
+from telegram.ext import CommandHandler, ContextTypes  # type: ignore
+
+async def cmd_wallet(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    \"\"\"ניהול ארנק BSC: /wallet 0x... או /wallet להצגת מצב נוכחי.\"\"\"
+    user = update.effective_user
+    args = context.args
+    addr = args[0] if args else None
+    import psycopg2  # type: ignore
+
+    try:
+        conn = _slhnet_get_conn()
+        cur = conn.cursor()
+    except Exception as e:
+        _slh_logger.warning("SLHNET: wallet DB error: %s", e)
+        await update.effective_message.reply_text(
+            " כרגע לא ניתן לגשת למסד הנתונים. נסה שוב עוד מעט."
+        )
+        return
+
+    if addr:
+        # עדכון/יצירת ארנק
+        cur.execute(
+            \"\"\"
+            INSERT INTO wallets (tg_user_id, username, first_name, last_name, bsc_address, updated_at)
+            VALUES (%s, %s, %s, %s, %s, now())
+            ON CONFLICT (tg_user_id) DO UPDATE
+            SET username = EXCLUDED.username,
+                first_name = EXCLUDED.first_name,
+                last_name = EXCLUDED.last_name,
+                bsc_address = EXCLUDED.bsc_address,
+                updated_at = now()
+            \"\"\",
+            (
+                user.id,
+                user.username or "",
+                user.first_name or "",
+                user.last_name or "",
+                addr,
+            ),
+        )
+        conn.commit()
+        cur.close()
+        conn.close()
+        await update.effective_message.reply_text(
+            f" הארנק עודכן בהצלחה.\nכתובת BSC שמורה: {addr}\n\nבהמשך נשתמש בנתון זה כדי לאמת החזקת SLH ולפתוח גישה חינמית למערכת.",
+            parse_mode="Markdown",
+        )
+        return
+
+    # ללא פרמטר  מציגים מצב נוכחי אם קיים
+    cur.execute("SELECT bsc_address, is_slh_holder, updated_at FROM wallets WHERE tg_user_id = %s", (user.id,))
+    row = cur.fetchone()
+    cur.close()
+    conn.close()
+
+    if not row:
+        await update.effective_message.reply_text(
+            " לא נמצא ארנק משויך לחשבון שלך.\n\n"
+            "שלח פקודה בצורה הבאה כדי לקשר ארנק BSC:\n"
+            "/wallet 0xהכתובת_שלך\n\n"
+            "לאחר הקישור נוכל לזהות מחזיקי SLH ולפתוח להם גישה חינמית למערכת.",
+            parse_mode="Markdown",
+        )
+        return
+
+    addr, is_holder, updated_at = row
+    status_text = " מזוהה כמחזיק SLH (בהתבסס על בדיקות עתידיות)" if is_holder else "ℹ ארנק משויך, אימות החזקת SLH יתבצע בהמשך."
+    ts = updated_at.isoformat() if updated_at else ""
+    await update.effective_message.reply_text(
+        f" פרטי הארנק שלך:\n"
+        f"כתובת: {addr}\n"
+        f"{status_text}\n"
+        f"עודכן לאחרונה: {ts}",
+        parse_mode="Markdown",
+    )
+
+async def cmd_post(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    \"\"\"יצירת פוסט קהילתי: /post כותרת | תוכן\"\"\"
+    user = update.effective_user
+    text = " ".join(context.args) if context.args else ""
+    if not text:
+        await update.effective_message.reply_text(
+            " כדי ליצור פוסט, כתוב:\n"
+            "/post כותרת | תוכן הפוסט\n\n"
+            "לדוגמה:\n"
+            "/post מבצע החודש | 10% הנחה לכל מי שמגיע דרך SLHNET.",
+            parse_mode="Markdown",
+        )
+        return
+
+    parts = text.split("|", 1)
+    title = parts[0].strip()
+    content = parts[1].strip() if len(parts) > 1 else ""
+
+    import psycopg2  # type: ignore
+    try:
+        conn = _slhnet_get_conn()
+        cur = conn.cursor()
+        cur.execute(
+            \"\"\"
+            INSERT INTO posts (tg_user_id, username, title, content, created_at)
+            VALUES (%s, %s, %s, %s, now())
+            \"\"\",
+            (user.id, user.username or "", title, content),
+        )
+        conn.commit()
+        cur.close()
+        conn.close()
+    except Exception as e:
+        _slh_logger.warning("SLHNET: post insert failed: %s", e)
+        await update.effective_message.reply_text(
+            " שגיאה בשמירת הפוסט. נסה שוב מאוחר יותר."
+        )
+        return
+
+    await update.effective_message.reply_text(
+        " הפוסט נשמר למערכת.\n"
+        "הוא יופיע באתר SLHNET (SLHNET Social) בתוך מספר שניות ויהיה זמין לשיתוף.",
+    )
+
+def _slhnet_register_handlers():
+    \"\"\"רישום פקודות /wallet ו-/post לבוט הראשי (ptb_app).\"\"\"
+    try:
+        app_obj = ptb_app  # type: ignore[name-defined]
+    except Exception:
+        _slh_logger.warning("SLHNET: ptb_app not defined yet, cannot register handlers.")
+        return
+    if getattr(app_obj, "_slhnet_extra_handlers", False):
+        return
+    app_obj.add_handler(CommandHandler("wallet", cmd_wallet))
+    app_obj.add_handler(CommandHandler("post", cmd_post))
+    setattr(app_obj, "_slhnet_extra_handlers", True)
+    _slh_logger.info("SLHNET: extra bot handlers registered (/wallet, /post).")
+
+@app.on_event("startup")
+async def _slhnet_on_startup():
+    \"\"\"מבטיח שרישום ההנדלרים יתבצע אחרי שהאפליקציה של טלגרם הוקמה.\"\"\"
+    try:
+        _slhnet_register_handlers()
+    except Exception as e:
+        _slh_logger.warning("SLHNET: failed to register handlers on startup: %s", e)
