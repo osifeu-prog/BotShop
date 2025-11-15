@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+﻿#!/usr/bin/env python3
 """
 שער קהילת העסקים - Buy My Shop
 בוט טלגרם מתקדם עם FastAPI, ניהול תשלומים, מערכת הפניות, דשבורד ניהול וממשק API
@@ -2971,18 +2971,61 @@ async def admin_panel(request: Request):
     <html lang="he" dir="rtl">
     <head>
       <meta charset="utf-8" />
+# ==== SLHNET admin panel & health (extension) ====
+import os
+from fastapi import Request
+from fastapi.responses import HTMLResponse, JSONResponse
+
+# טוקן אדמין מגיע מה-ENV ב-Railway: ADMIN_DASH_TOKEN
+ADMIN_DASH_TOKEN = os.getenv("ADMIN_DASH_TOKEN", "")
+
+
+@app.get("/health", tags=["infra"])
+async def health():
+    """
+    נקודת בריאות ל-Railway. אם זה מחזיר 200  הדומיין יעבור לדיפלוי החדש.
+    """
+    return {"status": "ok", "service": "botshop", "version": "slh-nft-landing-v1"}
+
+
+@app.get("/admin/panel", response_class=HTMLResponse)
+async def admin_panel(request: Request):
+    """
+    פאנל אדמין / משקיעים.
+    גישה:
+      - Header:  X-Admin-Token: <ADMIN_DASH_TOKEN>
+        או
+      - Query:   ?token=<ADMIN_DASH_TOKEN>
+    """
+    token = request.headers.get("X-Admin-Token") or request.query_params.get("token")
+    if not ADMIN_DASH_TOKEN or token != ADMIN_DASH_TOKEN:
+        return HTMLResponse(
+            "<h2>Unauthorized</h2><p>גישה לפאנל האדמין פתוחה רק למורשים.</p>",
+            status_code=401,
+        )
+
+    html = """
+    <!DOCTYPE html>
+    <html lang="he" dir="rtl">
+    <head>
+      <meta charset="utf-8" />
       <title>SLHNET  לוח בקרה למשקיעים</title>
       <meta name="viewport" content="width=device-width, initial-scale=1" />
       <style>
-        body {{
+        body {
           margin: 0;
           font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
           background: #020617;
           color: #e5e7eb;
           display: flex;
           min-height: 100vh;
-        }}
-        .sidebar {{
+        }
+        .main {
+          flex: 1;
+          padding: 24px;
+          background: radial-gradient(circle at top left, #0f172a 0%, #020617 60%, #000 100%);
+        }
+        .sidebar {
           width: 260px;
           background: #020617;
           border-left: 1px solid rgba(148,163,184,0.4);
@@ -2990,34 +3033,29 @@ async def admin_panel(request: Request):
           display: flex;
           flex-direction: column;
           gap: 14px;
-        }}
-        .main {{
-          flex: 1;
-          padding: 24px;
-          background: radial-gradient(circle at top left, #0f172a 0%, #020617 60%, #000 100%);
-        }}
-        h1, h2, h3 {{
-          margin-top: 0;
-        }}
-        .tag {{
+        }
+        .tag {
           display: inline-block;
           font-size: 11px;
           padding: 2px 8px;
           border-radius: 999px;
           background: rgba(56,189,248,0.18);
           color: #7dd3fc;
-        }}
-        .box {{
+        }
+        .box {
           border-radius: 16px;
           padding: 12px 14px;
           border: 1px solid rgba(148,163,184,0.35);
           margin-bottom: 14px;
           background: rgba(15,23,42,0.85);
-        }}
-        .small {{
+        }
+        .small {
           font-size: 12px;
           color: #9ca3af;
-        }}
+        }
+        a {
+          color: #38bdf8;
+        }
       </style>
     </head>
     <body>
@@ -3025,26 +3063,41 @@ async def admin_panel(request: Request):
         <span class="tag">פאנל אדמין / משקיעים</span>
         <h1>SLHNET  לוח בקרה אסטרטגי</h1>
         <p class="small">
-          פאנל זה מיועד למשקיעים שעברו תהליך בדיקה ותשלום 11,111 . הנתונים כאן אמורים לשקף
-          צמיחה טבעית של המערכת, רזרבות, מודל סטייקינג ותזרים מעמלות ושירותים  לא מודל פונזי.
+          כאן תראה את הלב של המערכת: סטייקינג, רזרבות, פעילות אמיתית ונתוני צמיחה  
+          לא מודל פונזי אלא אקו-סיסטם עם שימוש אמיתי וביקוש אורגני.
         </p>
         <div class="box">
           <h3>סטייקינג &amp; רזרבות</h3>
           <p class="small">
-            ברמת הקוד: /api/staking/plans ו-/api/staking/summary מספקים נתונים לממשק זה.
-            חלק מהרווחים חוזרים לרזרבה, חלק מחולק למשתתפים, וחלק מושקע חזרה בפיתוח.
+            המודל הכלכלי מבוסס על:
+            <br/> סטייקינג של SLH ונכסים נוספים
+            <br/> עמלות על מסחר, בוטים וחנויות דיגיטליות
+            <br/> הכנסות מאקדמיה, קהילה ותוכן
+            <br/><br/>
+            חלק מהרווחים מחולק למשתתפים, חלק הולך לרזרבה לטווח ארוך, וחלק חוזר להשקעה בפיתוח.
           </p>
         </div>
         <div class="box">
           <h3>שקיפות למשקיעים</h3>
           <p class="small">
-            היעד: חשיפת חוזים חכמים, היסטוריית סטייקינג, ותזרים עמלות  כך שמשקיע יכול לראות
-            שהמערכת נשענת על פעילות אמיתית, לא על כניסה אינסופית של מצטרפים חדשים.
+            היעד: דאשבורד מלא על:
+            <br/> נפחי מסחר ב-SLH
+            <br/> צמיחת משתמשים וחנויות
+            <br/> סטייקינג פעיל ורזרבות
+            <br/><br/>
+            כשנחבר את כל המיקרו-שירותים, הנתונים יגיעו גם מ-/api/staking/* ו-/api/token/*.
+          </p>
+        </div>
+        <div class="box">
+          <h3>יצירת קשר למשקיעים</h3>
+          <p class="small">
+            משקיעים רציניים מגיעים דרך המערכת:
+            <br/> בוט טלגרם: פקודה ייעודית (למשל /investor) שתציג פרטי קשר וחיבור אליך.
+            <br/> אפשר בהמשך להוסיף כאן מייל/טלגרם רשמי למשקיעים.
           </p>
         </div>
       </div>
       <aside class="sidebar">
-        <h3>ניווט</h3>
         <div class="box">
           <div class="small"> סטייקינג</div>
           <div class="small"> רזרבות</div>
@@ -3052,7 +3105,10 @@ async def admin_panel(request: Request):
           <div class="small"> צמיחת משתמשים</div>
         </div>
         <div class="box">
-          <div class="small">לשיחות עומק וחוזים חכמים  פנה ישירות למנהל המערכת דרך בוט הטלגרם.</div>
+          <div class="small">
+            כל מי שעבר דרך שער ההצטרפות (39 ), צבר פעילות במערכת והוגדר כמשקיע 
+            יכול לקבל גישה מוסכמת לפאנל זה אחרי תשלום 11,111  ואימות ידני.
+          </div>
         </div>
       </aside>
     </body>
@@ -3060,5 +3116,4 @@ async def admin_panel(request: Request):
     """
     return HTMLResponse(html)
 
-
-# ==== סוף הרחבות SLHNET ====
+# ==== end SLHNET admin panel & health ====
