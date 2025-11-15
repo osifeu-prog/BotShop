@@ -1,4 +1,4 @@
-# db.py
+﻿# db.py
 import os
 import logging
 from contextlib import contextmanager
@@ -381,3 +381,37 @@ def get_metric(key: str) -> int:
         )
         row = cur.fetchone()
         return int(row["value"]) if row else 0
+
+def get_users_stats() -> Dict[str, int]:
+    """Aggregate basic user/referral stats for admin dashboard."""
+    with db_cursor() as (conn, cur):
+        if cur is None:
+            return {
+                "total_users": 0,
+                "total_referrals": 0,
+                "total_referred_users": 0,
+                "total_referrers": 0,
+            }
+
+        # Total registered users
+        cur.execute("SELECT COUNT(*) FROM users;")
+        total_users = cur.fetchone()[0] or 0
+
+        # Total referral rows
+        cur.execute("SELECT COUNT(*) FROM referrals;")
+        total_referrals = cur.fetchone()[0] or 0
+
+        # Distinct referred users (joined through any referral link)
+        cur.execute("SELECT COUNT(DISTINCT referred_id) FROM referrals;")
+        total_referred_users = cur.fetchone()[0] or 0
+
+        # Distinct referrers (users who brought at least one friend)
+        cur.execute("SELECT COUNT(DISTINCT referrer_id) FROM referrals;")
+        total_referrers = cur.fetchone()[0] or 0
+
+        return {
+            "total_users": int(total_users),
+            "total_referrals": int(total_referrals),
+            "total_referred_users": int(total_referred_users),
+            "total_referrers": int(total_referrers),
+        }

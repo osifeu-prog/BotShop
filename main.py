@@ -1,4 +1,4 @@
-# main.py
+﻿# main.py
 import os
 import logging
 from collections import deque
@@ -45,6 +45,8 @@ try:
         get_monthly_payments,
         get_approval_stats,
         create_reward,
+        increment_metric,
+        get_metric,
     )
     DB_AVAILABLE = True
     logger.info("DB module loaded successfully, DB logging enabled.")
@@ -319,7 +321,15 @@ async def send_start_image(context: ContextTypes.DEFAULT_TYPE, chat_id: int, mod
 
     try:
         with open(START_IMAGE_PATH, "rb") as f:
-            await context.bot.send_photo(
+            if DB_AVAILABLE:
+        try:
+            if mode == "view":
+                increment_metric("start_image_views", 1)
+            elif mode == "download":
+                increment_metric("start_image_downloads", 1)
+        except Exception as e:
+            logger.error("Failed to increment metrics: %s", e)
+    await context.bot.send_photo(
                 chat_id=chat_id,
                 photo=f,
                 caption=caption,
@@ -579,7 +589,15 @@ async def handle_payment_photo(update: Update, context: ContextTypes.DEFAULT_TYP
 
     # ננסה לשלוח לקבוצת לוגים
     try:
-        await context.bot.send_photo(
+        if DB_AVAILABLE:
+        try:
+            if mode == "view":
+                increment_metric("start_image_views", 1)
+            elif mode == "download":
+                increment_metric("start_image_downloads", 1)
+        except Exception as e:
+            logger.error("Failed to increment metrics: %s", e)
+    await context.bot.send_photo(
             chat_id=PAYMENTS_LOG_CHAT_ID,
             photo=file_id,
             caption=caption_log,
@@ -589,7 +607,15 @@ async def handle_payment_photo(update: Update, context: ContextTypes.DEFAULT_TYP
         logger.error("Failed to forward payment photo to log group: %s", e)
         # גיבוי: נשלח אליך בפרטי
         try:
-            await context.bot.send_photo(
+            if DB_AVAILABLE:
+        try:
+            if mode == "view":
+                increment_metric("start_image_views", 1)
+            elif mode == "download":
+                increment_metric("start_image_downloads", 1)
+        except Exception as e:
+            logger.error("Failed to increment metrics: %s", e)
+    await context.bot.send_photo(
                 chat_id=DEVELOPER_USER_ID,
                 photo=file_id,
                 caption="(Fallback – לא הצלחתי לשלוח לקבוצת לוגים)\n\n" + caption_log,
@@ -654,7 +680,15 @@ async def do_reject(target_id: int, reason: str, context: ContextTypes.DEFAULT_T
     try:
         if payment_info and payment_info.get("file_id"):
             # שליחת צילום + הסבר
-            await context.bot.send_photo(
+            if DB_AVAILABLE:
+        try:
+            if mode == "view":
+                increment_metric("start_image_views", 1)
+            elif mode == "download":
+                increment_metric("start_image_downloads", 1)
+        except Exception as e:
+            logger.error("Failed to increment metrics: %s", e)
+    await context.bot.send_photo(
                 chat_id=target_id,
                 photo=payment_info["file_id"],
                 caption=base_text,
@@ -1079,7 +1113,7 @@ async def admin_menu_callback(update: Update, context: ContextTypes.DEFAULT_TYPE
 # רישום handlers
 # =========================
 
-ptb_app.add_handler(CommandHandler("start", start))
+ptb_app.add_handler(CommandHandler("start", entry_start))
 ptb_app.add_handler(CommandHandler("help", help_command))
 ptb_app.add_handler(CommandHandler("admin", admin_menu_command))
 ptb_app.add_handler(CommandHandler("approve", approve_command))
@@ -1201,9 +1235,235 @@ async def admin_stats(token: str = ""):
         logger.error("Failed to get admin stats: %s", e)
         raise HTTPException(status_code=500, detail="DB error")
 
+    metrics = {
+        "start_image_views": get_metric("start_image_views"),
+        "start_image_downloads": get_metric("start_image_downloads"),
+    }
+
     return {
         "db": "enabled",
         "payments_stats": stats,
         "monthly_breakdown": monthly,
         "top_referrers": top_ref,
+        "metrics": metrics,
     }
+
+
+# === SLH GATEWAY START TEXT v2 ===
+# שער כניסה משודרג  נכס דיגיטלי, אימות כפול, חינוך פיננסי
+
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
+from telegram.ext import ContextTypes
+
+def get_user_lang(update: Update) -> str:
+    code = (update.effective_user.language_code or "").lower()
+    if code.startswith("he"):
+        return "he"
+    return "en"
+
+
+async def entry_start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    user = update.effective_user
+    chat = update.effective_chat
+    lang = get_user_lang(update)
+
+    # טקסט בעברית  ברירת מחדל
+    if lang == "he":
+        text = (
+            "ברוך הבא לשער המערכת של החיים שלנו  Buy_My_Shop / SLH Gateway \\n\\n"
+            "כאן התשלום *לא קונה סתם גישה לבוט*, אלא נכס דיגיטלי מניב: קישור לקבוצה עסקית סגורה, "
+            "שמייצגת את הזכאות שלך להשתתף במערכת התגמולים וההטבות שלנו.\\n\\n"
+            " *למה אימות כפול?*\\n"
+            "כמו בכל מערכת בנקאית רצינית  גם כאן אנחנו עובדים באימות כפול: \\n"
+            "1) אתה מאמת ששילמת (באמצעות צילום מסך / אישור העברה)\\n"
+            "2) אנחנו מאמתים ידנית שקיבלנו את התשלום ומאשרים את הקישור לקבוצה.\\n"
+            "כך אף אחד לא יכול למכור 'נכס' (הקישור לקבוצה) בלי לקבל כסף בפועל, גם היום וגם בעתיד.\\n\\n"
+            " *איך זה מתחבר לעתיד שלך?*\\n"
+            "לאחר ההצטרפות, תוכל:\\n"
+            " להגדיר קבוצה עסקית אחת משלך (למשל קהילה/חנות/ערוץ משלך)\\n"
+            " להגדיר חשבון בנק / ביט / פייבוקס לקבלת תשלומים\\n"
+            " לשתף את מערכת Buy_My_Shop עם אחרים ולקבל קרדיט על כל מי שנכנס דרכך\\n"
+            " אחרי 39 שיתופים מאושרים  תוכל להיכנס לפאנל האדמין שלך,\\n"
+            "  או לחלופין לשלם 39 ש\"ח נוספים כדי לפתוח גישה ישירה לפאנל.\\n\\n"
+            " *חוזה חכם  בשפה פשוטה*\\n"
+            "כל פעולה  הצטרפות, הגדרת קבוצה, הוספת פרטי תשלום, בקשת שירות נוסף  נרשמת במערכת כחוזה "
+            "חכם בסיסי: אנחנו יודעים מי ביקש מה, מה הוסכם, ומה מצב הטיפול. בהמשך זה יתחבר גם לבלוקצ'יין ו-NFT.\\n\\n"
+            "כדי להמשיך  בחר אחת מהאפשרויות למטה. אתה יכול להתחיל מתשלום, או קודם להבין לעומק איך זה עובד."
+        )
+    else:
+        # גרסה באנגלית למי שהטלגרם שלו לא בעברית
+        text = (
+            "Welcome to the SLH / Buy_My_Shop Gateway \\n\\n"
+            "Here your payment does *not* just buy access to a bot  it buys a digital, income-producing asset: "
+            "a private business-group link that represents your right to participate in our rewards and benefits system.\\n\\n"
+            " *Why double verification?*\\n"
+            "Just like serious banking systems, we use double verification:\\n"
+            "1) You confirm that you paid (by sending a screenshot / payment proof)\\n"
+            "2) We manually confirm that the funds arrived and only then unlock the group link.\\n\\n"
+            "After joining you will be able to:\\n"
+            " Register one business group of your own\\n"
+            " Add your bank / PayBox / Bit details for payouts\\n"
+            " Share the system with others and earn credit for every user that joins through you\\n"
+            " After 39 confirmed referrals  you unlock your personal admin panel, "
+            "or pay an additional 39 NIS to unlock it directly.\\n\\n"
+            "Every step is saved as a simple 'smart contract' inside our system, and later this will be "
+            "anchored on-chain.\\n\\n"
+            "Use the menu below to continue."
+        )
+
+    keyboard = [
+        [
+            InlineKeyboardButton(" שלח צילום תשלום", callback_data="send_payment_proof"),
+        ],
+        [
+            InlineKeyboardButton("ℹ איך זה עובד?", callback_data="how_it_works"),
+        ],
+        [
+            InlineKeyboardButton(" הקבוצה העסקית שלי", callback_data="user_group_info"),
+        ],
+        [
+            InlineKeyboardButton(" פרטי תשלום שלי", callback_data="user_payment_info"),
+        ],
+        [
+            InlineKeyboardButton(" הפאנל האישי שלי", callback_data="user_panel"),
+        ],
+    ]
+
+    await update.effective_message.reply_text(
+        text,
+        reply_markup=InlineKeyboardMarkup(keyboard),
+        disable_web_page_preview=True,
+    )
+
+# סוף שער מערכת v2
+
+
+
+##############################################################
+# Social Layer + HTML dashboard + /site (SAFE VERSION)
+##############################################################
+
+from fastapi.responses import HTMLResponse
+from social_api import social_router
+from db import ensure_social_tables
+from pathlib import Path
+import httpx
+import logging
+
+logger = logging.getLogger("social")
+
+# --- הפעלת טבלאות רשת חברתית ---
+@app.on_event("startup")
+async def init_social_tables():
+    try:
+        ensure_social_tables()
+        logger.info("Social tables ready")
+    except Exception as e:
+        logger.exception("Failed to init social tables")
+
+# --- חיבור הAPI של הרשת החברתית ---
+app.include_router(social_router, prefix="/api/social", tags=["social"])
+
+# --- דף index של BizNet ---
+@app.get("/site", response_class=HTMLResponse)
+async def biznet_site():
+    index_path = Path(__file__).parent / "docs" / "index.html"
+    if not index_path.exists():
+        return HTMLResponse("<h1>No BizNet found</h1>", status_code=404)
+    return HTMLResponse(index_path.read_text(encoding="utf-8"))
+
+# --- root מציג את BizNet ---
+@app.get("/", response_class=HTMLResponse)
+async def root_redirect():
+    index_path = Path(__file__).parent / "docs" / "index.html"
+    if index_path.exists():
+        return HTMLResponse(index_path.read_text(encoding="utf-8"))
+    return HTMLResponse("<h1>API OK</h1><p>Docs at /docs</p>")
+
+# --- לוח HTML על בסיס /admin/stats ---
+@app.get("/admin/dashboard", response_class=HTMLResponse)
+async def admin_dashboard(request: Request, token: str = ""):
+    if not token:
+        return HTMLResponse("<h1>Missing token</h1>", status_code=401)
+
+    base = str(request.base_url).rstrip("/")
+    try:
+        async with httpx.AsyncClient() as client:
+            r = await client.get(f"{base}/admin/stats", params={"token": token})
+    except Exception as e:
+        logger.exception("Dashboard error")
+        return HTMLResponse("<h1>Error contacting stats API</h1>", status_code=500)
+
+    if r.status_code != 200:
+        return HTMLResponse(f"<h1>Error {r.status_code}</h1>{r.text}")
+
+    data = r.json()
+    html = f"<html><body><h1>Admin Dashboard</h1><pre>{data}</pre></body></html>"
+    return HTMLResponse(html)
+##############################################################
+import httpx
+from pathlib import Path
+from fastapi.responses import HTMLResponse
+
+# =========================
+# HTML Site + Admin Dashboard
+# =========================
+
+@app.get("/site", response_class=HTMLResponse)
+async def biznet_site():
+    index_path = Path(__file__).parent / "docs" / "index.html"
+    if not index_path.exists():
+        return HTMLResponse("<h1>BizNet לא הותקן (docs/index.html חסר)</h1>", status_code=404)
+    return HTMLResponse(index_path.read_text(encoding="utf-8"))
+
+@app.get("/", response_class=HTMLResponse)
+async def root():
+    index_path = Path(__file__).parent / "docs" / "index.html"
+    if index_path.exists():
+        return HTMLResponse(index_path.read_text(encoding="utf-8"))
+    return HTMLResponse("<h1>Botshop API</h1><p>Health at /health</p>")
+
+@app.get("/admin/dashboard", response_class=HTMLResponse)
+async def admin_dashboard(request: Request, token: str = ""):
+    if not ADMIN_DASH_TOKEN or token != ADMIN_DASH_TOKEN:
+        return HTMLResponse("<h1>Unauthorized</h1>", status_code=401)
+
+    base = str(request.base_url).rstrip("/")
+    try:
+        async with httpx.AsyncClient() as client:
+            r = await client.get(f"{base}/admin/stats", params={"token": token})
+    except Exception as e:
+        logger.error("Failed to call /admin/stats: %s", e)
+        return HTMLResponse("<h1>Error contacting /admin/stats</h1>", status_code=500)
+
+    if r.status_code != 200:
+        return HTMLResponse(f"<h1>Error {r.status_code}</h1><pre>{r.text}</pre>", status_code=r.status_code)
+
+    data = r.json()
+    html = f"""
+    <html dir="rtl" lang="he">
+    <head>
+      <meta charset="utf-8" />
+      <title>Admin Dashboard</title>
+      <style>
+        body {{
+          font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+          background: #020617;
+          color: #f9fafb;
+          padding: 2rem;
+        }}
+        pre {{
+          background: #0f172a;
+          padding: 1rem;
+          border-radius: 0.75rem;
+          overflow-x: auto;
+        }}
+      </style>
+    </head>
+    <body>
+      <h1> Admin Dashboard</h1>
+      <pre>{data}</pre>
+    </body>
+    </html>
+    """
+    return HTMLResponse(html)
