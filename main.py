@@ -2912,3 +2912,153 @@ except Exception:
     pass
 
 # סוף בלוק SLHNET המורחב
+# ==== SLHNET EXTENSIONS (auto-appended) ====
+from typing import Optional
+import os as _os
+
+try:
+    from fastapi import Request
+    from fastapi.responses import HTMLResponse
+except ImportError:
+    Request = object  # type: ignore
+    HTMLResponse = object  # type: ignore
+
+try:
+    app  # type: ignore[name-defined]
+except NameError:
+    from fastapi import FastAPI  # type: ignore
+    app = FastAPI(title="SLHNET Gateway (fallback)")  # type: ignore
+
+try:
+    from slhnet_extra import router as slhnet_router  # type: ignore
+    app.include_router(slhnet_router)
+except Exception:
+    pass
+
+try:
+    from fastapi.templating import Jinja2Templates  # type: ignore
+    templates = Jinja2Templates(directory="templates")  # type: ignore
+except Exception:
+    templates = None  # type: ignore
+
+
+@app.get("/", response_class=HTMLResponse)  # type: ignore
+async def landing(request: Request):
+    if templates is not None:
+        return templates.TemplateResponse(
+            "landing.html",
+            {
+                "request": request,
+            },
+        )
+    return HTMLResponse("<html><body><h1>SLHNET Landing</h1></body></html>")
+
+
+ADMIN_DASH_TOKEN = _os.getenv("ADMIN_DASH_TOKEN", "")
+
+
+@app.get("/admin/panel", response_class=HTMLResponse)  # type: ignore
+async def admin_panel(request: Request):
+    token = request.headers.get("X-Admin-Token") or request.query_params.get("token")
+    if not ADMIN_DASH_TOKEN or token != ADMIN_DASH_TOKEN:
+        return HTMLResponse(
+            "<h2>Unauthorized</h2><p>גישה לפאנל האדמין פתוחה רק למורשים.</p>",
+            status_code=401,
+        )
+
+    html = f"""
+    <!DOCTYPE html>
+    <html lang="he" dir="rtl">
+    <head>
+      <meta charset="utf-8" />
+      <title>SLHNET  לוח בקרה למשקיעים</title>
+      <meta name="viewport" content="width=device-width, initial-scale=1" />
+      <style>
+        body {{
+          margin: 0;
+          font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+          background: #020617;
+          color: #e5e7eb;
+          display: flex;
+          min-height: 100vh;
+        }}
+        .sidebar {{
+          width: 260px;
+          background: #020617;
+          border-left: 1px solid rgba(148,163,184,0.4);
+          padding: 20px;
+          display: flex;
+          flex-direction: column;
+          gap: 14px;
+        }}
+        .main {{
+          flex: 1;
+          padding: 24px;
+          background: radial-gradient(circle at top left, #0f172a 0%, #020617 60%, #000 100%);
+        }}
+        h1, h2, h3 {{
+          margin-top: 0;
+        }}
+        .tag {{
+          display: inline-block;
+          font-size: 11px;
+          padding: 2px 8px;
+          border-radius: 999px;
+          background: rgba(56,189,248,0.18);
+          color: #7dd3fc;
+        }}
+        .box {{
+          border-radius: 16px;
+          padding: 12px 14px;
+          border: 1px solid rgba(148,163,184,0.35);
+          margin-bottom: 14px;
+          background: rgba(15,23,42,0.85);
+        }}
+        .small {{
+          font-size: 12px;
+          color: #9ca3af;
+        }}
+      </style>
+    </head>
+    <body>
+      <div class="main">
+        <span class="tag">פאנל אדמין / משקיעים</span>
+        <h1>SLHNET  לוח בקרה אסטרטגי</h1>
+        <p class="small">
+          פאנל זה מיועד למשקיעים שעברו תהליך בדיקה ותשלום 11,111 . הנתונים כאן אמורים לשקף
+          צמיחה טבעית של המערכת, רזרבות, מודל סטייקינג ותזרים מעמלות ושירותים  לא מודל פונזי.
+        </p>
+        <div class="box">
+          <h3>סטייקינג &amp; רזרבות</h3>
+          <p class="small">
+            ברמת הקוד: /api/staking/plans ו-/api/staking/summary מספקים נתונים לממשק זה.
+            חלק מהרווחים חוזרים לרזרבה, חלק מחולק למשתתפים, וחלק מושקע חזרה בפיתוח.
+          </p>
+        </div>
+        <div class="box">
+          <h3>שקיפות למשקיעים</h3>
+          <p class="small">
+            היעד: חשיפת חוזים חכמים, היסטוריית סטייקינג, ותזרים עמלות  כך שמשקיע יכול לראות
+            שהמערכת נשענת על פעילות אמיתית, לא על כניסה אינסופית של מצטרפים חדשים.
+          </p>
+        </div>
+      </div>
+      <aside class="sidebar">
+        <h3>ניווט</h3>
+        <div class="box">
+          <div class="small"> סטייקינג</div>
+          <div class="small"> רזרבות</div>
+          <div class="small"> מכירות SLH</div>
+          <div class="small"> צמיחת משתמשים</div>
+        </div>
+        <div class="box">
+          <div class="small">לשיחות עומק וחוזים חכמים  פנה ישירות למנהל המערכת דרך בוט הטלגרם.</div>
+        </div>
+      </aside>
+    </body>
+    </html>
+    """
+    return HTMLResponse(html)
+
+
+# ==== סוף הרחבות SLHNET ====
