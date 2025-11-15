@@ -2,658 +2,78 @@
 <html lang="he" dir="rtl">
 <head>
   <meta charset="utf-8" />
-  <title>Buy My Shop – שער לקהילת העסקים | NFT וטוקני SLH</title>
-  <meta name="description" content="הצטרף לקהילת בעלי העסקים שלנו בתשלום חד-פעמי של 39 ש״ח. קבל גישה למתנות דיגיטליות, NFT וטוקני SLH שיחולקו למשתתפים.">
-  <meta name="keywords" content="קהילת עסקים, NFT, טוקן SLH, עסקים, בוט טלגרם, השקעה">
-  <meta name="author" content="Buy My Shop">
+  <title>Buy My Shop – שער לקהילת העסקים</title>
+  <meta name="description" content="תשלום חד־פעמי של 39 ש״ח, קהילה חכמה של בעלי עסקים, מתנות דיגיטליות, NFT וטוקני SLH שיחולקו למשתתפים.">
 
   <!-- Open Graph -->
   <meta property="og:type" content="website" />
   <meta property="og:title" content="Buy My Shop – קהילת העסקים וה-NFT" />
   <meta property="og:description" content="הצטרף לקהילת העסקים, קבל גישה למבצעים, NFT וטוקני SLH." />
+  <!-- שים לב: משתמשים ב-start_banner.jpg מתוך assets/ -->
   <meta property="og:image" content="https://osifeu-prog.github.io/botshop/assets/start_banner.jpg" />
   <meta property="og:url" content="https://osifeu-prog.github.io/botshop/" />
-  <meta property="og:site_name" content="Buy My Shop" />
 
   <!-- Twitter / X -->
   <meta name="twitter:card" content="summary_large_image" />
   <meta name="twitter:title" content="Buy My Shop – קהילת העסקים" />
   <meta name="twitter:description" content="קפיצה אחת לתוך קהילת עסקים, NFT וטוקני SLH." />
   <meta name="twitter:image" content="https://osifeu-prog.github.io/botshop/assets/start_banner.jpg" />
-  <meta name="twitter:creator" content="@BuyMyShop" />
 
-  <!-- Favicon -->
-  <link rel="icon" type="image/x-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🛒</text></svg>">
-
-  <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no" />
-  
-  <!-- Schema.org markup for Google -->
-  <script type="application/ld+json">
-  {
-    "@context": "https://schema.org",
-    "@type": "Organization",
-    "name": "Buy My Shop",
-    "url": "https://osifeu-prog.github.io/botshop/",
-    "description": "קהילת עסקים דיגיטלית המציעה NFT וטוקני SLH למשתתפים",
-    "sameAs": [
-      "https://t.me/Buy_My_Shop_bot"
-    ]
-  }
-  </script>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
 
   <style>
-    /* CSS Variables for consistent theming */
-    :root {
-      --primary-color: #22c55e;
-      --primary-hover: #16a34a;
-      --secondary-color: #3b82f6;
-      --bg-dark: #020617;
-      --bg-card: #1e293b;
-      --text-light: #f9fafb;
-      --text-muted: #94a3b8;
-      --shadow: 0 20px 40px rgba(0,0,0,0.5);
-      --radius: 24px;
-    }
-    
-    /* Reset and base styles */
-    * {
-      box-sizing: border-box;
-      margin: 0;
-      padding: 0;
-    }
-    
-    html {
-      scroll-behavior: smooth;
-    }
-    
     body {
-      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", "Arial", "Noto Sans Hebrew", sans-serif;
-      background: var(--bg-dark);
-      color: var(--text-light);
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: #020617;
+      color: #f9fafb;
       margin: 0;
       min-height: 100vh;
       display: flex;
       align-items: center;
       justify-content: center;
-      line-height: 1.6;
-      -webkit-font-smoothing: antialiased;
-      -moz-osx-font-smoothing: grayscale;
-      padding: 1rem;
     }
-    
-    /* Card styling with animation */
     .card {
       max-width: 520px;
-      width: 100%;
-      background: radial-gradient(circle at top, var(--bg-card), var(--bg-dark));
-      border-radius: var(--radius);
-      padding: 2rem;
-      box-shadow: var(--shadow);
+      background: radial-gradient(circle at top, #1e293b, #020617);
+      border-radius: 24px;
+      padding: 24px;
+      box-shadow: 0 20px 40px rgba(0,0,0,0.5);
       text-align: center;
-      margin: 1rem;
-      opacity: 0;
-      transform: translateY(20px);
-      animation: fadeInUp 0.8s ease forwards;
-      position: relative;
-      overflow: hidden;
     }
-    
-    .card::before {
-      content: '';
-      position: absolute;
-      top: 0;
-      left: 0;
-      right: 0;
-      height: 4px;
-      background: linear-gradient(to right, var(--primary-color), var(--secondary-color));
-    }
-    
-    @keyframes fadeInUp {
-      to {
-        opacity: 1;
-        transform: translateY(0);
-      }
-    }
-    
     h1 {
       font-size: 1.8rem;
-      margin-bottom: 1rem;
-      line-height: 1.3;
+      margin-bottom: 0.5rem;
     }
-    
-    h2 {
-      font-size: 1.5rem;
-      margin-bottom: 1rem;
-      color: var(--primary-color);
-    }
-    
     p {
-      margin: 1rem 0;
+      line-height: 1.6;
+      margin: 0.5rem 0;
     }
-    
-    .highlight {
-      color: var(--primary-color);
-      font-weight: 600;
-    }
-    
-    /* Button styling with hover effects */
     .btn {
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      margin: 0.5rem;
-      padding: 0.75rem 1.5rem;
+      display: inline-block;
+      margin-top: 16px;
+      padding: 12px 24px;
       border-radius: 999px;
       text-decoration: none;
       font-weight: 600;
-      background: var(--primary-color);
-      color: var(--bg-dark);
-      border: none;
-      cursor: pointer;
-      transition: all 0.3s ease;
-      position: relative;
-      overflow: hidden;
-      box-shadow: 0 4px 12px rgba(34, 197, 94, 0.3);
+      background: #22c55e;
+      color: #020617;
     }
-    
-    .btn-secondary {
-      background: var(--secondary-color);
-      box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
-    }
-    
-    .btn:hover, .btn:focus {
-      transform: translateY(-2px);
-      box-shadow: 0 6px 16px rgba(34, 197, 94, 0.4);
-    }
-    
-    .btn-secondary:hover, .btn-secondary:focus {
-      box-shadow: 0 6px 16px rgba(59, 130, 246, 0.4);
-    }
-    
-    .btn:active {
-      transform: translateY(0);
-    }
-    
-    /* Form styling */
-    .form-container {
-      display: none;
-      margin-top: 1.5rem;
-      text-align: right;
-    }
-    
-    .form-group {
-      margin-bottom: 1rem;
-    }
-    
-    label {
-      display: block;
-      margin-bottom: 0.5rem;
-      font-weight: 600;
-    }
-    
-    input {
-      width: 100%;
-      padding: 0.75rem;
-      border-radius: 8px;
-      border: 1px solid #334155;
-      background: #0f172a;
-      color: var(--text-light);
-      font-size: 1rem;
-    }
-    
-    input:focus {
-      outline: none;
-      border-color: var(--primary-color);
-    }
-    
-    /* Feature list styling */
-    .features {
-      list-style: none;
-      margin: 1.5rem 0;
-      text-align: right;
-    }
-    
-    .features li {
-      margin: 0.75rem 0;
-      display: flex;
-      align-items: center;
-      justify-content: flex-end;
-    }
-    
-    .features li::before {
-      content: '✓';
-      color: var(--primary-color);
-      font-weight: bold;
-      margin-left: 0.5rem;
-    }
-    
-    /* Admin and user areas */
-    .admin-area, .user-area {
-      display: none;
-      text-align: right;
-      margin-top: 1.5rem;
-    }
-    
-    .user-list {
-      list-style: none;
-      margin-top: 1rem;
-      max-height: 200px;
-      overflow-y: auto;
-      border: 1px solid #334155;
-      border-radius: 8px;
-      padding: 1rem;
-    }
-    
-    .user-list li {
-      padding: 0.5rem;
-      border-bottom: 1px solid #334155;
-    }
-    
-    .user-list li:last-child {
-      border-bottom: none;
-    }
-    
-    /* Footer styling */
-    .footer {
-      margin-top: 1.5rem;
-      font-size: 0.875rem;
-      color: var(--text-muted);
-    }
-    
-    /* Tabs for navigation */
-    .tabs {
-      display: flex;
-      justify-content: center;
-      margin-bottom: 1.5rem;
-      border-bottom: 1px solid #334155;
-    }
-    
-    .tab {
-      padding: 0.75rem 1.5rem;
-      cursor: pointer;
-      border-bottom: 3px solid transparent;
-      transition: all 0.3s ease;
-    }
-    
-    .tab.active {
-      border-bottom: 3px solid var(--primary-color);
-      color: var(--primary-color);
-    }
-    
-    /* Responsive design */
-    @media (max-width: 480px) {
-      .card {
-        padding: 1.5rem;
-      }
-      
-      h1 {
-        font-size: 1.5rem;
-      }
-      
-      .tabs {
-        flex-direction: column;
-      }
-      
-      .tab {
-        text-align: center;
-      }
-    }
-    
-    /* Reduced motion for accessibility */
-    @media (prefers-reduced-motion: reduce) {
-      * {
-        animation-duration: 0.01ms !important;
-        animation-iteration-count: 1 !important;
-        transition-duration: 0.01ms !important;
-      }
+    .btn:hover {
+      background: #16a34a;
     }
   </style>
 </head>
 <body>
-  <main class="card" role="main">
+  <div class="card">
     <h1>Buy My Shop – שער לקהילת העסקים</h1>
-    
-    <!-- Tabs for navigation -->
-    <div class="tabs">
-      <div class="tab active" data-tab="main">ראשי</div>
-      <div class="tab" data-tab="register">הרשמה</div>
-      <div class="tab" data-tab="login">התחברות</div>
-    </div>
-    
-    <!-- Main content area -->
-    <div id="main-content" class="tab-content">
-      <p>
-        הצטרף לקהילת בעלי העסקים שלנו עם 
-        <span class="highlight">תשלום חד־פעמי של 39 ש״ח בלבד</span>.
-      </p>
-      
-      <ul class="features" aria-label="יתרונות הקהילה">
-        <li>קהילה חכמה של בעלי עסקים</li>
-        <li>מתנות דיגיטליות בלעדיות</li>
-        <li>NFT וטוקני SLH שיחולקו למשתתפים</li>
-        <li>גישה להטבות ומידע בלעדי</li>
-      </ul>
-      
-      <p>
-        כל מה שצריך כדי להצטרף – פשוט להתחיל דרך הבוט בטלגרם.
-      </p>
-      
-      <a class="btn" href="https://t.me/Buy_My_Shop_bot" aria-label="פתח את הבוט בטלגרם - Buy My Shop">
-        פתח את הבוט בטלגרם
-      </a>
-    </div>
-    
-    <!-- Registration form -->
-    <div id="register-form" class="form-container">
-      <h2>הרשמה לקהילה</h2>
-      <form id="registerForm">
-        <div class="form-group">
-          <label for="reg-name">שם מלא</label>
-          <input type="text" id="reg-name" required>
-        </div>
-        <div class="form-group">
-          <label for="reg-email">אימייל</label>
-          <input type="email" id="reg-email" required>
-        </div>
-        <div class="form-group">
-          <label for="reg-password">סיסמה</label>
-          <input type="password" id="reg-password" required>
-        </div>
-        <div class="form-group">
-          <label for="reg-business">שם העסק</label>
-          <input type="text" id="reg-business" required>
-        </div>
-        <button type="submit" class="btn">הרשם עכשיו</button>
-      </form>
-    </div>
-    
-    <!-- Login form -->
-    <div id="login-form" class="form-container">
-      <h2>התחברות לאזור האישי</h2>
-      <form id="loginForm">
-        <div class="form-group">
-          <label for="login-email">אימייל</label>
-          <input type="email" id="login-email" required>
-        </div>
-        <div class="form-group">
-          <label for="login-password">סיסמה</label>
-          <input type="password" id="login-password" required>
-        </div>
-        <button type="submit" class="btn">התחבר</button>
-        <button type="button" id="admin-login" class="btn btn-secondary">כניסת אדמין</button>
-      </form>
-    </div>
-    
-    <!-- Admin area -->
-    <div id="admin-area" class="admin-area">
-      <h2>אזור ניהול - אדמין</h2>
-      <p>ברוך הבא לאזור הניהול. כאן תוכל לצפות בכל הנרשמים ולנהל את הקהילה.</p>
-      
-      <div class="form-group">
-        <label for="admin-password">סיסמת אדמין</label>
-        <input type="password" id="admin-password" placeholder="הכנס סיסמת אדמין">
-        <button id="view-users" class="btn" style="margin-top: 0.5rem;">הצג נרשמים</button>
-      </div>
-      
-      <div id="users-list-container" style="display: none;">
-        <h3>רשימת הנרשמים</h3>
-        <ul id="users-list" class="user-list">
-          <!-- Users will be populated here -->
-        </ul>
-      </div>
-      
-      <button id="logout-admin" class="btn btn-secondary" style="margin-top: 1rem;">התנתק</button>
-    </div>
-    
-    <!-- User area -->
-    <div id="user-area" class="user-area">
-      <h2>אזור אישי</h2>
-      <p id="welcome-message">ברוך הבא לאזור האישי שלך!</p>
-      
-      <ul class="features">
-        <li>סטטוס הרשמה: <span id="user-status">ממתין לאישור</span></li>
-        <li>תאריך הרשמה: <span id="join-date">-</span></li>
-        <li>מספר משתמש: <span id="user-id">-</span></li>
-      </ul>
-      
-      <button id="logout-user" class="btn btn-secondary">התנתק</button>
-    </div>
-    
-    <div class="footer">
-      © Buy My Shop - כל הזכויות שמורות
-    </div>
-  </main>
-
-  <script>
-    // Current user state
-    let currentUser = null;
-    let isAdmin = false;
-    
-    // DOM elements
-    const tabs = document.querySelectorAll('.tab');
-    const mainContent = document.getElementById('main-content');
-    const registerForm = document.getElementById('register-form');
-    const loginForm = document.getElementById('login-form');
-    const adminArea = document.getElementById('admin-area');
-    const userArea = document.getElementById('user-area');
-    
-    // Form elements
-    const registerFormElement = document.getElementById('registerForm');
-    const loginFormElement = document.getElementById('loginForm');
-    const adminLoginBtn = document.getElementById('admin-login');
-    const viewUsersBtn = document.getElementById('view-users');
-    const logoutAdminBtn = document.getElementById('logout-admin');
-    const logoutUserBtn = document.getElementById('logout-user');
-    
-    // Initialize the page
-    document.addEventListener('DOMContentLoaded', function() {
-      // Check if user is already logged in
-      checkLoginStatus();
-      
-      // Set up tab navigation
-      tabs.forEach(tab => {
-        tab.addEventListener('click', function() {
-          const tabName = this.getAttribute('data-tab');
-          switchTab(tabName);
-        });
-      });
-      
-      // Register form submission
-      registerFormElement.addEventListener('submit', function(e) {
-        e.preventDefault();
-        registerUser();
-      });
-      
-      // Login form submission
-      loginFormElement.addEventListener('submit', function(e) {
-        e.preventDefault();
-        loginUser();
-      });
-      
-      // Admin login button
-      adminLoginBtn.addEventListener('click', function() {
-        // For demo purposes, we'll use a simple admin login
-        // In a real app, this would require proper authentication
-        isAdmin = true;
-        showAdminArea();
-      });
-      
-      // View users button
-      viewUsersBtn.addEventListener('click', function() {
-        const adminPassword = document.getElementById('admin-password').value;
-        // Simple password check for demo
-        if (adminPassword === 'admin123') {
-          showUsersList();
-        } else {
-          alert('סיסמת אדמין לא תקינה');
-        }
-      });
-      
-      // Logout buttons
-      logoutAdminBtn.addEventListener('click', function() {
-        logout();
-      });
-      
-      logoutUserBtn.addEventListener('click', function() {
-        logout();
-      });
-    });
-    
-    // Switch between tabs
-    function switchTab(tabName) {
-      // Update active tab
-      tabs.forEach(tab => {
-        if (tab.getAttribute('data-tab') === tabName) {
-          tab.classList.add('active');
-        } else {
-          tab.classList.remove('active');
-        }
-      });
-      
-      // Show appropriate content
-      mainContent.style.display = tabName === 'main' ? 'block' : 'none';
-      registerForm.style.display = tabName === 'register' ? 'block' : 'none';
-      loginForm.style.display = tabName === 'login' ? 'block' : 'none';
-    }
-    
-    // Check if user is logged in
-    function checkLoginStatus() {
-      const savedUser = localStorage.getItem('currentUser');
-      const savedAdmin = localStorage.getItem('isAdmin');
-      
-      if (savedUser) {
-        currentUser = JSON.parse(savedUser);
-        showUserArea();
-      } else if (savedAdmin === 'true') {
-        isAdmin = true;
-        showAdminArea();
-      }
-    }
-    
-    // Register a new user
-    function registerUser() {
-      const name = document.getElementById('reg-name').value;
-      const email = document.getElementById('reg-email').value;
-      const password = document.getElementById('reg-password').value;
-      const business = document.getElementById('reg-business').value;
-      
-      // Get existing users or initialize empty array
-      const users = JSON.parse(localStorage.getItem('users')) || [];
-      
-      // Check if user already exists
-      if (users.find(user => user.email === email)) {
-        alert('משתמש עם אימייל זה כבר קיים במערכת');
-        return;
-      }
-      
-      // Create new user
-      const newUser = {
-        id: Date.now().toString(),
-        name,
-        email,
-        password, // In a real app, this should be hashed!
-        business,
-        joinDate: new Date().toLocaleDateString('he-IL'),
-        status: 'ממתין לאישור'
-      };
-      
-      // Add to users array
-      users.push(newUser);
-      
-      // Save to localStorage
-      localStorage.setItem('users', JSON.stringify(users));
-      
-      alert('ההרשמה בוצעה בהצלחה! כעת תוכל להתחבר לאזור האישי.');
-      
-      // Clear form and switch to login tab
-      registerFormElement.reset();
-      switchTab('login');
-    }
-    
-    // Login user
-    function loginUser() {
-      const email = document.getElementById('login-email').value;
-      const password = document.getElementById('login-password').value;
-      
-      // Get users from localStorage
-      const users = JSON.parse(localStorage.getItem('users')) || [];
-      
-      // Find user
-      const user = users.find(u => u.email === email && u.password === password);
-      
-      if (user) {
-        currentUser = user;
-        localStorage.setItem('currentUser', JSON.stringify(currentUser));
-        showUserArea();
-      } else {
-        alert('אימייל או סיסמה לא תקינים');
-      }
-    }
-    
-    // Show admin area
-    function showAdminArea() {
-      localStorage.setItem('isAdmin', 'true');
-      mainContent.style.display = 'none';
-      registerForm.style.display = 'none';
-      loginForm.style.display = 'none';
-      adminArea.style.display = 'block';
-      userArea.style.display = 'none';
-      
-      // Update tabs
-      tabs.forEach(tab => tab.classList.remove('active'));
-    }
-    
-    // Show user area
-    function showUserArea() {
-      mainContent.style.display = 'none';
-      registerForm.style.display = 'none';
-      loginForm.style.display = 'none';
-      adminArea.style.display = 'none';
-      userArea.style.display = 'block';
-      
-      // Update user info
-      document.getElementById('welcome-message').textContent = `ברוך הבא, ${currentUser.name}!`;
-      document.getElementById('user-status').textContent = currentUser.status;
-      document.getElementById('join-date').textContent = currentUser.joinDate;
-      document.getElementById('user-id').textContent = currentUser.id;
-      
-      // Update tabs
-      tabs.forEach(tab => tab.classList.remove('active'));
-    }
-    
-    // Show users list (admin function)
-    function showUsersList() {
-      const users = JSON.parse(localStorage.getItem('users')) || [];
-      const usersList = document.getElementById('users-list');
-      const usersListContainer = document.getElementById('users-list-container');
-      
-      // Clear existing list
-      usersList.innerHTML = '';
-      
-      // Add users to list
-      users.forEach(user => {
-        const li = document.createElement('li');
-        li.innerHTML = `
-          <strong>${user.name}</strong> (${user.business})<br>
-          <small>${user.email} | הצטרף: ${user.joinDate} | סטטוס: ${user.status}</small>
-        `;
-        usersList.appendChild(li);
-      });
-      
-      // Show the container
-      usersListContainer.style.display = 'block';
-    }
-    
-    // Logout function
-    function logout() {
-      currentUser = null;
-      isAdmin = false;
-      localStorage.removeItem('currentUser');
-      localStorage.removeItem('isAdmin');
-      
-      // Reset to main tab
-      switchTab('main');
-    }
-  </script>
+    <p>
+      תשלום חד־פעמי של 39 ש״ח, קהילה חכמה של בעלי עסקים,
+      מתנות דיגיטליות, NFT וטוקני SLH שיחולקו למשתתפים.
+    </p>
+    <p>
+      כל מה שצריך כדי להצטרף – להתחיל דרך הבוט בטלגרם.
+    </p>
+    <a class="btn" href="https://t.me/Buy_My_Shop_bot">פתח את הבוט בטלגרם</a>
+  </div>
 </body>
 </html>

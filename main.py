@@ -1,4 +1,4 @@
-# main.py
+﻿# main.py
 import os
 import logging
 from collections import deque
@@ -1079,7 +1079,7 @@ async def admin_menu_callback(update: Update, context: ContextTypes.DEFAULT_TYPE
 # רישום handlers
 # =========================
 
-ptb_app.add_handler(CommandHandler("start", start))
+ptb_app.add_handler(CommandHandler("start", entry_start))
 ptb_app.add_handler(CommandHandler("help", help_command))
 ptb_app.add_handler(CommandHandler("admin", admin_menu_command))
 ptb_app.add_handler(CommandHandler("approve", approve_command))
@@ -1207,3 +1207,92 @@ async def admin_stats(token: str = ""):
         "monthly_breakdown": monthly,
         "top_referrers": top_ref,
     }
+
+
+# === SLH GATEWAY START TEXT v2 ===
+# שער כניסה משודרג  נכס דיגיטלי, אימות כפול, חינוך פיננסי
+
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
+from telegram.ext import ContextTypes
+
+def get_user_lang(update: Update) -> str:
+    code = (update.effective_user.language_code or "").lower()
+    if code.startswith("he"):
+        return "he"
+    return "en"
+
+
+async def entry_start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    user = update.effective_user
+    chat = update.effective_chat
+    lang = get_user_lang(update)
+
+    # טקסט בעברית  ברירת מחדל
+    if lang == "he":
+        text = (
+            "ברוך הבא לשער המערכת של החיים שלנו  Buy_My_Shop / SLH Gateway \\n\\n"
+            "כאן התשלום *לא קונה סתם גישה לבוט*, אלא נכס דיגיטלי מניב: קישור לקבוצה עסקית סגורה, "
+            "שמייצגת את הזכאות שלך להשתתף במערכת התגמולים וההטבות שלנו.\\n\\n"
+            " *למה אימות כפול?*\\n"
+            "כמו בכל מערכת בנקאית רצינית  גם כאן אנחנו עובדים באימות כפול: \\n"
+            "1) אתה מאמת ששילמת (באמצעות צילום מסך / אישור העברה)\\n"
+            "2) אנחנו מאמתים ידנית שקיבלנו את התשלום ומאשרים את הקישור לקבוצה.\\n"
+            "כך אף אחד לא יכול למכור 'נכס' (הקישור לקבוצה) בלי לקבל כסף בפועל, גם היום וגם בעתיד.\\n\\n"
+            " *איך זה מתחבר לעתיד שלך?*\\n"
+            "לאחר ההצטרפות, תוכל:\\n"
+            " להגדיר קבוצה עסקית אחת משלך (למשל קהילה/חנות/ערוץ משלך)\\n"
+            " להגדיר חשבון בנק / ביט / פייבוקס לקבלת תשלומים\\n"
+            " לשתף את מערכת Buy_My_Shop עם אחרים ולקבל קרדיט על כל מי שנכנס דרכך\\n"
+            " אחרי 39 שיתופים מאושרים  תוכל להיכנס לפאנל האדמין שלך,\\n"
+            "  או לחלופין לשלם 39 ש\"ח נוספים כדי לפתוח גישה ישירה לפאנל.\\n\\n"
+            " *חוזה חכם  בשפה פשוטה*\\n"
+            "כל פעולה  הצטרפות, הגדרת קבוצה, הוספת פרטי תשלום, בקשת שירות נוסף  נרשמת במערכת כחוזה "
+            "חכם בסיסי: אנחנו יודעים מי ביקש מה, מה הוסכם, ומה מצב הטיפול. בהמשך זה יתחבר גם לבלוקצ'יין ו-NFT.\\n\\n"
+            "כדי להמשיך  בחר אחת מהאפשרויות למטה. אתה יכול להתחיל מתשלום, או קודם להבין לעומק איך זה עובד."
+        )
+    else:
+        # גרסה באנגלית למי שהטלגרם שלו לא בעברית
+        text = (
+            "Welcome to the SLH / Buy_My_Shop Gateway \\n\\n"
+            "Here your payment does *not* just buy access to a bot  it buys a digital, income-producing asset: "
+            "a private business-group link that represents your right to participate in our rewards and benefits system.\\n\\n"
+            " *Why double verification?*\\n"
+            "Just like serious banking systems, we use double verification:\\n"
+            "1) You confirm that you paid (by sending a screenshot / payment proof)\\n"
+            "2) We manually confirm that the funds arrived and only then unlock the group link.\\n\\n"
+            "After joining you will be able to:\\n"
+            " Register one business group of your own\\n"
+            " Add your bank / PayBox / Bit details for payouts\\n"
+            " Share the system with others and earn credit for every user that joins through you\\n"
+            " After 39 confirmed referrals  you unlock your personal admin panel, "
+            "or pay an additional 39 NIS to unlock it directly.\\n\\n"
+            "Every step is saved as a simple 'smart contract' inside our system, and later this will be "
+            "anchored on-chain.\\n\\n"
+            "Use the menu below to continue."
+        )
+
+    keyboard = [
+        [
+            InlineKeyboardButton(" שלח צילום תשלום", callback_data="send_payment_proof"),
+        ],
+        [
+            InlineKeyboardButton("ℹ איך זה עובד?", callback_data="how_it_works"),
+        ],
+        [
+            InlineKeyboardButton(" הקבוצה העסקית שלי", callback_data="user_group_info"),
+        ],
+        [
+            InlineKeyboardButton(" פרטי תשלום שלי", callback_data="user_payment_info"),
+        ],
+        [
+            InlineKeyboardButton(" הפאנל האישי שלי", callback_data="user_panel"),
+        ],
+    ]
+
+    await update.effective_message.reply_text(
+        text,
+        reply_markup=InlineKeyboardMarkup(keyboard),
+        disable_web_page_preview=True,
+    )
+
+# סוף שער מערכת v2
