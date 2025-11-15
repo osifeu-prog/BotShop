@@ -2748,3 +2748,167 @@ async def _slhnet_on_startup():
         _slhnet_register_handlers()
     except Exception as e:
         _slh_logger.warning("SLHNET: failed to register handlers on startup: %s", e)
+
+# ============================================
+# SLHNET public config, price, posts & wallet
+# (appended automatically, non-destructive)
+# ============================================
+from typing import List, Optional
+try:
+    from fastapi import Query
+    from pydantic import BaseModel
+except ImportError:
+    # אם בסביבת ריצה אחרת  נתעלם, בריילווי זה כן מותקן
+    pass
+
+try:
+    from telegram import Update
+    from telegram.ext import CommandHandler, ContextTypes
+except ImportError:
+    Update = object  # type: ignore
+    ContextTypes = object  # type: ignore
+    CommandHandler = object  # type: ignore
+
+# נייבא את הפונקציות החדשות של ה-DB (אם זמינות)
+try:
+    from db import fetch_posts, fetch_token_sales  # type: ignore
+except Exception:
+    fetch_posts = None  # type: ignore
+    fetch_token_sales = None  # type: ignore
+
+
+class PublicConfig(BaseModel):  # type: ignore
+    project_name: str
+    bot_link: str
+    group_invite: Optional[str]
+    slh_nis: float
+    token_contract: str
+    chain_id: int
+    network_name: str
+    rpc_url: str
+    block_explorer: str
+
+
+class TokenPrice(BaseModel):  # type: ignore
+    symbol: str
+    official_price_nis: float
+    source: str = "static"
+
+
+class PostOut(BaseModel):  # type: ignore
+    id: int
+    user_id: Optional[int]
+    username: Optional[str]
+    title: str
+    content: str
+    share_url: Optional[str]
+    created_at: Optional[str]
+
+
+class TokenSaleOut(BaseModel):  # type: ignore
+    id: int
+    user_id: Optional[int]
+    username: Optional[str]
+    wallet_address: Optional[str]
+    amount_slh: Optional[float]
+    price_nis: Optional[float]
+    status: str
+    tx_hash: Optional[str]
+    created_at: Optional[str]
+
+
+# נוודא שיש app גלובלי (אמור להיות מוגדר כבר, זו רק רשת ביטחון)
+try:
+    app  # type: ignore[name-defined]
+except NameError:
+    from fastapi import FastAPI  # type: ignore
+    app = FastAPI(title="SLHNET Gateway (fallback)")  # type: ignore
+
+
+import os as _os
+
+SLH_NIS_DEFAULT = float(_os.getenv("SLH_NIS", "444"))
+BOT_USERNAME = _os.getenv("BOT_USERNAME", "Buy_My_Shop_bot")
+GROUP_INVITE = _os.getenv("GROUP_STATIC_INVITE")
+
+
+@app.get("/config/public", response_model=PublicConfig)  # type: ignore
+def get_public_config():
+    return PublicConfig(
+        project_name="SLHNET  הרשת העסקית החדשה",
+        bot_link=f"https://t.me/{BOT_USERNAME}",
+        group_invite=GROUP_INVITE,
+        slh_nis=SLH_NIS_DEFAULT,
+        token_contract="0xACb0A09414CEA1C879c67bB7A877E4e19480f022",
+        chain_id=56,
+        network_name="Smart Chain",
+        rpc_url="https://bsc-dataseed.binance.org/",
+        block_explorer="https://bscscan.com",
+    )
+
+
+@app.get("/api/token/price", response_model=TokenPrice)  # type: ignore
+def get_token_price():
+    return TokenPrice(symbol="SLH", official_price_nis=SLH_NIS_DEFAULT)
+
+
+@app.get("/api/posts", response_model=List[PostOut])  # type: ignore
+def api_list_posts(limit: int = Query(20, ge=1, le=100)):  # type: ignore
+    if fetch_posts is None:
+        return []
+    rows = fetch_posts(limit=limit)
+    return [PostOut(**row) for row in rows]
+
+
+@app.get("/api/token/sales", response_model=List[TokenSaleOut])  # type: ignore
+def api_list_token_sales(limit: int = Query(50, ge=1, le=200)):  # type: ignore
+    if fetch_token_sales is None:
+        return []
+    rows = fetch_token_sales(limit=limit)
+    return [TokenSaleOut(**row) for row in rows]
+
+
+# -------- פקודת /wallet לבוט הטלגרם --------
+
+async def wallet_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):  # type: ignore
+    user = getattr(update, "effective_user", None)
+    text = (
+        " *ארנק SLHNET  חיבור לBSC*\n\n"
+        "כדי להשתמש בהטבות החינמיות למחזיקי SLH על BSC:\n"
+        "1. פתח MetaMask והגדר רשת:\n"
+        "    Network Name: Smart Chain\n"
+        "    RPC: https://bsc-dataseed.binance.org/\n"
+        "    ChainID: 56\n"
+        "    Symbol: BNB\n"
+        "    Explorer: https://bscscan.com\n\n"
+        "2. הוסף טוקן SLH (Custom Token):\n"
+        "    Contract:  xACb0A09414CEA1C879c67bB7A877E4e19480f022\n"
+        "    Symbol: SLH\n"
+        "    Decimals: 15\n\n"
+        "3. בקרוב תוכל לאמת את הארנק שלך ולקבל גישה חינמית מלאה\n"
+        "   למערכת בתשלום 39 ש\"ח  ישירות דרך הבוט והאתר.\n\n"
+        "_נכון לעכשיו האימות מתבצע ידנית ע\"י האדמין, בהתאם לנתונים שלך._"
+    )
+    chat_id = getattr(getattr(update, "effective_chat", None), "id", None)
+    if chat_id is not None and hasattr(context, "bot"):
+        await context.bot.send_message(
+            chat_id=chat_id,
+            text=text,
+            parse_mode="Markdown"
+        )
+
+
+# ננסה להירשם לפקודת /wallet אם ptb_app קיים בגלובל
+try:
+    ptb_app  # type: ignore[name-defined]
+except NameError:
+    ptb_app = None  # type: ignore
+
+try:
+    if ptb_app is not None and isinstance(CommandHandler, type):  # type: ignore
+        ptb_app.add_handler(CommandHandler("wallet", wallet_handler))  # type: ignore
+except Exception:
+    # לא נכשלים אם זה לא זמין (למשל בריצה ללא בוט)
+    pass
+
+# סוף בלוק SLHNET המורחב
