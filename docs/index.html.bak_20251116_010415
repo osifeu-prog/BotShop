@@ -1,13 +1,6 @@
 ﻿<!doctype html>
 <html lang="he" dir="rtl">
 <head>
-    <!-- SLHNET Open Graph / Social Share -->
-    <meta property="og:title" content="SLHNET  שער הכניסה לאקו-סיסטם של חנויות, טוקן SLH וקהילת עסקים" />
-    <meta property="og:description" content="שער אחד לעולם של חנויות דיגיטליות, טוקני SLH על BSC, קבוצות טלגרם, סטייקינג ותוכנית תגמול חכמה." />
-    <meta property="og:image" content="https://slh-nft.com/static/slh-og.png" />
-    <meta property="og:url" content="https://slh-nft.com/" />
-    <meta property="og:type" content="website" />
-    <meta name="twitter:card" content="summary_large_image" />
   <meta charset="utf-8" />
   <title>SLHNET  הרשת העסקית על Binance Smart Chain</title>
   <meta name="viewport" content="width=device-width,initial-scale=1" />
@@ -726,4 +719,3 @@
   </script>
 </body>
 </html>
-
