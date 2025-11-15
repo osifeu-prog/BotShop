@@ -2245,3 +2245,153 @@ try:
     logger.info("SLHNET handlers registered on import.")
 except Exception as e:
     logger.error("SLHNET: failed to setup handlers on import: %s", e)
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import HTMLResponse
+
+# CORS רחב  כדי שהאתר slh-nft.com יוכל לקרוא את ה-API
+try:
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=["*"],
+        allow_credentials=True,
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
+except Exception:
+    pass
+
+
+@app.get("/config/public")
+async def public_config():
+    import os
+    return {
+        "business_group_link": os.getenv("GROUP_STATIC_INVITE"),
+        "paybox_url": os.getenv("PAYBOX_URL"),
+        "paypal_url": os.getenv("PAYPAL_URL"),
+        "slh_nis": os.getenv("SLH_NIS", "39"),
+        "bot_username": os.getenv("BOT_USERNAME"),
+    }
+
+
+@app.get("/admin/dashboard", response_class=HTMLResponse)
+async def admin_dashboard_page():
+    html = """<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+  <meta charset="utf-8" />
+  <title>SLHNET  לוח בקרה</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <style>
+    body {
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: #020617;
+      color: #f9fafb;
+      margin: 0;
+      padding: 16px;
+    }
+    h1, h2 {
+      margin: 0 0 12px;
+    }
+    .card {
+      background: rgba(15,23,42,0.96);
+      border-radius: 14px;
+      padding: 16px;
+      margin-bottom: 16px;
+      border: 1px solid rgba(148,163,184,0.35);
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.85rem;
+    }
+    th, td {
+      border-bottom: 1px solid rgba(148,163,184,0.35);
+      padding: 6px 4px;
+      text-align: right;
+    }
+    th {
+      font-weight: 600;
+      color: #e5e7eb;
+    }
+    code {
+      background: rgba(15,23,42,0.85);
+      padding: 2px 6px;
+      border-radius: 6px;
+      font-size: 0.8rem;
+    }
+  </style>
+</head>
+<body>
+  <h1>SLHNET  לוח בקרה אדמיניסטרטיבי</h1>
+  <div class="card">
+    <p>
+      הטוקן מועבר דרך הפרמטר <code>token</code> ב-URL, לדוגמה:<br/>
+      <code>/admin/dashboard?token=ADMIN_DASH_TOKEN</code>
+    </p>
+  </div>
+
+  <div class="card">
+    <h2>סטטיסטיקות תשלומים</h2>
+    <div id="stats-box">טוען נתונים...</div>
+  </div>
+
+  <script>
+    async function loadStats() {
+      const params = new URLSearchParams(window.location.search);
+      const token = params.get("token") || "";
+      let url = "/admin/stats";
+      if (token) {
+        url += "?token=" + encodeURIComponent(token);
+      }
+
+      const box = document.getElementById("stats-box");
+      try {
+        const res = await fetch(url);
+        if (!res.ok) {
+          box.textContent = "שגיאה בטעינת /admin/stats: HTTP " + res.status;
+          return;
+        }
+        const data = await res.json();
+        const ps = data.payments_stats || {};
+        const breakdown = data.monthly_breakdown || [];
+        const topRef = data.top_referrers || [];
+
+        let html = "";
+        html += "<p>DB: <strong>" + (data.db || "-") + "</strong></p>";
+        html += "<p>Pending: <strong>" + (ps.pending || 0) + "</strong> | Approved: <strong>" + (ps.approved || 0) + "</strong> | Rejected: <strong>" + (ps.rejected || 0) + "</strong> | Total: <strong>" + (ps.total || 0) + "</strong></p>";
+
+        html += "<h3>פילוח חודשי לפי אמצעי תשלום</h3>";
+        if (breakdown.length === 0) {
+          html += "<p>אין נתונים.</p>";
+        } else {
+          html += "<table><thead><tr><th>אמצעי תשלום</th><th>סטטוס</th><th>כמות</th></tr></thead><tbody>";
+          breakdown.forEach((r) => {
+            html += "<tr><td>" + r.pay_method + "</td><td>" + r.status + "</td><td>" + r.count + "</td></tr>";
+          });
+          html += "</tbody></table>";
+        }
+
+        html += "<h3 style='margin-top:14px;'>מפנים מובילים</h3>";
+        if (topRef.length === 0) {
+          html += "<p>אין עדיין מפנים רשומים.</p>";
+        } else {
+          html += "<ul>";
+          topRef.forEach((r) => {
+            html += "<li>" + r.username + "  " + r.count + " הפניות</li>";
+          });
+          html += "</ul>";
+        }
+
+        box.innerHTML = html;
+      } catch (err) {
+        console.error(err);
+        box.textContent = "שגיאה בטעינת הנתונים.";
+      }
+    }
+
+    loadStats();
+  </script>
+</body>
+</html>
+"""
+    return HTMLResponse(content=html)

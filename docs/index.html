@@ -2,10 +2,10 @@
 <html lang="he" dir="rtl">
 <head>
   <meta charset="utf-8" />
-  <title>SLHNET  שער קהילת העסקים</title>
+  <title>SLHNET  הרשת העסקית החדשה</title>
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <meta property="og:title" content="SLHNET  רשת העסקים החדשה" />
-  <meta property="og:description" content="ביזנס, טוקנים, חנויות דיגיטליות וקבוצות טלגרם  הכל מחובר במקום אחד." />
+  <meta property="og:title" content="SLHNET  הרשת העסקית החדשה" />
+  <meta property="og:description" content="רשת חברתית לעסקים שמחברת חנויות דיגיטליות, Binance Smart Chain, קבוצות טלגרם ושיתופים שמייצרים הכנסה." />
   <meta property="og:image" content="https://slh-nft.com/docs/assets/slh_promo.jpg" />
   <meta property="og:type" content="website" />
   <style>
@@ -69,14 +69,6 @@
       border-radius: 6px;
       font-size: 0.85rem;
     }
-    .pill {
-      display: inline-block;
-      padding: 4px 10px;
-      border-radius: 999px;
-      font-size: 0.7rem;
-      background: rgba(148,163,184,0.16);
-      margin-left: 6px;
-    }
     .sales-table {
       width: 100%;
       border-collapse: collapse;
@@ -130,21 +122,36 @@
         <strong>קבוצות טלגרם</strong> ו<strong>רשת חברתית</strong> לעסקים.
       </p>
       <p>
-        הצטרפות דרך בוט השער שלנו בטלגרם, קבלת טוקני <strong>SLH</strong> על BSC,
-        ופתיחת חנות/קהילה משלך.
+        כל שיתוף בפרופיל שלך ובחנות שלך הוא נכס: מהרגע הראשון אתה מרוויח מחשיפה,
+        מחיבור לקהילה ומטוקני <strong>SLH</strong>.
+      </p>
+      <p>
+        אחרי <strong>39 שיתופים</strong> איכותיים או תשלום חדפעמי של
+        <strong><span id="price-amount">39</span> </strong>  מקבלים גישה מלאה
+        לכל שכבות הרשת: קבוצות פרימיום, חנויות, בוטים, הטבות ואיירדרופים.
       </p>
       <div class="row">
         <div class="col" style="margin-top:8px;">
-          <a class="btn" href="https://t.me/Buy_My_Shop" target="_blank" rel="noreferrer">
+          <a class="btn" href="https://t.me/Buy_My_Shop_bot" target="_blank" rel="noreferrer">
              כניסה לבוט SLHNET
           </a>
           <div style="margin-top:10px;font-size:0.9rem;">
-            /start  להצטרפות, /wallet  לניהול ארנק, /sell  דיווח מכירה.
+            /start להצטרפות  /wallet ניהול ארנק  /sell דיווח מכירה  /post יצירת פוסט.
+          </div>
+          <div style="margin-top:16px;">
+            <a id="btn-join-group" class="btn btn-secondary" href="#" target="_blank" rel="noreferrer">
+               הצטרפות לקבוצת העסקים
+            </a>
+          </div>
+          <div style="margin-top:8px;">
+            <a id="btn-pay" class="btn" href="#" target="_blank" rel="noreferrer">
+               תשלום <span id="price-amount-inline">39</span>  וגישה מלאה
+            </a>
           </div>
         </div>
         <div class="col" style="margin-top:8px;">
           <div class="share-row">
-            <span>שתף את SLHNET:</span><br/>
+            <div style="margin-bottom:4px;">שתף את SLHNET ברשתות:</div>
             <a id="share-tg" target="_blank" rel="noreferrer">
               <span class="icon">TG</span> טלגרם
             </a>
@@ -158,8 +165,22 @@
               <span class="icon">X</span> X
             </a>
           </div>
+          <p style="margin-top:10px;font-size:0.85rem;">
+            בכל פרופיל וחנות שתיפתח מתוך המערכת  יהיה לינק ייעודי לשיתוף ברשתות החברתיות.
+          </p>
         </div>
       </div>
+    </div>
+
+    <div class="card">
+      <h2>איך מרוויחים ב-SLHNET?</h2>
+      <ul style="font-size:0.9rem;">
+        <li>יוצרים פרופיל עסקי + חנות דיגיטלית דרך הבוט.</li>
+        <li>מקבלים לינקים ייחודיים לשיתוף החנות והפרופיל.</li>
+        <li>כל שיתוף מייצר תנועה לרשת, ואנחנו מודדים כמה אתה פעיל.</li>
+        <li>אחרי 39 שיתופים איכותיים או תשלום של <span id="price-amount-inline-2">39</span>   נפתחת גישה מלאה.</li>
+        <li>הבונוסים: טוקני SLH, חשיפה, קבוצות עסקים, ואפשרות לפתוח קניון שלם משלך.</li>
+      </ul>
     </div>
 
     <div class="card">
@@ -228,7 +249,7 @@
       <h2>פאנל ניהול SLHNET</h2>
       <p style="font-size:0.9rem;">
         לבעל המערכת: <br/>
-         דשבורד API: <code>/admin/stats?token=ADMIN_DASH_TOKEN</code><br/>
+         דשבורד API (JSON): <code>/admin/stats?token=ADMIN_DASH_TOKEN</code><br/>
          דשבורד HTML: <code>/admin/dashboard?token=ADMIN_DASH_TOKEN</code><br/>
          ניהול מלא דרך הבוט: <code>/admin</code>, <code>/stats</code> ועוד.
       </p>
@@ -236,11 +257,12 @@
   </div>
 
   <script>
-    const ORIGIN = window.location.origin;
+    const API_BASE = "https://webwook-production-4861.up.railway.app";
+    const SITE_BASE = window.location.origin;
 
     function setupShares() {
-      const url = encodeURIComponent(ORIGIN);
-      const text = encodeURIComponent("SLHNET  רשת העסקים החדשה. הצטרף דרך הבוט וקבל גישה לטוקן SLH, חנויות וקבוצות פרטיות.");
+      const url = encodeURIComponent(SITE_BASE);
+      const text = encodeURIComponent("SLHNET  רשת העסקים החדשה. הצטרף דרך הבוט וקבל גישה לטוקני SLH, חנויות וקבוצות עסקים.");
       document.getElementById("share-tg").href =
         "https://t.me/share/url?url=" + url + "&text=" + text;
       document.getElementById("share-wa").href =
@@ -251,9 +273,47 @@
         "https://x.com/intent/tweet?text=" + text + "&url=" + url;
     }
 
+    async function loadConfig() {
+      try {
+        const res = await fetch(API_BASE + "/config/public");
+        const data = await res.json();
+        const price = data.slh_nis || "39";
+
+        const priceEls = [
+          document.getElementById("price-amount"),
+          document.getElementById("price-amount-inline"),
+          document.getElementById("price-amount-inline-2"),
+        ];
+        priceEls.forEach(el => { if (el) el.textContent = price; });
+
+        const joinBtn = document.getElementById("btn-join-group");
+        if (joinBtn && data.business_group_link) {
+          joinBtn.href = data.business_group_link;
+        } else if (joinBtn) {
+          joinBtn.style.display = "none";
+        }
+
+        const payBtn = document.getElementById("btn-pay");
+        if (payBtn) {
+          const payUrl = data.paybox_url || data.paypal_url;
+          if (payUrl) {
+            payBtn.href = payUrl;
+          } else {
+            payBtn.addEventListener("click", (ev) => {
+              ev.preventDefault();
+              alert("קישור התשלום יופעל מתוך הבוט לאחר ההרשמה. אנא התחבר דרך הבוט SLHNET.");
+            });
+          }
+        }
+      } catch (err) {
+        console.error("config error", err);
+      }
+    }
+
     async function loadSales() {
       try {
-        const res = await fetch(ORIGIN + "/api/token/sales?limit=50");
+        const res = await fetch(API_BASE + "/api/token/sales?limit=50");
+        if (!res.ok) throw new Error("HTTP " + res.status);
         const data = await res.json();
         const tbody = document.getElementById("sales-body");
         tbody.innerHTML = "";
@@ -284,18 +344,22 @@
           tr.appendChild(statusTd);
 
           const txTd = document.createElement("td");
-          const a = document.createElement("a");
-          a.href = "https://bscscan.com/tx/" + s.tx_hash;
-          a.target = "_blank";
-          a.rel = "noreferrer";
-          a.textContent = "BscScan";
-          txTd.appendChild(a);
+          if (s.tx_hash) {
+            const a = document.createElement("a");
+            a.href = "https://bscscan.com/tx/" + s.tx_hash;
+            a.target = "_blank";
+            a.rel = "noreferrer";
+            a.textContent = "BscScan";
+            txTd.appendChild(a);
+          } else {
+            txTd.textContent = "-";
+          }
           tr.appendChild(txTd);
 
           tbody.appendChild(tr);
         });
       } catch (err) {
-        console.error(err);
+        console.error("sales error", err);
         document.getElementById("sales-body").innerHTML =
           "<tr><td colspan='6'>שגיאה בטעינת הנתונים.</td></tr>";
       }
@@ -303,7 +367,8 @@
 
     async function loadPosts() {
       try {
-        const res = await fetch(ORIGIN + "/api/posts?limit=20");
+        const res = await fetch(API_BASE + "/api/posts?limit=20");
+        if (!res.ok) throw new Error("HTTP " + res.status);
         const data = await res.json();
         const box = document.getElementById("posts-box");
         box.innerHTML = "";
@@ -352,7 +417,7 @@
           box.appendChild(div);
         });
       } catch (err) {
-        console.error(err);
+        console.error("posts error", err);
         document.getElementById("posts-box").textContent =
           "שגיאה בטעינת הפוסטים.";
       }
@@ -366,10 +431,16 @@
         statusEl.textContent = "MetaMask לא זוהה בדפדפן.";
         return;
       }
+      if (!window.ethers) {
+        statusEl.textContent = "ethers.js לא נטען. נסה לרענן את העמוד או לבטל חוסמי פרסומות.";
+        return;
+      }
+
+      const ethersLib = window.ethers;
 
       try {
         await window.ethereum.request({ method: "eth_requestAccounts" });
-        const provider = new ethers.providers.Web3Provider(window.ethereum);
+        const provider = new ethersLib.providers.Web3Provider(window.ethereum);
         const signer = provider.getSigner();
         const addr = await signer.getAddress();
         const network = await provider.getNetwork();
@@ -390,14 +461,14 @@
           "function symbol() view returns (string)"
         ];
 
-        const contract = new ethers.Contract(slhAddress, erc20Abi, provider);
+        const contract = new ethersLib.Contract(slhAddress, erc20Abi, provider);
         const [rawBal, decimals, symbol] = await Promise.all([
           contract.balanceOf(addr),
           contract.decimals(),
           contract.symbol()
         ]);
 
-        const bal = Number(ethers.utils.formatUnits(rawBal, decimals));
+        const bal = Number(ethersLib.utils.formatUnits(rawBal, decimals));
         balanceEl.textContent = "היתרה שלך: " + bal.toFixed(4) + " " + symbol;
       } catch (err) {
         console.error(err);
@@ -438,6 +509,7 @@
     document.getElementById("btn-add-token").addEventListener("click", addTokenToMetaMask);
 
     setupShares();
+    loadConfig();
     loadSales();
     loadPosts();
     setInterval(loadSales, 30000);

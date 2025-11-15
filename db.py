@@ -711,3 +711,10 @@ def list_recent_posts(limit: int = 20, offset: int = 0) -> List[Dict[str, Any]]:
         }
         for r in rows
     ]
+try:
+    _init_schema_slhnet()
+except Exception as e:
+    try:
+        logger.error("SLHNET: failed to ensure extra tables: %s", e)
+    except Exception:
+        pass
