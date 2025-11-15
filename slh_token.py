@@ -1,11 +1,9 @@
-# slh_token.py
-"""
-מודול אינטגרציית SLH טוקן על Binance Smart Chain (BSC)
+﻿\"\"\"SLH Token integration on Binance Smart Chain (BSC)
 
-- אימות כתובות ארנק
-- בדיקת יתרה
-- אימות טרנזאקציית מכירה (Transfer של SLH לטובת הטרז'רי)
-"""
+- Validate BSC addresses
+- Read SLH balance
+- Verify on-chain sale tx (Transfer from user -> treasury)
+\"\"\"
 
 import os
 from typing import Optional, Tuple
@@ -13,11 +11,7 @@ from typing import Optional, Tuple
 from web3 import Web3
 from web3.exceptions import TransactionNotFound
 
-# -----------------------
-# קונסטנטים של הרשת/טוקן
-# -----------------------
-
-SLH_CHAIN_ID = 56  # BSC Mainnet
+SLH_CHAIN_ID = 56
 SLH_RPC_URL = os.environ.get("BSC_RPC_URL", "https://bsc-dataseed.binance.org/")
 SLH_TOKEN_ADDRESS = os.environ.get(
     "SLH_TOKEN_ADDRESS",
@@ -26,15 +20,13 @@ SLH_TOKEN_ADDRESS = os.environ.get(
 SLH_TOKEN_SYMBOL = os.environ.get("SLH_TOKEN_SYMBOL", "SLH")
 SLH_TOKEN_DECIMALS = int(os.environ.get("SLH_TOKEN_DECIMALS", "15"))
 
-# כתובת הטרז'רי – לשם המשתמשים מעבירים את ה-SLH שהם "מוכרים"
 TREASURY_ADDRESS = os.environ.get(
     "SLH_TREASURY_ADDRESS",
-    "0x000000000000000000000000000000000000dead"  # מומלץ להחליף לכתובת שלך
+    "0x000000000000000000000000000000000000dEaD"  # replace with your real treasury address
 )
 
 w3 = Web3(Web3.HTTPProvider(SLH_RPC_URL))
 
-# ABI מינימלי של ERC20 – balanceOf, decimals, symbol, Transfer event
 ERC20_ABI = [
     {
         "constant": True,
@@ -76,7 +68,6 @@ SLH_CONTRACT = w3.eth.contract(
 
 
 def is_valid_bsc_address(address: str) -> bool:
-    """בדיקה בסיסית לכתובת BSC"""
     try:
         return w3.is_address(address)
     except Exception:
@@ -88,9 +79,6 @@ def checksum(address: str) -> str:
 
 
 def get_slh_balance(address: str) -> Optional[float]:
-    """
-    מחזיר יתרת SLH בכתובת נתונה (ביחידות טוקן, לא wei).
-    """
     if not is_valid_bsc_address(address):
         return None
     try:
@@ -106,14 +94,6 @@ def verify_slh_sale_tx(
     min_amount: float,
     treasury_address: Optional[str] = None,
 ) -> Tuple[bool, str, Optional[float], Optional[int]]:
-    """
-    מאמת טרנזאקציית "מכירה":
-    - בדיקה שהעסקה בוצעה מול חוזה ה-SLH
-    - מכילה אירוע Transfer מכתובת המשתמש לטרז'רי
-    - הסכום >= min_amount
-
-    מחזיר: (is_valid, reason, amount_slh, block_number)
-    """
     if treasury_address is None:
         treasury_address = TREASURY_ADDRESS
 
@@ -138,7 +118,6 @@ def verify_slh_sale_tx(
     amount_found = 0
 
     try:
-        # עיבוד אירועי Transfer מהחוזה
         events = SLH_CONTRACT.events.Transfer().process_receipt(receipt)
         for ev in events:
             if (

@@ -1,4 +1,4 @@
-# db.py
+﻿# db.py
 import os
 import logging
 from contextlib import contextmanager
@@ -381,3 +381,333 @@ def get_metric(key: str) -> int:
         )
         row = cur.fetchone()
         return int(row["value"]) if row else 0
+
+def get_users_stats() -> Dict[str, int]:
+    """Aggregate basic user/referral stats for admin dashboard."""
+    with db_cursor() as (conn, cur):
+        if cur is None:
+            return {
+                "total_users": 0,
+                "total_referrals": 0,
+                "total_referred_users": 0,
+                "total_referrers": 0,
+            }
+
+        # Total registered users
+        cur.execute("SELECT COUNT(*) FROM users;")
+        total_users = cur.fetchone()[0] or 0
+
+        # Total referral rows
+        cur.execute("SELECT COUNT(*) FROM referrals;")
+        total_referrals = cur.fetchone()[0] or 0
+
+        # Distinct referred users (joined through any referral link)
+        cur.execute("SELECT COUNT(DISTINCT referred_id) FROM referrals;")
+        total_referred_users = cur.fetchone()[0] or 0
+
+        # Distinct referrers (users who brought at least one friend)
+        cur.execute("SELECT COUNT(DISTINCT referrer_id) FROM referrals;")
+        total_referrers = cur.fetchone()[0] or 0
+
+        return {
+            "total_users": int(total_users),
+            "total_referrals": int(total_referrals),
+            "total_referred_users": int(total_referred_users),
+            "total_referrers": int(total_referrers),
+        }
+# === SLHNET EXTENSION: wallets, token_sales, posts ===
+import logging
+from typing import List, Dict, Any, Optional
+
+logger = logging.getLogger("db_slhnet_ext")
+
+def _slhnet_get_conn():
+    import os
+    import psycopg2
+    url = os.environ.get("DATABASE_URL")
+    if not url:
+        raise RuntimeError("DATABASE_URL not set")
+    return psycopg2.connect(url)
+
+try:
+    get_conn  # type: ignore[name-defined]
+except NameError:  # pragma: no cover
+    get_conn = _slhnet_get_conn  # type: ignore[assignment]
+
+
+def _init_schema_slhnet():
+    conn = get_conn()
+    with conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                CREATE TABLE IF NOT EXISTS wallets (
+                    id SERIAL PRIMARY KEY,
+                    user_id BIGINT NOT NULL,
+                    telegram_username TEXT,
+                    chain_id INTEGER NOT NULL,
+                    address TEXT NOT NULL,
+                    is_primary BOOLEAN NOT NULL DEFAULT TRUE,
+                    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                    UNIQUE (chain_id, address)
+                );
+                """
+            )
+            cur.execute(
+                """
+                CREATE TABLE IF NOT EXISTS token_sales (
+                    id SERIAL PRIMARY KEY,
+                    user_id BIGINT NOT NULL,
+                    wallet_address TEXT NOT NULL,
+                    chain_id INTEGER NOT NULL,
+                    amount_slh NUMERIC(36, 18) NOT NULL,
+                    tx_hash TEXT NOT NULL,
+                    tx_status TEXT NOT NULL DEFAULT 'verified',
+                    tx_error TEXT,
+                    block_number BIGINT,
+                    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+                );
+                """
+            )
+            cur.execute(
+                """
+                CREATE TABLE IF NOT EXISTS posts (
+                    id SERIAL PRIMARY KEY,
+                    user_id BIGINT NOT NULL,
+                    username TEXT,
+                    title TEXT,
+                    content TEXT,
+                    image_url TEXT,
+                    link_url TEXT,
+                    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                    status TEXT NOT NULL DEFAULT 'published'
+                );
+                """
+            )
+    logger.info("SLHNET extra tables ensured (wallets, token_sales, posts)")
+
+
+try:
+    _orig_init_schema = init_schema  # type: ignore[name-defined]
+    def init_schema():  # type: ignore[no-redef]
+        _orig_init_schema()
+        _init_schema_slhnet()
+except NameError:
+    def init_schema():  # type: ignore[no-redef]
+        _init_schema_slhnet()
+
+
+def add_wallet(
+    user_id: int,
+    username: Optional[str],
+    chain_id: int,
+    address: str,
+    is_primary: bool = True,
+) -> None:
+    conn = get_conn()
+    with conn:
+        with conn.cursor() as cur:
+            if is_primary:
+                cur.execute(
+                    "UPDATE wallets SET is_primary = FALSE WHERE user_id = %s AND chain_id = %s",
+                    (user_id, chain_id),
+                )
+            cur.execute(
+                """
+                INSERT INTO wallets (user_id, telegram_username, chain_id, address, is_primary)
+                VALUES (%s, %s, %s, %s, %s)
+                ON CONFLICT (chain_id, address) DO UPDATE
+                SET telegram_username = EXCLUDED.telegram_username
+                """,
+                (user_id, username, chain_id, address, is_primary),
+            )
+    logger.info("Wallet added/updated: user_id=%s chain_id=%s address=%s", user_id, chain_id, address)
+
+
+def get_user_wallets(user_id: int, chain_id: Optional[int] = None) -> List[Dict[str, Any]]:
+    conn = get_conn()
+    with conn:
+        with conn.cursor() as cur:
+            if chain_id is None:
+                cur.execute(
+                    """
+                    SELECT id, chain_id, address, is_primary, created_at
+                    FROM wallets
+                    WHERE user_id = %s
+                    ORDER BY is_primary DESC, created_at DESC
+                    """,
+                    (user_id,),
+                )
+            else:
+                cur.execute(
+                    """
+                    SELECT id, chain_id, address, is_primary, created_at
+                    FROM wallets
+                    WHERE user_id = %s AND chain_id = %s
+                    ORDER BY is_primary DESC, created_at DESC
+                    """,
+                    (user_id, chain_id),
+                )
+            rows = cur.fetchall()
+    return [
+        {
+            "id": r[0],
+            "chain_id": r[1],
+            "address": r[2],
+            "is_primary": r[3],
+            "created_at": r[4],
+        }
+        for r in rows
+    ]
+
+
+def get_primary_wallet(user_id: int, chain_id: int) -> Optional[Dict[str, Any]]:
+    ws = get_user_wallets(user_id, chain_id=chain_id)
+    for w in ws:
+        if w["is_primary"]:
+            return w
+    return ws[0] if ws else None
+
+
+def create_token_sale(
+    user_id: int,
+    wallet_address: str,
+    chain_id: int,
+    amount_slh: float,
+    tx_hash: str,
+    status: str,
+    error: Optional[str],
+    block_number: Optional[int],
+) -> int:
+    conn = get_conn()
+    with conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                INSERT INTO token_sales (
+                    user_id, wallet_address, chain_id, amount_slh, tx_hash, tx_status, tx_error, block_number
+                )
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+                RETURNING id
+                """,
+                (user_id, wallet_address, chain_id, amount_slh, tx_hash, status, error, block_number),
+            )
+            sale_id = cur.fetchone()[0]
+    return sale_id
+
+
+def list_token_sales(limit: int = 50, offset: int = 0) -> List[Dict[str, Any]]:
+    conn = get_conn()
+    with conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                SELECT id, user_id, wallet_address, chain_id, amount_slh,
+                       tx_hash, tx_status, tx_error, block_number, created_at
+                FROM token_sales
+                ORDER BY created_at DESC
+                LIMIT %s OFFSET %s
+                """,
+                (limit, offset),
+            )
+            rows = cur.fetchall()
+    return [
+        {
+            "id": r[0],
+            "user_id": r[1],
+            "wallet_address": r[2],
+            "chain_id": r[3],
+            "amount_slh": float(r[4]),
+            "tx_hash": r[5],
+            "tx_status": r[6],
+            "tx_error": r[7],
+            "block_number": r[8],
+            "created_at": r[9],
+        }
+        for r in rows
+    ]
+
+
+def get_user_token_sales(user_id: int) -> List[Dict[str, Any]]:
+    conn = get_conn()
+    with conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                SELECT id, wallet_address, chain_id, amount_slh,
+                       tx_hash, tx_status, tx_error, block_number, created_at
+                FROM token_sales
+                WHERE user_id = %s
+                ORDER BY created_at DESC
+                """,
+                (user_id,),
+            )
+            rows = cur.fetchall()
+    return [
+        {
+            "id": r[0],
+            "wallet_address": r[1],
+            "chain_id": r[2],
+            "amount_slh": float(r[3]),
+            "tx_hash": r[4],
+            "tx_status": r[5],
+            "tx_error": r[6],
+            "block_number": r[7],
+            "created_at": r[8],
+        }
+        for r in rows
+    ]
+
+
+def create_post(
+    user_id: int,
+    username: Optional[str],
+    title: str,
+    content: str,
+    image_url: Optional[str] = None,
+    link_url: Optional[str] = None,
+) -> int:
+    conn = get_conn()
+    with conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                INSERT INTO posts (user_id, username, title, content, image_url, link_url)
+                VALUES (%s, %s, %s, %s, %s, %s)
+                RETURNING id
+                """,
+                (user_id, username, title, content, image_url, link_url),
+            )
+            pid = cur.fetchone()[0]
+    return pid
+
+
+def list_recent_posts(limit: int = 20, offset: int = 0) -> List[Dict[str, Any]]:
+    conn = get_conn()
+    with conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                SELECT id, user_id, username, title, content, image_url, link_url, created_at, status
+                FROM posts
+                WHERE status = 'published'
+                ORDER BY created_at DESC
+                LIMIT %s OFFSET %s
+                """,
+                (limit, offset),
+            )
+            rows = cur.fetchall()
+    return [
+        {
+            "id": r[0],
+            "user_id": r[1],
+            "username": r[2],
+            "title": r[3],
+            "content": r[4],
+            "image_url": r[5],
+            "link_url": r[6],
+            "created_at": r[7],
+            "status": r[8],
+        }
+        for r in rows
+    ]

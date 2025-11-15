@@ -1,1168 +1,447 @@
-<!DOCTYPE html>
+﻿<!doctype html>
 <html lang="he" dir="rtl">
 <head>
   <meta charset="utf-8" />
-  <title>BizNet - הפלטפורמה החברתית לעסקים</title>
-  <meta name="description" content="פלטפורמה חברתית לעסקים עם אפשרויות חינם ומסחר">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  
-  <!-- Font Awesome for icons -->
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-  
+  <title>SLHNET  שער קהילת העסקים</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <meta property="og:title" content="SLHNET  רשת העסקים החדשה" />
+  <meta property="og:description" content="ביזנס, טוקנים, חנויות דיגיטליות וקבוצות טלגרם  הכל מחובר במקום אחד." />
+  <meta property="og:image" content="https://slh-nft.com/docs/assets/slh_promo.jpg" />
+  <meta property="og:type" content="website" />
   <style>
-    :root {
-      --primary-color: #22c55e;
-      --primary-hover: #16a34a;
-      --secondary-color: #3b82f6;
-      --premium-color: #f59e0b;
-      --bg-dark: #020617;
-      --bg-card: #1e293b;
-      --bg-darker: #0f172a;
-      --text-light: #f9fafb;
-      --text-muted: #94a3b8;
-      --border: #334155;
-      --shadow: 0 20px 40px rgba(0,0,0,0.5);
-      --radius: 16px;
-    }
-
-    * {
-      margin: 0;
-      padding: 0;
-      box-sizing: border-box;
-    }
-
     body {
       font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-      background: var(--bg-dark);
-      color: var(--text-light);
-      line-height: 1.6;
-      min-height: 100vh;
+      background: #020617;
+      color: #f9fafb;
+      margin: 0;
+      padding: 0;
     }
-
-    /* Header Styles */
-    header {
-      background: var(--bg-card);
-      padding: 1rem 0;
-      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
-      position: sticky;
-      top: 0;
-      z-index: 100;
-    }
-
-    .header-container {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      max-width: 1200px;
+    .container {
+      max-width: 1100px;
       margin: 0 auto;
-      padding: 0 1rem;
+      padding: 24px 16px 80px;
     }
-
-    .logo {
-      display: flex;
-      align-items: center;
-      font-size: 1.5rem;
-      font-weight: bold;
-      color: var(--primary-color);
+    h1, h2, h3 {
+      margin: 0 0 12px;
     }
-
-    .logo i {
-      margin-left: 0.5rem;
-    }
-
-    .nav-tabs {
-      display: flex;
-      gap: 0.5rem;
-    }
-
-    .nav-tab {
-      padding: 0.5rem 1rem;
-      border-radius: 8px;
-      cursor: pointer;
-      transition: background-color 0.3s;
-    }
-
-    .nav-tab:hover, .nav-tab.active {
-      background-color: var(--bg-darker);
-    }
-
-    .user-menu {
-      display: flex;
-      align-items: center;
-      gap: 0.75rem;
-    }
-
-    .user-avatar {
-      width: 40px;
-      height: 40px;
-      border-radius: 50%;
-      background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-weight: bold;
-      color: white;
-    }
-
-    .premium-badge {
-      background: var(--premium-color);
-      color: white;
-      padding: 0.25rem 0.5rem;
-      border-radius: 12px;
-      font-size: 0.75rem;
-      font-weight: bold;
-    }
-
-    /* Main Content */
-    .main-container {
-      max-width: 1200px;
-      margin: 2rem auto;
-      padding: 0 1rem;
-      display: grid;
-      grid-template-columns: 280px 1fr 280px;
-      gap: 1.5rem;
-    }
-
-    /* Cards */
     .card {
-      background: radial-gradient(circle at top, var(--bg-card), var(--bg-dark));
-      border-radius: var(--radius);
-      padding: 1.5rem;
-      box-shadow: var(--shadow);
-      margin-bottom: 1.5rem;
+      background: radial-gradient(circle at top, rgba(96,165,250,0.18), transparent 55%),
+                  rgba(15,23,42,0.96);
+      border-radius: 18px;
+      padding: 20px;
+      margin-bottom: 18px;
+      border: 1px solid rgba(148,163,184,0.35);
+      box-shadow: 0 18px 40px rgba(15,23,42,0.85);
     }
-
-    /* Welcome Card */
-    .welcome-card {
-      text-align: center;
-      grid-column: 1 / -1;
-      position: relative;
-      overflow: hidden;
-    }
-
-    .welcome-card::before {
-      content: '';
-      position: absolute;
-      top: 0;
-      left: 0;
-      right: 0;
-      height: 4px;
-      background: linear-gradient(to right, var(--primary-color), var(--secondary-color));
-    }
-
-    .welcome-card h1 {
-      font-size: 1.8rem;
-      margin-bottom: 0.5rem;
-    }
-
-    .highlight {
-      color: var(--primary-color);
-      font-weight: 600;
-    }
-
-    .premium-highlight {
-      color: var(--premium-color);
-      font-weight: 600;
-    }
-
     .btn {
-      display: inline-flex;
-      align-items: center;
-      gap: 0.5rem;
-      margin: 0.5rem;
-      padding: 0.75rem 1.5rem;
+      display: inline-block;
+      padding: 10px 18px;
       border-radius: 999px;
+      background: linear-gradient(135deg, #22c55e, #06b6d4);
+      color: #020617;
       text-decoration: none;
       font-weight: 600;
-      background: var(--primary-color);
-      color: var(--bg-dark);
       border: none;
       cursor: pointer;
-      transition: all 0.3s ease;
-      box-shadow: 0 4px 12px rgba(34, 197, 94, 0.3);
+      transition: transform 0.15s ease, box-shadow 0.15s ease;
+      font-size: 0.95rem;
     }
-
     .btn:hover {
-      background: var(--primary-hover);
-      transform: translateY(-2px);
+      transform: translateY(-1px);
+      box-shadow: 0 8px 22px rgba(34,197,94,0.4);
     }
-
     .btn-secondary {
-      background: var(--secondary-color);
-      box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+      background: rgba(15,23,42,0.9);
+      color: #e5e7eb;
+      border: 1px solid rgba(148,163,184,0.6);
     }
-
-    .btn-premium {
-      background: var(--premium-color);
-      box-shadow: 0 4px 12px rgba(245, 158, 11, 0.3);
-    }
-
-    /* Sidebar */
-    .sidebar-card h3 {
-      margin-bottom: 1rem;
-      padding-bottom: 0.5rem;
-      border-bottom: 1px solid var(--border);
-    }
-
-    .sidebar-menu {
-      list-style: none;
-    }
-
-    .sidebar-menu li {
-      padding: 0.75rem;
-      border-radius: 8px;
-      cursor: pointer;
+    .row {
       display: flex;
-      align-items: center;
-      gap: 0.75rem;
-      transition: background-color 0.3s;
+      flex-wrap: wrap;
+      gap: 16px;
     }
-
-    .sidebar-menu li:hover, .sidebar-menu li.active {
-      background-color: var(--bg-darker);
+    .col {
+      flex: 1 1 260px;
     }
-
-    /* Feed */
-    .create-post {
-      margin-bottom: 1.5rem;
+    code {
+      background: rgba(15,23,42,0.85);
+      padding: 2px 6px;
+      border-radius: 6px;
+      font-size: 0.85rem;
     }
-
-    .post-input {
-      display: flex;
-      gap: 0.75rem;
-      margin-bottom: 1rem;
+    .pill {
+      display: inline-block;
+      padding: 4px 10px;
+      border-radius: 999px;
+      font-size: 0.7rem;
+      background: rgba(148,163,184,0.16);
+      margin-left: 6px;
     }
-
-    .post-input .user-avatar {
-      width: 50px;
-      height: 50px;
-    }
-
-    .post-input textarea {
-      flex: 1;
-      padding: 1rem;
-      border-radius: 12px;
-      border: 1px solid var(--border);
-      background: var(--bg-darker);
-      color: var(--text-light);
-      resize: none;
-      min-height: 80px;
-    }
-
-    .post-actions {
-      display: flex;
-      justify-content: space-between;
-    }
-
-    .post-action {
-      display: flex;
-      align-items: center;
-      gap: 0.5rem;
-      padding: 0.5rem 1rem;
-      border-radius: 8px;
-      cursor: pointer;
-      transition: background-color 0.3s;
-    }
-
-    .post-action:hover {
-      background-color: var(--bg-darker);
-    }
-
-    /* Posts */
-    .post {
-      margin-bottom: 1.5rem;
-    }
-
-    .post-header {
-      display: flex;
-      align-items: center;
-      gap: 0.75rem;
-      margin-bottom: 1rem;
-    }
-
-    .post-user-info h4 {
-      font-size: 1rem;
-    }
-
-    .post-user-info p {
-      font-size: 0.8rem;
-      color: var(--text-muted);
-    }
-
-    .post-content {
-      margin-bottom: 1rem;
-    }
-
-    .post-image {
+    .sales-table {
       width: 100%;
-      border-radius: 12px;
-      margin-top: 0.5rem;
-      max-height: 400px;
-      object-fit: cover;
+      border-collapse: collapse;
+      font-size: 0.82rem;
     }
-
-    .post-stats {
-      display: flex;
-      justify-content: space-between;
-      padding: 0.75rem 0;
-      border-top: 1px solid var(--border);
-      border-bottom: 1px solid var(--border);
-      color: var(--text-muted);
-      font-size: 0.9rem;
-    }
-
-    .post-actions-bar {
-      display: flex;
-      justify-content: space-around;
-      padding: 0.5rem 0;
-    }
-
-    .post-action-btn {
-      display: flex;
-      align-items: center;
-      gap: 0.5rem;
-      padding: 0.5rem 1rem;
-      border-radius: 8px;
-      cursor: pointer;
-      transition: background-color 0.3s;
-    }
-
-    .post-action-btn:hover {
-      background-color: var(--bg-darker);
-    }
-
-    /* Authentication */
-    .auth-container {
-      display: none;
-      position: fixed;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-      background-color: rgba(0, 0, 0, 0.8);
-      z-index: 1000;
-      align-items: center;
-      justify-content: center;
-    }
-
-    .auth-card {
-      background: radial-gradient(circle at top, var(--bg-card), var(--bg-dark));
-      border-radius: var(--radius);
-      padding: 2rem;
-      box-shadow: var(--shadow);
-      width: 100%;
-      max-width: 500px;
-      text-align: center;
-    }
-
-    .auth-card h2 {
-      margin-bottom: 1.5rem;
-    }
-
-    .form-group {
-      margin-bottom: 1rem;
+    .sales-table th,
+    .sales-table td {
+      border-bottom: 1px solid rgba(148,163,184,0.25);
+      padding: 6px 4px;
       text-align: right;
     }
-
-    .form-group label {
-      display: block;
-      margin-bottom: 0.5rem;
+    .sales-table th {
+      font-weight: 600;
+      color: #e5e7eb;
+      font-size: 0.8rem;
     }
-
-    .form-group input, .form-group select {
-      width: 100%;
-      padding: 0.75rem;
-      border-radius: 8px;
-      border: 1px solid var(--border);
-      background: var(--bg-darker);
-      color: var(--text-light);
-    }
-
-    .upgrade-options {
-      display: flex;
-      gap: 1rem;
-      margin: 1.5rem 0;
-    }
-
-    .upgrade-option {
-      flex: 1;
-      padding: 1.5rem;
-      border-radius: 12px;
-      border: 2px solid var(--border);
-      cursor: pointer;
-      transition: all 0.3s;
-    }
-
-    .upgrade-option:hover {
-      border-color: var(--primary-color);
-    }
-
-    .upgrade-option.selected {
-      border-color: var(--premium-color);
-      background: rgba(245, 158, 11, 0.1);
-    }
-
-    .upgrade-option h4 {
-      margin-bottom: 0.5rem;
-    }
-
-    .upgrade-option .price {
-      font-size: 1.5rem;
-      font-weight: bold;
-      margin: 0.5rem 0;
-    }
-
-    .upgrade-option.free .price {
-      color: var(--primary-color);
-    }
-
-    .upgrade-option.premium .price {
-      color: var(--premium-color);
-    }
-
-    /* Profile */
-    .profile-header {
-      display: flex;
+    .badge-ok { color: #bbf7d0; }
+    .badge-bad { color: #fecaca; }
+    a { color: #38bdf8; }
+    .share-row a {
+      display: inline-flex;
       align-items: center;
-      gap: 1.5rem;
-      margin-bottom: 1.5rem;
+      gap: 6px;
+      font-size: 0.85rem;
+      margin-inline-start: 6px;
+      text-decoration: none;
+      color: #cbd5f5;
     }
-
-    .profile-avatar {
-      width: 100px;
-      height: 100px;
-      border-radius: 50%;
-      background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
-      display: flex;
+    .share-row span.icon {
+      width: 18px;
+      height: 18px;
+      border-radius: 999px;
+      background: rgba(148,163,184,0.22);
+      display: inline-flex;
       align-items: center;
       justify-content: center;
-      font-size: 2rem;
-      font-weight: bold;
-      color: white;
+      font-size: 0.7rem;
     }
-
-    .profile-info h2 {
-      margin-bottom: 0.5rem;
-    }
-
-    .profile-stats {
-      display: flex;
-      gap: 1.5rem;
-      margin-top: 1rem;
-    }
-
-    .profile-stat {
-      text-align: center;
-    }
-
-    .profile-stat .count {
-      font-size: 1.5rem;
-      font-weight: bold;
-      color: var(--primary-color);
-    }
-
-    .profile-details {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 1rem;
-      margin-top: 1.5rem;
-    }
-
-    .detail-card {
-      background: var(--bg-darker);
-      padding: 1rem;
-      border-radius: 12px;
-    }
-
-    .detail-card h4 {
-      margin-bottom: 0.5rem;
-      color: var(--text-muted);
-    }
-
-    /* Commerce Features */
-    .commerce-features {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-      gap: 1rem;
-      margin-top: 1.5rem;
-    }
-
-    .commerce-feature {
-      background: var(--bg-darker);
-      padding: 1.5rem;
-      border-radius: 12px;
-      text-align: center;
-    }
-
-    .commerce-feature i {
-      font-size: 2rem;
-      color: var(--premium-color);
-      margin-bottom: 1rem;
-    }
-
-    /* Responsive */
-    @media (max-width: 1024px) {
-      .main-container {
-        grid-template-columns: 1fr;
-      }
-      
-      .sidebar {
-        display: none;
-      }
-    }
-
-    /* Animations */
-    @keyframes fadeIn {
-      from { opacity: 0; transform: translateY(20px); }
-      to { opacity: 1; transform: translateY(0); }
-    }
-
-    .fade-in {
-      animation: fadeIn 0.5s ease forwards;
+    @media (max-width: 720px) {
+      .row { flex-direction: column; }
     }
   </style>
+  <script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.min.js"></script>
 </head>
 <body>
-  <!-- Authentication Modal -->
-  <div class="auth-container" id="authContainer">
-    <div class="auth-card">
-      <h2>הצטרפות ל-BizNet</h2>
-      <p>בחר את סוג החשבון שלך</p>
-      
-      <div class="upgrade-options">
-        <div class="upgrade-option free selected" data-plan="free">
-          <h4>חינם</h4>
-          <div class="price">0 ₪</div>
-          <ul style="text-align: right; list-style: none; font-size: 0.9rem;">
-            <li>✓ גישה מלאה לפיד החברתי</li>
-            <li>✓ יצירת פוסטים ותגובות</li>
-            <li>✓ עקיבה אחרי משתמשים</li>
-            <li>✓ השתתפות בקבוצות</li>
-            <li>✗ אפשרויות מסחר</li>
+  <div class="container">
+    <div class="card" style="margin-top: 14px;">
+      <h1>SLHNET  הרשת העסקית החדשה</h1>
+      <p>
+        שילוב של <strong>איקומרס</strong>, <strong>Binance Smart Chain</strong>,
+        <strong>קבוצות טלגרם</strong> ו<strong>רשת חברתית</strong> לעסקים.
+      </p>
+      <p>
+        הצטרפות דרך בוט השער שלנו בטלגרם, קבלת טוקני <strong>SLH</strong> על BSC,
+        ופתיחת חנות/קהילה משלך.
+      </p>
+      <div class="row">
+        <div class="col" style="margin-top:8px;">
+          <a class="btn" href="https://t.me/Buy_My_Shop" target="_blank" rel="noreferrer">
+             כניסה לבוט SLHNET
+          </a>
+          <div style="margin-top:10px;font-size:0.9rem;">
+            /start  להצטרפות, /wallet  לניהול ארנק, /sell  דיווח מכירה.
+          </div>
+        </div>
+        <div class="col" style="margin-top:8px;">
+          <div class="share-row">
+            <span>שתף את SLHNET:</span><br/>
+            <a id="share-tg" target="_blank" rel="noreferrer">
+              <span class="icon">TG</span> טלגרם
+            </a>
+            <a id="share-wa" target="_blank" rel="noreferrer">
+              <span class="icon">WA</span> ווטסאפ
+            </a>
+            <a id="share-fb" target="_blank" rel="noreferrer">
+              <span class="icon">f</span> פייסבוק
+            </a>
+            <a id="share-x" target="_blank" rel="noreferrer">
+              <span class="icon">X</span> X
+            </a>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>הגדרת רשת BSC + טוקן SLH בארנק</h2>
+      <div class="row">
+        <div class="col">
+          <p><strong>הגדרת רשת ב-MetaMask:</strong></p>
+          <ul>
+            <li>Network Name: <code>Smart Chain</code></li>
+            <li>New RPC URL: <code>https://bsc-dataseed.binance.org/</code></li>
+            <li>ChainID: <code>56</code></li>
+            <li>Symbol: <code>BNB</code></li>
+            <li>Block Explorer URL: <code>https://bscscan.com</code></li>
+          </ul>
+          <p><strong>טוקן SLH (Custom Token):</strong></p>
+          <ul>
+            <li>Token Contract Address: <code>0xACb0A09414CEA1C879c67bB7A877E4e19480f022</code></li>
+            <li>Token Symbol: <code>SLH</code></li>
+            <li>Decimals: <code>15</code></li>
           </ul>
         </div>
-        
-        <div class="upgrade-option premium" data-plan="premium">
-          <h4>מסחר</h4>
-          <div class="price">39 ₪</div>
-          <ul style="text-align: right; list-style: none; font-size: 0.9rem;">
-            <li>✓ כל הפיצ'רים החינמיים</li>
-            <li>✓ הוספת פרטי בנק</li>
-            <li>✓ חיבור לקבוצת טלגרם</li>
-            <li>✓ אפשרויות מסחר מלאות</li>
-            <li>✓ תמיכה טכנית</li>
-          </ul>
+        <div class="col">
+          <p>כפתורים מהירים:</p>
+          <button class="btn" id="btn-add-token">הוסף טוקן SLH ל-MetaMask</button>
+          <br/><br/>
+          <button class="btn btn-secondary" id="btn-connect">חיבור MetaMask ובדיקת יתרה</button>
+          <div id="wallet-status" style="margin-top:10px;font-size:0.9rem;"></div>
+          <div id="balance-box" style="margin-top:6px;font-size:0.9rem;"></div>
         </div>
       </div>
-      
-      <div class="form-group">
-        <label>שם מלא</label>
-        <input type="text" id="userName" placeholder="הכנס את שמך המלא">
-      </div>
-      
-      <div class="form-group">
-        <label>אימייל</label>
-        <input type="email" id="userEmail" placeholder="הכנס את האימייל שלך">
-      </div>
-      
-      <div class="form-group" id="bankDetailsGroup" style="display: none;">
-        <label>פרטי חשבון בנק</label>
-        <input type="text" id="bankAccount" placeholder="מספר חשבון בנק">
-      </div>
-      
-      <div class="form-group" id="telegramGroup" style="display: none;">
-        <label>קבוצת טלגרם</label>
-        <input type="text" id="telegramGroupName" placeholder="שם קבוצת הטלגרם">
-      </div>
-      
-      <button class="btn btn-premium" id="registerBtn">הצטרף עכשיו</button>
-      <button class="btn" style="background: #64748b; margin-top: 1rem;" id="closeAuthBtn">אולי אחר כך</button>
-      
-      <p style="margin-top: 1rem; font-size: 0.9rem; color: var(--text-muted);">
-        כבר יש לך חשבון? <a href="#" style="color: var(--primary-color);" id="loginLink">התחבר</a>
+    </div>
+
+    <div class="card">
+      <h2>פוסטים מהקהילה  SLHNET Social</h2>
+      <p style="font-size:0.9rem;">
+        חברי הרשת יכולים ליצור פוסטים דרך הבוט (לדוגמה: <code>/post כותרת | תוכן</code>)
+        והם יוצגו כאן לכולם. כל פוסט ניתן לשיתוף ברשתות החברתיות.
+      </p>
+      <div id="posts-box" style="font-size:0.9rem;">טוען פוסטים...</div>
+    </div>
+
+    <div class="card" id="sales-card">
+      <h2 id="sales-title">מכירות SLH האחרונות במערכת</h2>
+      <p style="font-size:0.9rem;">
+        כל מכירה נרשמת אחרי אימות עסקה על רשת BSC
+        (העברת SLH לTreasury דרך MetaMask / ארנק תואם).
+      </p>
+      <table class="sales-table">
+        <thead>
+          <tr>
+            <th>ID</th>
+            <th>משתמש</th>
+            <th>כתובת</th>
+            <th>כמות</th>
+            <th>סטטוס</th>
+            <th>עסקה</th>
+          </tr>
+        </thead>
+        <tbody id="sales-body">
+          <tr><td colspan="6">טוען נתונים...</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="card">
+      <h2>פאנל ניהול SLHNET</h2>
+      <p style="font-size:0.9rem;">
+        לבעל המערכת: <br/>
+         דשבורד API: <code>/admin/stats?token=ADMIN_DASH_TOKEN</code><br/>
+         דשבורד HTML: <code>/admin/dashboard?token=ADMIN_DASH_TOKEN</code><br/>
+         ניהול מלא דרך הבוט: <code>/admin</code>, <code>/stats</code> ועוד.
       </p>
     </div>
   </div>
 
-  <!-- Main App -->
-  <div id="appContainer">
-    <!-- Header -->
-    <header>
-      <div class="header-container">
-        <div class="logo">
-          <i class="fas fa-network-wired"></i>
-          <span>BizNet</span>
-        </div>
-        
-        <div class="nav-tabs">
-          <div class="nav-tab active" data-tab="feed">פיד</div>
-          <div class="nav-tab" data-tab="explore">גלה</div>
-          <div class="nav-tab" data-tab="groups">קבוצות</div>
-          <div class="nav-tab" data-tab="commerce" id="commerceTab" style="display: none;">מסחר</div>
-        </div>
-        
-        <div class="user-menu">
-          <div class="user-avatar" id="userAvatar">?</div>
-          <span id="userDisplayName">אורח</span>
-          <div class="premium-badge" id="premiumBadge" style="display: none;">מסחר</div>
-          <button class="btn" id="upgradeBtn" style="padding: 0.5rem 1rem;">שדרג</button>
-        </div>
-      </div>
-    </header>
-
-    <!-- Main Content -->
-    <div class="main-container">
-      <!-- Welcome Card -->
-      <div class="card welcome-card fade-in">
-        <h1>ברוך הבא ל<span class="highlight">BizNet</span></h1>
-        <p>הפלטפורמה החברתית לעסקים - השתמש בחינם או שדרג ל<span class="premium-highlight">אפשרויות מסחר</span></p>
-        
-        <div id="guestMessage">
-          <p>אתה משתמש כאורח. <a href="#" style="color: var(--primary-color);" id="registerLink">הרשם</a> כדי לשדרג לאפשרויות מסחר!</p>
-          <button class="btn" id="createPostBtn">
-            <i class="fas fa-plus"></i>
-            צור פוסט חדש
-          </button>
-        </div>
-        
-        <div id="userMessage" style="display: none;">
-          <p>ברוך הבא <span id="welcomeUserName"></span>! <span id="userTypeMessage"></span></p>
-          <button class="btn" id="userCreatePostBtn">
-            <i class="fas fa-plus"></i>
-            צור פוסט חדש
-          </button>
-          <button class="btn btn-premium" id="userUpgradeBtn" style="display: none;">
-            <i class="fas fa-crown"></i>
-            שדרג למסחר
-          </button>
-        </div>
-      </div>
-
-      <!-- Left Sidebar -->
-      <div class="sidebar">
-        <div class="card sidebar-card">
-          <h3>פרופיל</h3>
-          <div class="profile-mini">
-            <div class="user-avatar" style="width: 60px; height: 60px; margin: 0 auto 1rem;">?</div>
-            <h4 style="text-align: center;" id="sidebarUserName">אורח</h4>
-            <p style="text-align: center; color: var(--text-muted); font-size: 0.9rem;" id="sidebarUserType">משתמש חינמי</p>
-            
-            <div class="profile-stats">
-              <div class="profile-stat">
-                <div class="count" id="postCount">0</div>
-                <div>פוסטים</div>
-              </div>
-              <div class="profile-stat">
-                <div class="count" id="followerCount">0</div>
-                <div>עוקבים</div>
-              </div>
-              <div class="profile-stat">
-                <div class="count" id="followingCount">0</div>
-                <div>עוקב</div>
-              </div>
-            </div>
-          </div>
-        </div>
-        
-        <div class="card sidebar-card">
-          <h3>תפריט</h3>
-          <ul class="sidebar-menu">
-            <li class="active">
-              <i class="fas fa-home"></i>
-              <span>פיד שלי</span>
-            </li>
-            <li>
-              <i class="fas fa-user-friends"></i>
-              <span>חברים</span>
-            </li>
-            <li>
-              <i class="fas fa-users"></i>
-              <span>קבוצות</span>
-            </li>
-            <li>
-              <i class="fas fa-bell"></i>
-              <span>התראות</span>
-            </li>
-            <li id="commerceMenuItem" style="display: none;">
-              <i class="fas fa-shopping-cart"></i>
-              <span>מסחר</span>
-            </li>
-          </ul>
-        </div>
-        
-        <div class="card sidebar-card">
-          <h3>חברים מקוונים</h3>
-          <ul class="sidebar-menu">
-            <li>
-              <div class="user-avatar" style="width: 32px; height: 32px; background: #3b82f6;">א</div>
-              <span>אבי לוי</span>
-            </li>
-            <li>
-              <div class="user-avatar" style="width: 32px; height: 32px; background: #f59e0b;">מ</div>
-              <span>מיכל ישראלי</span>
-            </li>
-            <li>
-              <div class="user-avatar" style="width: 32px; height: 32px; background: #ef4444;">ד</div>
-              <span>דוד כהן</span>
-            </li>
-          </ul>
-        </div>
-      </div>
-
-      <!-- Main Feed -->
-      <div class="main-feed">
-        <!-- Create Post Card -->
-        <div class="card create-post" id="createPostCard">
-          <div class="post-input">
-            <div class="user-avatar" id="postUserAvatar">?</div>
-            <textarea placeholder="מה אתה חושב?"></textarea>
-          </div>
-          <div class="post-actions">
-            <div class="post-action">
-              <i class="fas fa-image" style="color: #45bd62;"></i>
-              <span>תמונה</span>
-            </div>
-            <div class="post-action">
-              <i class="fas fa-video" style="color: #f7b928;"></i>
-              <span>וידאו</span>
-            </div>
-            <div class="post-action">
-              <i class="fas fa-calendar-alt" style="color: #1877f2;"></i>
-              <span>אירוע</span>
-            </div>
-            <button class="btn" style="padding: 0.5rem 1.5rem;">פרסם</button>
-          </div>
-        </div>
-
-        <!-- Posts Feed -->
-        <div class="posts-feed" id="postsFeed">
-          <!-- Post 1 -->
-          <div class="card post fade-in">
-            <div class="post-header">
-              <div class="user-avatar">מ</div>
-              <div class="post-user-info">
-                <h4>מיכל ישראלי</h4>
-                <p>לפני 3 שעות · <i class="fas fa-globe-asia"></i></p>
-              </div>
-            </div>
-            
-            <div class="post-content">
-              <p>היי כולם! סוף סוף סיימתי את הפרויקט הגדול שלי בעבודה. כל כך מרוצה מהתוצאה! 🎉</p>
-            </div>
-            
-            <div class="post-stats">
-              <div>
-                <i class="fas fa-thumbs-up" style="color: #1877f2;"></i>
-                <span>15</span>
-              </div>
-              <div>5 תגובות · 2 שיתופים</div>
-            </div>
-            
-            <div class="post-actions-bar">
-              <div class="post-action-btn">
-                <i class="far fa-thumbs-up"></i>
-                <span>אהבתי</span>
-              </div>
-              <div class="post-action-btn">
-                <i class="far fa-comment"></i>
-                <span>תגובה</span>
-              </div>
-              <div class="post-action-btn">
-                <i class="far fa-share-square"></i>
-                <span>שתף</span>
-              </div>
-            </div>
-          </div>
-          
-          <!-- Post 2 -->
-          <div class="card post fade-in">
-            <div class="post-header">
-              <div class="user-avatar">א</div>
-              <div class="post-user-info">
-                <h4>אבי לוי</h4>
-                <p>אתמול · <i class="fas fa-globe-asia"></i></p>
-              </div>
-            </div>
-            
-            <div class="post-content">
-              <p>טיול משפחתי נפלא בצפון! הטבע פשוט מרהיב בתקופה הזו של השנה.</p>
-              <img src="https://images.unsplash.com/photo-1575728250898-3677034d2f05?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1000&q=80" alt="נוף" class="post-image">
-            </div>
-            
-            <div class="post-stats">
-              <div>
-                <i class="fas fa-thumbs-up" style="color: #1877f2;"></i>
-                <span>32</span>
-              </div>
-              <div>12 תגובות · 5 שיתופים</div>
-            </div>
-            
-            <div class="post-actions-bar">
-              <div class="post-action-btn">
-                <i class="far fa-thumbs-up"></i>
-                <span>אהבתי</span>
-              </div>
-              <div class="post-action-btn">
-                <i class="far fa-comment"></i>
-                <span>תגובה</span>
-              </div>
-              <div class="post-action-btn">
-                <i class="far fa-share-square"></i>
-                <span>שתף</span>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <!-- Right Sidebar -->
-      <div class="sidebar">
-        <div class="card sidebar-card">
-          <h3>מה קורה בקהילה</h3>
-          <ul class="sidebar-menu">
-            <li>
-              <i class="fas fa-hashtag" style="color: var(--primary-color);"></i>
-              <span>#עסקים_קטנים</span>
-            </li>
-            <li>
-              <i class="fas fa-hashtag" style="color: var(--secondary-color);"></i>
-              <span>#יזמות</span>
-            </li>
-            <li>
-              <i class="fas fa-hashtag" style="color: #f59e0b;"></i>
-              <span>#קהילה</span>
-            </li>
-            <li>
-              <i class="fas fa-hashtag" style="color: #ef4444;"></i>
-              <span>#מסחר_דיגיטלי</span>
-            </li>
-          </ul>
-        </div>
-        
-        <div class="card sidebar-card">
-          <h3>אירועים קרובים</h3>
-          <ul class="sidebar-menu">
-            <li>
-              <div style="width: 40px; height: 40px; background: var(--primary-color); border-radius: 8px; display: flex; align-items: center; justify-content: center;">
-                <i class="fas fa-calendar-alt"></i>
-              </div>
-              <div>
-                <div>מפגש קהילה חודשי</div>
-                <small style="color: var(--text-muted);">15 בדצמבר, 18:00</small>
-              </div>
-            </li>
-            <li>
-              <div style="width: 40px; height: 40px; background: var(--secondary-color); border-radius: 8px; display: flex; align-items: center; justify-content: center;">
-                <i class="fas fa-chart-line"></i>
-              </div>
-              <div>
-                <div>סדנת שיווק דיגיטלי</div>
-                <small style="color: var(--text-muted);">22 בדצמבר, 10:00</small>
-              </div>
-            </li>
-          </ul>
-        </div>
-        
-        <div class="card sidebar-card">
-          <h3>יתרונות מסחר</h3>
-          <div class="commerce-features">
-            <div class="commerce-feature">
-              <i class="fas fa-wallet"></i>
-              <h4>קבלת תשלומים</h4>
-              <p>קבל תשלומים ישירות לחשבון הבנק שלך</p>
-            </div>
-            <div class="commerce-feature">
-              <i class="fas fa-users"></i>
-              <h4>קהילת לקוחות</h4>
-              <p>נהל את לקוחותיך דרך קבוצת הטלגרם</p>
-            </div>
-          </div>
-          <button class="btn btn-premium" style="width: 100%; margin-top: 1rem;" id="sidebarUpgradeBtn">שדרג עכשיו</button>
-        </div>
-      </div>
-    </div>
-  </div>
-
   <script>
-    document.addEventListener('DOMContentLoaded', function() {
-      const authContainer = document.getElementById('authContainer');
-      const appContainer = document.getElementById('appContainer');
-      const registerBtn = document.getElementById('registerBtn');
-      const closeAuthBtn = document.getElementById('closeAuthBtn');
-      const registerLink = document.getElementById('registerLink');
-      const upgradeBtn = document.getElementById('upgradeBtn');
-      const userUpgradeBtn = document.getElementById('userUpgradeBtn');
-      const sidebarUpgradeBtn = document.getElementById('sidebarUpgradeBtn');
-      const loginLink = document.getElementById('loginLink');
-      
-      const guestMessage = document.getElementById('guestMessage');
-      const userMessage = document.getElementById('userMessage');
-      const userDisplayName = document.getElementById('userDisplayName');
-      const welcomeUserName = document.getElementById('welcomeUserName');
-      const userTypeMessage = document.getElementById('userTypeMessage');
-      const sidebarUserName = document.getElementById('sidebarUserName');
-      const sidebarUserType = document.getElementById('sidebarUserType');
-      const userAvatar = document.getElementById('userAvatar');
-      const postUserAvatar = document.getElementById('postUserAvatar');
-      const premiumBadge = document.getElementById('premiumBadge');
-      const commerceTab = document.getElementById('commerceTab');
-      const commerceMenuItem = document.getElementById('commerceMenuItem');
-      
-      const bankDetailsGroup = document.getElementById('bankDetailsGroup');
-      const telegramGroup = document.getElementById('telegramGroup');
-      
-      let currentUser = null;
-      let selectedPlan = 'free';
-      
-      // Show registration modal when clicking register links
-      registerLink.addEventListener('click', function(e) {
-        e.preventDefault();
-        authContainer.style.display = 'flex';
-      });
-      
-      upgradeBtn.addEventListener('click', function() {
-        authContainer.style.display = 'flex';
-      });
-      
-      userUpgradeBtn.addEventListener('click', function() {
-        authContainer.style.display = 'flex';
-      });
-      
-      sidebarUpgradeBtn.addEventListener('click', function() {
-        authContainer.style.display = 'flex';
-      });
-      
-      // Close auth modal
-      closeAuthBtn.addEventListener('click', function() {
-        authContainer.style.display = 'none';
-      });
-      
-      // Plan selection
-      document.querySelectorAll('.upgrade-option').forEach(option => {
-        option.addEventListener('click', function() {
-          document.querySelectorAll('.upgrade-option').forEach(opt => {
-            opt.classList.remove('selected');
-          });
-          this.classList.add('selected');
-          selectedPlan = this.getAttribute('data-plan');
-          
-          // Show/hide additional fields based on plan
-          if (selectedPlan === 'premium') {
-            bankDetailsGroup.style.display = 'block';
-            telegramGroup.style.display = 'block';
-          } else {
-            bankDetailsGroup.style.display = 'none';
-            telegramGroup.style.display = 'none';
+    const ORIGIN = window.location.origin;
+
+    function setupShares() {
+      const url = encodeURIComponent(ORIGIN);
+      const text = encodeURIComponent("SLHNET  רשת העסקים החדשה. הצטרף דרך הבוט וקבל גישה לטוקן SLH, חנויות וקבוצות פרטיות.");
+      document.getElementById("share-tg").href =
+        "https://t.me/share/url?url=" + url + "&text=" + text;
+      document.getElementById("share-wa").href =
+        "https://api.whatsapp.com/send?text=" + text + "%20" + url;
+      document.getElementById("share-fb").href =
+        "https://www.facebook.com/sharer/sharer.php?u=" + url;
+      document.getElementById("share-x").href =
+        "https://x.com/intent/tweet?text=" + text + "&url=" + url;
+    }
+
+    async function loadSales() {
+      try {
+        const res = await fetch(ORIGIN + "/api/token/sales?limit=50");
+        const data = await res.json();
+        const tbody = document.getElementById("sales-body");
+        tbody.innerHTML = "";
+
+        if (!data.items || data.items.length === 0) {
+          tbody.innerHTML = "<tr><td colspan='6'>אין עדיין מכירות רשומות.</td></tr>";
+          return;
+        }
+
+        data.items.forEach((s) => {
+          const tr = document.createElement("tr");
+
+          function td(text) {
+            const el = document.createElement("td");
+            el.textContent = text;
+            return el;
           }
+
+          tr.appendChild(td(s.id));
+          tr.appendChild(td(s.user_id));
+          tr.appendChild(td(s.wallet_address));
+
+          const amountTd = td((s.amount_slh || 0).toFixed(4) + " SLH");
+          tr.appendChild(amountTd);
+
+          const statusTd = td(s.tx_status);
+          statusTd.className = s.tx_status === "verified" ? "badge-ok" : "badge-bad";
+          tr.appendChild(statusTd);
+
+          const txTd = document.createElement("td");
+          const a = document.createElement("a");
+          a.href = "https://bscscan.com/tx/" + s.tx_hash;
+          a.target = "_blank";
+          a.rel = "noreferrer";
+          a.textContent = "BscScan";
+          txTd.appendChild(a);
+          tr.appendChild(txTd);
+
+          tbody.appendChild(tr);
         });
-      });
-      
-      // Register user
-      registerBtn.addEventListener('click', function() {
-        const userName = document.getElementById('userName').value;
-        const userEmail = document.getElementById('userEmail').value;
-        const bankAccount = document.getElementById('bankAccount').value;
-        const telegramGroupName = document.getElementById('telegramGroupName').value;
-        
-        if (!userName || !userEmail) {
-          alert('אנא מלא את כל השדות הנדרשים');
-          return;
-        }
-        
-        if (selectedPlan === 'premium' && (!bankAccount || !telegramGroupName)) {
-          alert('אנא מלא את כל השדות הנדרשים עבור חשבון מסחר');
-          return;
-        }
-        
-        // Create user object
-        currentUser = {
-          name: userName,
-          email: userEmail,
-          plan: selectedPlan,
-          bankAccount: bankAccount,
-          telegramGroup: telegramGroupName,
-          joinDate: new Date().toLocaleDateString('he-IL'),
-          posts: 0,
-          followers: 0,
-          following: 0
-        };
-        
-        // Save to localStorage
-        localStorage.setItem('currentUser', JSON.stringify(currentUser));
-        
-        // Update UI
-        updateUserInterface();
-        
-        // Close auth modal
-        authContainer.style.display = 'none';
-      });
-      
-      // Login link
-      loginLink.addEventListener('click', function(e) {
-        e.preventDefault();
-        // For demo purposes, we'll just show a message
-        alert('במערכת מלאה, כאן תהיה אפשרות התחברות עם אימייל וסיסמה');
-      });
-      
-      // Update UI based on user status
-      function updateUserInterface() {
-        const savedUser = localStorage.getItem('currentUser');
-        
-        if (savedUser) {
-          currentUser = JSON.parse(savedUser);
-          guestMessage.style.display = 'none';
-          userMessage.style.display = 'block';
-          
-          userDisplayName.textContent = currentUser.name;
-          welcomeUserName.textContent = currentUser.name;
-          sidebarUserName.textContent = currentUser.name;
-          userAvatar.textContent = currentUser.name.charAt(0);
-          postUserAvatar.textContent = currentUser.name.charAt(0);
-          
-          if (currentUser.plan === 'premium') {
-            userTypeMessage.textContent = 'יש לך גישה מלאה לאפשרויות מסחר!';
-            sidebarUserType.textContent = 'משתמש מסחר';
-            premiumBadge.style.display = 'block';
-            userUpgradeBtn.style.display = 'none';
-            commerceTab.style.display = 'block';
-            commerceMenuItem.style.display = 'block';
-          } else {
-            userTypeMessage.textContent = 'יש לך גישה לכל הפיצ\'רים החברתיים. שדרג למסחר כדי לפתוח אפשרויות נוספות!';
-            sidebarUserType.textContent = 'משתמש חינמי';
-            premiumBadge.style.display = 'none';
-            userUpgradeBtn.style.display = 'inline-flex';
-            commerceTab.style.display = 'none';
-            commerceMenuItem.style.display = 'none';
-          }
-          
-          // Update stats
-          document.getElementById('postCount').textContent = currentUser.posts;
-          document.getElementById('followerCount').textContent = currentUser.followers;
-          document.getElementById('followingCount').textContent = currentUser.following;
-        } else {
-          // Guest user
-          guestMessage.style.display = 'block';
-          userMessage.style.display = 'none';
-          userDisplayName.textContent = 'אורח';
-          sidebarUserName.textContent = 'אורח';
-          userAvatar.textContent = '?';
-          postUserAvatar.textContent = '?';
-          premiumBadge.style.display = 'none';
-          commerceTab.style.display = 'none';
-          commerceMenuItem.style.display = 'none';
-        }
+      } catch (err) {
+        console.error(err);
+        document.getElementById("sales-body").innerHTML =
+          "<tr><td colspan='6'>שגיאה בטעינת הנתונים.</td></tr>";
       }
-      
-      // Like functionality
-      document.querySelectorAll('.post-action-btn').forEach(btn => {
-        if (btn.querySelector('.fa-thumbs-up')) {
-          btn.addEventListener('click', function() {
-            const icon = this.querySelector('i');
-            const likeText = this.querySelector('span');
-            const post = this.closest('.post');
-            const likeCount = post.querySelector('.post-stats span');
-            
-            if (icon.classList.contains('far')) {
-              icon.classList.remove('far');
-              icon.classList.add('fas');
-              likeText.textContent = 'אהבתי';
-              likeCount.textContent = parseInt(likeCount.textContent) + 1;
-            } else {
-              icon.classList.remove('fas');
-              icon.classList.add('far');
-              likeText.textContent = 'אהבתי';
-              likeCount.textContent = parseInt(likeCount.textContent) - 1;
-            }
+    }
+
+    async function loadPosts() {
+      try {
+        const res = await fetch(ORIGIN + "/api/posts?limit=20");
+        const data = await res.json();
+        const box = document.getElementById("posts-box");
+        box.innerHTML = "";
+
+        if (!data.items || data.items.length === 0) {
+          box.textContent = "עדיין אין פוסטים. צור פוסט חדש דרך הבוט עם /post.";
+          return;
+        }
+
+        data.items.forEach((p) => {
+          const div = document.createElement("div");
+          div.style.marginBottom = "12px";
+
+          const title = document.createElement("div");
+          title.style.fontWeight = "600";
+          title.textContent = p.title || "(ללא כותרת)";
+
+          const meta = document.createElement("div");
+          meta.style.fontSize = "0.75rem";
+          meta.style.color = "#9ca3af";
+          meta.textContent =
+            "מאת: " + (p.username || p.user_id) + "  " +
+            new Date(p.created_at).toLocaleString("he-IL");
+
+          const text = document.createElement("div");
+          text.style.marginTop = "4px";
+          text.textContent = p.content || "";
+
+          const links = document.createElement("div");
+          links.style.marginTop = "4px";
+          links.style.fontSize = "0.8rem";
+          if (p.link_url) {
+            const a = document.createElement("a");
+            a.href = p.link_url;
+            a.target = "_blank";
+            a.rel = "noreferrer";
+            a.textContent = "קישור מצורף";
+            links.appendChild(a);
+          }
+
+          div.appendChild(title);
+          div.appendChild(meta);
+          div.appendChild(text);
+          if (p.link_url) div.appendChild(links);
+
+          box.appendChild(div);
+        });
+      } catch (err) {
+        console.error(err);
+        document.getElementById("posts-box").textContent =
+          "שגיאה בטעינת הפוסטים.";
+      }
+    }
+
+    async function connectWalletAndShowBalance() {
+      const statusEl = document.getElementById("wallet-status");
+      const balanceEl = document.getElementById("balance-box");
+
+      if (!window.ethereum) {
+        statusEl.textContent = "MetaMask לא זוהה בדפדפן.";
+        return;
+      }
+
+      try {
+        await window.ethereum.request({ method: "eth_requestAccounts" });
+        const provider = new ethers.providers.Web3Provider(window.ethereum);
+        const signer = provider.getSigner();
+        const addr = await signer.getAddress();
+        const network = await provider.getNetwork();
+
+        statusEl.textContent = "מחובר כ: " + addr + " | chainId=" + network.chainId;
+
+        if (network.chainId !== 56) {
+          await window.ethereum.request({
+            method: "wallet_switchEthereumChain",
+            params: [{ chainId: "0x38" }],
           });
         }
-      });
-      
-      // Create post functionality
-      document.querySelectorAll('.btn').forEach(btn => {
-        if (btn.textContent.includes('פרסם')) {
-          btn.addEventListener('click', function() {
-            const postText = this.closest('.create-post').querySelector('textarea').value;
-            if (postText.trim() === '') return;
-            
-            // Create new post
-            const newPost = document.createElement('div');
-            newPost.className = 'card post fade-in';
-            newPost.innerHTML = `
-              <div class="post-header">
-                <div class="user-avatar">${currentUser ? currentUser.name.charAt(0) : '?'}</div>
-                <div class="post-user-info">
-                  <h4>${currentUser ? currentUser.name : 'אורח'}</h4>
-                  <p>כרגע · <i class="fas fa-globe-asia"></i></p>
-                </div>
-              </div>
-              
-              <div class="post-content">
-                <p>${postText}</p>
-              </div>
-              
-              <div class="post-stats">
-                <div>
-                  <i class="fas fa-thumbs-up" style="color: #1877f2;"></i>
-                  <span>0</span>
-                </div>
-                <div>0 תגובות · 0 שיתופים</div>
-              </div>
-              
-              <div class="post-actions-bar">
-                <div class="post-action-btn">
-                  <i class="far fa-thumbs-up"></i>
-                  <span>אהבתי</span>
-                </div>
-                <div class="post-action-btn">
-                  <i class="far fa-comment"></i>
-                  <span>תגובה</span>
-                </div>
-                <div class="post-action-btn">
-                  <i class="far fa-share-square"></i>
-                  <span>שתף</span>
-                </div>
-              </div>
-            `;
-            
-            document.getElementById('postsFeed').prepend(newPost);
-            
-            // Clear textarea
-            this.closest('.create-post').querySelector('textarea').value = '';
-            
-            // Update user post count if logged in
-            if (currentUser) {
-              currentUser.posts++;
-              localStorage.setItem('currentUser', JSON.stringify(currentUser));
-              document.getElementById('postCount').textContent = currentUser.posts;
-            }
-            
-            // Add like functionality to the new post
-            const likeBtn = newPost.querySelector('.post-action-btn');
-            likeBtn.addEventListener('click', function() {
-              const icon = this.querySelector('i');
-              const likeText = this.querySelector('span');
-              const post = this.closest('.post');
-              const likeCount = post.querySelector('.post-stats span');
-              
-              if (icon.classList.contains('far')) {
-                icon.classList.remove('far');
-                icon.classList.add('fas');
-                likeText.textContent = 'אהבתי';
-                likeCount.textContent = parseInt(likeCount.textContent) + 1;
-              } else {
-                icon.classList.remove('fas');
-                icon.classList.add('far');
-                likeText.textContent = 'אהבתי';
-                likeCount.textContent = parseInt(likeCount.textContent) - 1;
-              }
-            });
-          });
+
+        const slhAddress = "0xACb0A09414CEA1C879c67bB7A877E4e19480f022";
+        const erc20Abi = [
+          "function balanceOf(address owner) view returns (uint256)",
+          "function decimals() view returns (uint8)",
+          "function symbol() view returns (string)"
+        ];
+
+        const contract = new ethers.Contract(slhAddress, erc20Abi, provider);
+        const [rawBal, decimals, symbol] = await Promise.all([
+          contract.balanceOf(addr),
+          contract.decimals(),
+          contract.symbol()
+        ]);
+
+        const bal = Number(ethers.utils.formatUnits(rawBal, decimals));
+        balanceEl.textContent = "היתרה שלך: " + bal.toFixed(4) + " " + symbol;
+      } catch (err) {
+        console.error(err);
+        statusEl.textContent = "שגיאה בחיבור לארנק: " + (err.message || err);
+      }
+    }
+
+    async function addTokenToMetaMask() {
+      const statusEl = document.getElementById("wallet-status");
+      if (!window.ethereum) {
+        statusEl.textContent = "MetaMask לא זוהה.";
+        return;
+      }
+      try {
+        const wasAdded = await window.ethereum.request({
+          method: "wallet_watchAsset",
+          params: {
+            type: "ERC20",
+            options: {
+              address: "0xACb0A09414CEA1C879c67bB7A877E4e19480f022",
+              symbol: "SLH",
+              decimals: 15,
+            },
+          },
+        });
+        if (wasAdded) {
+          statusEl.textContent = "הטוקן SLH נוסף בהצלחה ל-MetaMask.";
+        } else {
+          statusEl.textContent = "המשתמש ביטל את ההוספה.";
         }
-      });
-      
-      // Initialize
-      updateUserInterface();
-    });
+      } catch (err) {
+        console.error(err);
+        statusEl.textContent = "שגיאה בהוספת הטוקן: " + (err.message || err);
+      }
+    }
+
+    document.getElementById("btn-connect").addEventListener("click", connectWalletAndShowBalance);
+    document.getElementById("btn-add-token").addEventListener("click", addTokenToMetaMask);
+
+    setupShares();
+    loadSales();
+    loadPosts();
+    setInterval(loadSales, 30000);
+    setInterval(loadPosts, 60000);
   </script>
 </body>
 </html>
