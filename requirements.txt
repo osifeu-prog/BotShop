@@ -1,6 +1,5 @@
-﻿python-telegram-bot[job-queue]==22.5
+python-telegram-bot==22.5
 fastapi==0.115.5
 uvicorn[standard]==0.32.0
 python-dotenv==1.0.1
 psycopg2-binary
-
