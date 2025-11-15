@@ -3179,3 +3179,18 @@ async def api_posts(limit: int = Query(20, ge=1, le=100)):
     }
 
 # ==== end SLHNET public API stubs ====
+
+# === SLHNET public API attach ===
+try:
+    from slh_public_api import router as slh_public_router  # type: ignore
+    try:
+        # במידה וקיים app = FastAPI(...) בקובץ, ננסה לצרף אליו את הראוטר
+        app.include_router(slh_public_router)
+        print("SLHNET public API router attached successfully.")
+    except NameError:
+        # אם app לא מוגדר כאן (מבנה פרויקט אחר), מדפיסים הודעה ולא נכשלים
+        print("SLHNET public API router not attached  'app' not found in main.py.")
+except Exception as _e:
+    print(f"SLHNET public API router load error: {_e}")
+# === END SLHNET public API attach ===
+
