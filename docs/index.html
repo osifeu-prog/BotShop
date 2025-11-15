@@ -2,78 +2,263 @@
 <html lang="he" dir="rtl">
 <head>
   <meta charset="utf-8" />
-  <title>Buy My Shop – שער לקהילת העסקים</title>
-  <meta name="description" content="תשלום חד־פעמי של 39 ש״ח, קהילה חכמה של בעלי עסקים, מתנות דיגיטליות, NFT וטוקני SLH שיחולקו למשתתפים.">
+  <title>Buy My Shop – שער לקהילת העסקים | NFT וטוקני SLH</title>
+  <meta name="description" content="הצטרף לקהילת בעלי העסקים שלנו בתשלום חד-פעמי של 39 ש״ח. קבל גישה למתנות דיגיטליות, NFT וטוקני SLH שיחולקו למשתתפים.">
+  <meta name="keywords" content="קהילת עסקים, NFT, טוקן SLH, עסקים, בוט טלגרם, השקעה">
+  <meta name="author" content="Buy My Shop">
 
   <!-- Open Graph -->
   <meta property="og:type" content="website" />
   <meta property="og:title" content="Buy My Shop – קהילת העסקים וה-NFT" />
   <meta property="og:description" content="הצטרף לקהילת העסקים, קבל גישה למבצעים, NFT וטוקני SLH." />
-  <!-- שים לב: משתמשים ב-start_banner.jpg מתוך assets/ -->
   <meta property="og:image" content="https://osifeu-prog.github.io/botshop/assets/start_banner.jpg" />
   <meta property="og:url" content="https://osifeu-prog.github.io/botshop/" />
+  <meta property="og:site_name" content="Buy My Shop" />
 
   <!-- Twitter / X -->
   <meta name="twitter:card" content="summary_large_image" />
   <meta name="twitter:title" content="Buy My Shop – קהילת העסקים" />
   <meta name="twitter:description" content="קפיצה אחת לתוך קהילת עסקים, NFT וטוקני SLH." />
   <meta name="twitter:image" content="https://osifeu-prog.github.io/botshop/assets/start_banner.jpg" />
+  <meta name="twitter:creator" content="@BuyMyShop" />
 
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <!-- Favicon -->
+  <link rel="icon" type="image/x-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🛒</text></svg>">
+
+  <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no" />
+  
+  <!-- Schema.org markup for Google -->
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "Organization",
+    "name": "Buy My Shop",
+    "url": "https://osifeu-prog.github.io/botshop/",
+    "description": "קהילת עסקים דיגיטלית המציעה NFT וטוקני SLH למשתתפים",
+    "sameAs": [
+      "https://t.me/Buy_My_Shop_bot"
+    ]
+  }
+  </script>
 
   <style>
+    /* CSS Variables for consistent theming */
+    :root {
+      --primary-color: #22c55e;
+      --primary-hover: #16a34a;
+      --bg-dark: #020617;
+      --bg-card: #1e293b;
+      --text-light: #f9fafb;
+      --shadow: 0 20px 40px rgba(0,0,0,0.5);
+      --radius: 24px;
+    }
+    
+    /* Reset and base styles */
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+    
+    html {
+      scroll-behavior: smooth;
+    }
+    
     body {
-      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-      background: #020617;
-      color: #f9fafb;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", "Arial", "Noto Sans Hebrew", sans-serif;
+      background: var(--bg-dark);
+      color: var(--text-light);
       margin: 0;
       min-height: 100vh;
       display: flex;
       align-items: center;
       justify-content: center;
+      line-height: 1.6;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
     }
+    
+    /* Card styling with animation */
     .card {
       max-width: 520px;
-      background: radial-gradient(circle at top, #1e293b, #020617);
-      border-radius: 24px;
-      padding: 24px;
-      box-shadow: 0 20px 40px rgba(0,0,0,0.5);
+      background: radial-gradient(circle at top, var(--bg-card), var(--bg-dark));
+      border-radius: var(--radius);
+      padding: 2rem;
+      box-shadow: var(--shadow);
       text-align: center;
+      margin: 1rem;
+      opacity: 0;
+      transform: translateY(20px);
+      animation: fadeInUp 0.8s ease forwards;
+      position: relative;
+      overflow: hidden;
     }
+    
+    .card::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 4px;
+      background: linear-gradient(to right, var(--primary-color), #3b82f6);
+    }
+    
+    @keyframes fadeInUp {
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+    
     h1 {
       font-size: 1.8rem;
-      margin-bottom: 0.5rem;
+      margin-bottom: 1rem;
+      line-height: 1.3;
     }
+    
     p {
-      line-height: 1.6;
-      margin: 0.5rem 0;
+      margin: 1rem 0;
     }
+    
+    .highlight {
+      color: var(--primary-color);
+      font-weight: 600;
+    }
+    
+    /* Button styling with hover effects */
     .btn {
-      display: inline-block;
-      margin-top: 16px;
-      padding: 12px 24px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      margin-top: 1.5rem;
+      padding: 0.75rem 1.5rem;
       border-radius: 999px;
       text-decoration: none;
       font-weight: 600;
-      background: #22c55e;
-      color: #020617;
+      background: var(--primary-color);
+      color: var(--bg-dark);
+      transition: all 0.3s ease;
+      position: relative;
+      overflow: hidden;
+      box-shadow: 0 4px 12px rgba(34, 197, 94, 0.3);
     }
-    .btn:hover {
-      background: #16a34a;
+    
+    .btn:hover, .btn:focus {
+      background: var(--primary-hover);
+      transform: translateY(-2px);
+      box-shadow: 0 6px 16px rgba(34, 197, 94, 0.4);
+    }
+    
+    .btn:active {
+      transform: translateY(0);
+    }
+    
+    .btn::after {
+      content: '';
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      width: 0;
+      height: 0;
+      background: rgba(255, 255, 255, 0.2);
+      border-radius: 50%;
+      transform: translate(-50%, -50%);
+      transition: width 0.3s, height 0.3s;
+    }
+    
+    .btn:hover::after {
+      width: 100%;
+      height: 100%;
+    }
+    
+    /* Feature list styling */
+    .features {
+      list-style: none;
+      margin: 1.5rem 0;
+      text-align: right;
+    }
+    
+    .features li {
+      margin: 0.75rem 0;
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+    }
+    
+    .features li::before {
+      content: '✓';
+      color: var(--primary-color);
+      font-weight: bold;
+      margin-left: 0.5rem;
+    }
+    
+    /* Footer styling */
+    .footer {
+      margin-top: 1.5rem;
+      font-size: 0.875rem;
+      color: #94a3b8;
+    }
+    
+    /* Responsive design */
+    @media (max-width: 480px) {
+      .card {
+        padding: 1.5rem;
+      }
+      
+      h1 {
+        font-size: 1.5rem;
+      }
+    }
+    
+    /* Reduced motion for accessibility */
+    @media (prefers-reduced-motion: reduce) {
+      * {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+      }
     }
   </style>
 </head>
 <body>
-  <div class="card">
+  <main class="card" role="main">
     <h1>Buy My Shop – שער לקהילת העסקים</h1>
+    
     <p>
-      תשלום חד־פעמי של 39 ש״ח, קהילה חכמה של בעלי עסקים,
-      מתנות דיגיטליות, NFT וטוקני SLH שיחולקו למשתתפים.
+      הצטרף לקהילת בעלי העסקים שלנו עם 
+      <span class="highlight">תשלום חד־פעמי של 39 ש״ח בלבד</span>.
     </p>
+    
+    <ul class="features" aria-label="יתרונות הקהילה">
+      <li>קהילה חכמה של בעלי עסקים</li>
+      <li>מתנות דיגיטליות בלעדיות</li>
+      <li>NFT וטוקני SLH שיחולקו למשתתפים</li>
+      <li>גישה להטבות ומידע בלעדי</li>
+    </ul>
+    
     <p>
-      כל מה שצריך כדי להצטרף – להתחיל דרך הבוט בטלגרם.
+      כל מה שצריך כדי להצטרף – פשוט להתחיל דרך הבוט בטלגרם.
     </p>
-    <a class="btn" href="https://t.me/Buy_My_Shop_bot">פתח את הבוט בטלגרם</a>
-  </div>
+    
+    <a class="btn" href="https://t.me/Buy_My_Shop_bot" aria-label="פתח את הבוט בטלגרם - Buy My Shop">
+      פתח את הבוט בטלגרם
+    </a>
+    
+    <div class="footer">
+      © Buy My Shop - כל הזכויות שמורות
+    </div>
+  </main>
+
+  <!-- Optional: Google Analytics or other tracking -->
+  <!--
+  <script async src="https://www.googletagmanager.com/gtag/js?id=GA_MEASUREMENT_ID"></script>
+  <script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag(){dataLayer.push(arguments);}
+    gtag('js', new Date());
+    gtag('config', 'GA_MEASUREMENT_ID');
+  </script>
+  -->
 </body>
 </html>
