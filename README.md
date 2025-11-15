@@ -1,4 +1,4 @@
-# Buy My Shop – Telegram Gateway Bot
+﻿# Buy My Shop – Telegram Gateway Bot
 
 בוט טלגרם שמשמש כ"שער כניסה" לקהילת עסקים, עם:
 
@@ -51,3 +51,5 @@ export BOT_TOKEN="123:ABC"
 export WEBHOOK_URL="https://your-public-url/webhook"
 
 uvicorn main:app --host 0.0.0.0 --port 8000
+
+

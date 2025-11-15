@@ -1,4 +1,4 @@
-# db.py
+﻿# db.py
 import os
 import logging
 from contextlib import contextmanager
@@ -381,3 +381,4 @@ def get_metric(key: str) -> int:
         )
         row = cur.fetchone()
         return int(row["value"]) if row else 0
+
