@@ -2395,3 +2395,31 @@ async def admin_dashboard_page():
 </html>
 """
     return HTMLResponse(content=html)
+# === SLHNET public APIs  price, sales, posts ===
+from fastapi import Query
+
+@app.get("/api/token/price")
+async def api_token_price():
+    \"\"\"שער SLH רשמי עבור SLHNET (נסמך על SLH_NIS או 444).\"\"\"
+    try:
+        import os
+        price = float(os.getenv("SLH_NIS", "444"))
+    except Exception:
+        price = 444.0
+    return {
+        "symbol": "SLH",
+        "chain": "BSC",
+        "network": "BSC Mainnet",
+        "official_price_nis": price,
+        "currency": "ILS",
+    }
+
+@app.get("/api/token/sales")
+async def api_token_sales(limit: int = Query(50, ge=1, le=200)):
+    \"\"\"Feed מכירות SLH עבור האתר. לעת עתה מחזיר רשימה ריקה, עד לחיבור מלא לDB.\"\"\"
+    return {"items": []}
+
+@app.get("/api/posts")
+async def api_posts(limit: int = Query(20, ge=1, le=200)):
+    \"\"\"Feed פוסטים קהילתיים עבור SLHNET Social. כרגע מחזיר רשימה ריקה עד חיבור /post מהבוט.\"\"\"
+    return {"items": []}

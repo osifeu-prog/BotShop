@@ -5,7 +5,7 @@
   <title>SLHNET  הרשת העסקית החדשה</title>
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <meta property="og:title" content="SLHNET  הרשת העסקית החדשה" />
-  <meta property="og:description" content="רשת חברתית לעסקים שמחברת חנויות דיגיטליות, Binance Smart Chain, קבוצות טלגרם ושיתופים שמייצרים הכנסה." />
+  <meta property="og:description" content="רשת עסקית חברתית שמחברת בין חנויות דיגיטליות, Binance Smart Chain, קבוצות טלגרם ושיתופים שמייצרים הכנסה." />
   <meta property="og:image" content="https://slh-nft.com/docs/assets/slh_promo.jpg" />
   <meta property="og:type" content="website" />
   <style>
@@ -111,7 +111,6 @@
       .row { flex-direction: column; }
     }
   </style>
-  <script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.min.js"></script>
 </head>
 <body>
   <div class="container">
@@ -129,6 +128,7 @@
         אחרי <strong>39 שיתופים</strong> איכותיים או תשלום חדפעמי של
         <strong><span id="price-amount">39</span> </strong>  מקבלים גישה מלאה
         לכל שכבות הרשת: קבוצות פרימיום, חנויות, בוטים, הטבות ואיירדרופים.
+        מי שכבר מחזיק בSLH בארנק על BSC  זכאי לגישה חינמית דרך הבוט.
       </p>
       <div class="row">
         <div class="col" style="margin-top:8px;">
@@ -179,6 +179,7 @@
         <li>מקבלים לינקים ייחודיים לשיתוף החנות והפרופיל.</li>
         <li>כל שיתוף מייצר תנועה לרשת, ואנחנו מודדים כמה אתה פעיל.</li>
         <li>אחרי 39 שיתופים איכותיים או תשלום של <span id="price-amount-inline-2">39</span>   נפתחת גישה מלאה.</li>
+        <li>מחזיקי SLH על BSC מקבלים גישה מלאה חינם, לאחר אימות ארנק דרך הבוט.</li>
         <li>הבונוסים: טוקני SLH, חשיפה, קבוצות עסקים, ואפשרות לפתוח קניון שלם משלך.</li>
       </ul>
     </div>
@@ -203,20 +204,31 @@
           </ul>
         </div>
         <div class="col">
-          <p>כפתורים מהירים:</p>
+          <p>כפתור מהיר להוספת הטוקן:</p>
           <button class="btn" id="btn-add-token">הוסף טוקן SLH ל-MetaMask</button>
-          <br/><br/>
-          <button class="btn btn-secondary" id="btn-connect">חיבור MetaMask ובדיקת יתרה</button>
           <div id="wallet-status" style="margin-top:10px;font-size:0.9rem;"></div>
-          <div id="balance-box" style="margin-top:6px;font-size:0.9rem;"></div>
+          <p style="margin-top:8px;font-size:0.85rem;">
+            בדיקת יתרה מדויקת והטבות גישה חינמית מתבצעות דרך הבוט בפקודה <code>/wallet</code>.
+          </p>
         </div>
       </div>
     </div>
 
     <div class="card">
+      <h2>לוח שערים  SLH</h2>
+      <p id="price-box" style="font-size:0.9rem;">
+        טוען שער יציג...
+      </p>
+      <p style="font-size:0.85rem;">
+        השער היציג נקבע על ידי הרשת: <strong>444 </strong> ל-SLH (ברירת מחדל),
+        ומולו יוצגו המחירים שבהם חברי הקהילה מוכרים וקונים בפועל.
+      </p>
+    </div>
+
+    <div class="card">
       <h2>פוסטים מהקהילה  SLHNET Social</h2>
       <p style="font-size:0.9rem;">
-        חברי הרשת יכולים ליצור פוסטים דרך הבוט (לדוגמה: <code>/post כותרת | תוכן</code>)
+        חברי הרשת יכולים ליצור פוסטים דרך הבוט (למשל: <code>/post כותרת | תוכן</code>)
         והם יוצגו כאן לכולם. כל פוסט ניתן לשיתוף ברשתות החברתיות.
       </p>
       <div id="posts-box" style="font-size:0.9rem;">טוען פוסטים...</div>
@@ -225,8 +237,8 @@
     <div class="card" id="sales-card">
       <h2 id="sales-title">מכירות SLH האחרונות במערכת</h2>
       <p style="font-size:0.9rem;">
-        כל מכירה נרשמת אחרי אימות עסקה על רשת BSC
-        (העברת SLH לTreasury דרך MetaMask / ארנק תואם).
+        כל מכירה נרשמת אחרי אימות עסקה (העברת SLH ל-Treasury דרך ארנק תואם BSC)
+        ומוצגת כאן בלוח המכירות.
       </p>
       <table class="sales-table">
         <thead>
@@ -251,7 +263,8 @@
         לבעל המערכת: <br/>
          דשבורד API (JSON): <code>/admin/stats?token=ADMIN_DASH_TOKEN</code><br/>
          דשבורד HTML: <code>/admin/dashboard?token=ADMIN_DASH_TOKEN</code><br/>
-         ניהול מלא דרך הבוט: <code>/admin</code>, <code>/stats</code> ועוד.
+         ניהול מלא דרך הבוט: <code>/admin</code>, <code>/stats</code> ועוד.<br/><br/>
+        בוט אדמין נפרד ניתן להקים ע"י שירות רלווי נוסף עם טוקן בוט נפרד, כאשר רק האדמין משתמש בקישור לבוט.
       </p>
     </div>
   </div>
@@ -276,6 +289,7 @@
     async function loadConfig() {
       try {
         const res = await fetch(API_BASE + "/config/public");
+        if (!res.ok) return;
         const data = await res.json();
         const price = data.slh_nis || "39";
 
@@ -301,7 +315,7 @@
           } else {
             payBtn.addEventListener("click", (ev) => {
               ev.preventDefault();
-              alert("קישור התשלום יופעל מתוך הבוט לאחר ההרשמה. אנא התחבר דרך הבוט SLHNET.");
+              alert("התשלום מופעל כיום מתוך הבוט. אנא התחבר דרך הבוט SLHNET לביצוע התשלום.");
             });
           }
         }
@@ -310,16 +324,36 @@
       }
     }
 
+    async function loadPrice() {
+      const box = document.getElementById("price-box");
+      try {
+        const res = await fetch(API_BASE + "/api/token/price");
+        if (!res.ok) {
+          box.textContent = "שער יציג: 444  ל-SLH (ברירת מחדל  API לא זמין).";
+          return;
+        }
+        const data = await res.json();
+        const p = data.official_price_nis || 444;
+        box.textContent = "שער יציג רשמי: " + p + "  ל-SLH (BSC Mainnet).";
+      } catch (err) {
+        console.error("price error", err);
+        box.textContent = "שער יציג: 444  ל-SLH (ברירת מחדל).";
+      }
+    }
+
     async function loadSales() {
       try {
         const res = await fetch(API_BASE + "/api/token/sales?limit=50");
-        if (!res.ok) throw new Error("HTTP " + res.status);
-        const data = await res.json();
         const tbody = document.getElementById("sales-body");
+        if (!res.ok) {
+          tbody.innerHTML = "<tr><td colspan='6'>שגיאה בטעינת הנתונים.</td></tr>";
+          return;
+        }
+        const data = await res.json();
         tbody.innerHTML = "";
 
         if (!data.items || data.items.length === 0) {
-          tbody.innerHTML = "<tr><td colspan='6'>אין עדיין מכירות רשומות.</td></tr>";
+          tbody.innerHTML = "<tr><td colspan='6'>אין עדיין מכירות רשומות. כשיתבצעו עסקאות דרך הבוט  הן יוצגו כאן.</td></tr>";
           return;
         }
 
@@ -334,13 +368,10 @@
 
           tr.appendChild(td(s.id));
           tr.appendChild(td(s.user_id));
-          tr.appendChild(td(s.wallet_address));
-
-          const amountTd = td((s.amount_slh || 0).toFixed(4) + " SLH");
-          tr.appendChild(amountTd);
-
-          const statusTd = td(s.tx_status);
-          statusTd.className = s.tx_status === "verified" ? "badge-ok" : "badge-bad";
+          tr.appendChild(td(s.wallet_address || ""));
+          tr.appendChild(td((s.amount_slh || 0).toFixed ? (s.amount_slh).toFixed(4) + " SLH" : s.amount_slh));
+          const statusTd = td(s.tx_status || "-");
+          statusTd.className = (s.tx_status === "verified" ? "badge-ok" : "badge-bad");
           tr.appendChild(statusTd);
 
           const txTd = document.createElement("td");
@@ -368,9 +399,12 @@
     async function loadPosts() {
       try {
         const res = await fetch(API_BASE + "/api/posts?limit=20");
-        if (!res.ok) throw new Error("HTTP " + res.status);
-        const data = await res.json();
         const box = document.getElementById("posts-box");
+        if (!res.ok) {
+          box.textContent = "שגיאה בטעינת הפוסטים.";
+          return;
+        }
+        const data = await res.json();
         box.innerHTML = "";
 
         if (!data.items || data.items.length === 0) {
@@ -391,7 +425,7 @@
           meta.style.color = "#9ca3af";
           meta.textContent =
             "מאת: " + (p.username || p.user_id) + "  " +
-            new Date(p.created_at).toLocaleString("he-IL");
+            (p.created_at ? new Date(p.created_at).toLocaleString("he-IL") : "");
 
           const text = document.createElement("div");
           text.style.marginTop = "4px";
@@ -423,63 +457,10 @@
       }
     }
 
-    async function connectWalletAndShowBalance() {
-      const statusEl = document.getElementById("wallet-status");
-      const balanceEl = document.getElementById("balance-box");
-
-      if (!window.ethereum) {
-        statusEl.textContent = "MetaMask לא זוהה בדפדפן.";
-        return;
-      }
-      if (!window.ethers) {
-        statusEl.textContent = "ethers.js לא נטען. נסה לרענן את העמוד או לבטל חוסמי פרסומות.";
-        return;
-      }
-
-      const ethersLib = window.ethers;
-
-      try {
-        await window.ethereum.request({ method: "eth_requestAccounts" });
-        const provider = new ethersLib.providers.Web3Provider(window.ethereum);
-        const signer = provider.getSigner();
-        const addr = await signer.getAddress();
-        const network = await provider.getNetwork();
-
-        statusEl.textContent = "מחובר כ: " + addr + " | chainId=" + network.chainId;
-
-        if (network.chainId !== 56) {
-          await window.ethereum.request({
-            method: "wallet_switchEthereumChain",
-            params: [{ chainId: "0x38" }],
-          });
-        }
-
-        const slhAddress = "0xACb0A09414CEA1C879c67bB7A877E4e19480f022";
-        const erc20Abi = [
-          "function balanceOf(address owner) view returns (uint256)",
-          "function decimals() view returns (uint8)",
-          "function symbol() view returns (string)"
-        ];
-
-        const contract = new ethersLib.Contract(slhAddress, erc20Abi, provider);
-        const [rawBal, decimals, symbol] = await Promise.all([
-          contract.balanceOf(addr),
-          contract.decimals(),
-          contract.symbol()
-        ]);
-
-        const bal = Number(ethersLib.utils.formatUnits(rawBal, decimals));
-        balanceEl.textContent = "היתרה שלך: " + bal.toFixed(4) + " " + symbol;
-      } catch (err) {
-        console.error(err);
-        statusEl.textContent = "שגיאה בחיבור לארנק: " + (err.message || err);
-      }
-    }
-
     async function addTokenToMetaMask() {
       const statusEl = document.getElementById("wallet-status");
       if (!window.ethereum) {
-        statusEl.textContent = "MetaMask לא זוהה.";
+        statusEl.textContent = "MetaMask לא זוהה בדפדפן. התקן את התוסף ונסה שוב.";
         return;
       }
       try {
@@ -505,11 +486,11 @@
       }
     }
 
-    document.getElementById("btn-connect").addEventListener("click", connectWalletAndShowBalance);
     document.getElementById("btn-add-token").addEventListener("click", addTokenToMetaMask);
 
     setupShares();
     loadConfig();
+    loadPrice();
     loadSales();
     loadPosts();
     setInterval(loadSales, 30000);
