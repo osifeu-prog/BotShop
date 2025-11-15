@@ -1,47 +1,17 @@
-#!/usr/bin/env python3
-"""
-שער קהילת העסקים - Buy My Shop
-בוט טלגרם מתקדם עם FastAPI, ניהול תשלומים, מערכת הפניות, דשבורד ניהול וממשק API
-
-פונקציונליות עיקרית:
-- ניהול תשלומים עם אישור ידני
-- מערכת הפניות (referrals) עם ניקוד
-- דשבורד ניהול למארגנים
-- ממשק API לסטטיסטיקות
-- הגנה מפני כפילות ועומסים
-- תמיכה במספר שיטות תשלום
-- אינטגרציה עם DB (אופציונלי)
-- ממשק וובי לניהול
-"""
-
-import asyncio
+# main.py
 import os
 import logging
-import json
-import secrets
-from collections import deque, defaultdict
+from collections import deque
 from contextlib import asynccontextmanager
-from datetime import datetime, timedelta
+from datetime import datetime
 from http import HTTPStatus
-from typing import Deque, Set, Literal, Optional, Dict, Any, List, Tuple, Union
-from pathlib import Path
-import uuid
-import hashlib
+from typing import Deque, Set, Literal, Optional, Dict, Any, List
 
-import httpx
-from fastapi import FastAPI, Request, Response, HTTPException, Depends, Form, UploadFile, File
-from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
-from fastapi.staticfiles import StaticFiles
-from fastapi.templating import Jinja2Templates
-from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
-from pydantic import BaseModel, Field
+from fastapi import FastAPI, Request, Response, HTTPException
 from telegram import (
     Update,
     InlineKeyboardMarkup,
     InlineKeyboardButton,
-    BotCommand,
-    User as TelegramUser,
-    Chat as TelegramChat
 )
 from telegram.ext import (
     Application,
@@ -50,142 +20,20 @@ from telegram.ext import (
     CallbackQueryHandler,
     ContextTypes,
     filters,
-    PicklePersistence,
-    JobQueue
 )
-from telegram.error import TelegramError, NetworkError
 
 # =========================
-# קונפיגורציה מתקדמת
+# לוגינג בסיסי
 # =========================
-
-# הגדרות לוגינג מתקדמות
 logging.basicConfig(
     level=logging.INFO,
-    format="%(asctime)s [%(levelname)s] %(name)s:%(lineno)d - %(message)s",
-    handlers=[
-        logging.StreamHandler(),
-        logging.FileHandler("bot.log", encoding="utf-8")
-    ]
+    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
 )
 logger = logging.getLogger("gateway-bot")
 
-# הגדרות סביבה עם ברירות מחדל
-class Config:
-    """מחלקה לניהול הגדרות המערכת"""
-    
-    def __init__(self):
-        self.BOT_TOKEN = os.environ.get("BOT_TOKEN")
-        self.WEBHOOK_URL = os.environ.get("WEBHOOK_URL")
-        self.ADMIN_DASH_TOKEN = os.environ.get("ADMIN_DASH_TOKEN", secrets.token_urlsafe(32))
-        
-        # AI / מודלים / הגדרות נוספות מה-ENV (לא חובה לשימוש מיידי)
-        self.AI_ENABLE = os.environ.get("AI_ENABLE", "false").lower() == "true"
-        self.AI_DAILY_QUOTA_FREE = int(os.environ.get("AI_DAILY_QUOTA_FREE", "0") or 0)
-        self.AI_DAILY_QUOTA_PAID = int(os.environ.get("AI_DAILY_QUOTA_PAID", "0") or 0)
-        self.AI_POINTS_THRESHOLD = int(os.environ.get("AI_POINTS_THRESHOLD", "0") or 0)
-        self.OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY")
-        self.HF_TOKEN = os.environ.get("HF_TOKEN")
-        self.HF_TEXT_MODEL = os.environ.get("HF_TEXT_MODEL", "")
-        self.HF_IMAGE_MODEL = os.environ.get("HF_IMAGE_MODEL", "")
-        self.DEFAULT_LANG = os.environ.get("DEFAULT_LANG", "he")
-        self.SLH_NIS = float(os.environ.get("SLH_NIS", "0") or 0.0)
-        self.BOT_USERNAME = os.environ.get("BOT_USERNAME")
-        self.GIT_REPO_URL = os.environ.get("GIT_REPO_URL")
-        self.GROUP_STATIC_INVITE = os.environ.get("GROUP_STATIC_INVITE")
-
-        # URLs עם ברירות מחדל
-        self.PAYBOX_URL = os.environ.get("PAYBOX_URL", "https://links.payboxapp.com/1SNfaJ6XcYb")
-        self.BIT_URL = os.environ.get("BIT_URL", "https://www.bitpay.co.il/app/share-info?i=190693822888_19l4oyvE")
-        self.PAYPAL_URL = os.environ.get("PAYPAL_URL", "https://paypal.me/osifdu")
-        self.LANDING_URL = os.environ.get("LANDING_URL", "https://osifeu-prog.github.io/botshop/")
-        
-        # קבוצות
-        self.COMMUNITY_GROUP_LINK = "https://t.me/+HIzvM8sEgh1kNWY0"
-        self.COMMUNITY_GROUP_ID = -1002981609404
-        self.SUPPORT_GROUP_LINK = "https://t.me/+1ANn25HeVBoxNmRk"
-        self.SUPPORT_GROUP_ID = -1001651506661
-        self.PAYMENTS_LOG_CHAT_ID = -1001748319682
-        
-        # משתמשים
-        self.DEVELOPER_USER_ID = 224223270
-        self.ADMIN_IDS = {self.DEVELOPER_USER_ID}
-        
-        # קבצים
-        self.START_IMAGE_PATH = os.environ.get("START_IMAGE_PATH", "assets/start_banner.jpg")
-        self.DATA_DIR = Path("data")
-        self.BACKUP_DIR = self.DATA_DIR / "backups"
-        
-        # הגדרות אבטחה
-        self.RATE_LIMIT_WINDOW = 60  # שניות
-        self.MAX_REQUESTS_PER_WINDOW = 10
-        self.SESSION_TIMEOUT = 30 * 60  # 30 דקות
-        
-        # הגדרות עסקים
-        self.JOIN_FEE = 39  # ש"ח
-        self.REFERRAL_BONUS = 5  # נקודות לכל הפניה
-        self.MIN_PAYOUT = 100  # נקודות מינימום למשיכה
-        
-        # אתחול תיקיות
-        self._init_directories()
-    
-    def _init_directories(self):
-        """יצירת תיקיות נדרשות"""
-        self.DATA_DIR.mkdir(exist_ok=True)
-        self.BACKUP_DIR.mkdir(exist_ok=True)
-        (self.DATA_DIR / "sessions").mkdir(exist_ok=True)
-        
-    def validate(self):
-        """וידוא שהגדרות חובה קיימות"""
-        if not self.BOT_TOKEN:
-            raise RuntimeError("BOT_TOKEN environment variable is not set")
-        if not self.WEBHOOK_URL:
-            raise RuntimeError("WEBHOOK_URL environment variable is not set")
-        
-        logger.info("Configuration loaded successfully")
-        return self
-
-config = Config().validate()
-
 # =========================
-# מודלים של נתונים
+# DB אופציונלי (db.py)
 # =========================
-
-class PaymentRequest(BaseModel):
-    """מודל לבקשת תשלום"""
-    user_id: int
-    amount: float
-    currency: str = "ILS"
-    method: str
-    description: Optional[str] = None
-
-class UserStats(BaseModel):
-    """מודל לסטטיסטיקות משתמש"""
-    user_id: int
-    username: Optional[str]
-    join_date: datetime
-    total_referrals: int = 0
-    total_points: int = 0
-    payments_count: int = 0
-    last_activity: datetime
-
-class SystemStatus(BaseModel):
-    """מודל לסטטוס מערכת"""
-    db_status: str
-    bot_status: str
-    webhook_status: str
-    active_users_24h: int
-    pending_payments: int
-    total_earnings: float
-
-class AdminAuth(BaseModel):
-    """מודל לאימות אדמין"""
-    token: str
-
-# =========================
-# DB אופציונלי (db.py) - גרסה משופרת
-# =========================
-
 try:
     from db import (
         init_schema,
@@ -197,373 +45,213 @@ try:
         get_monthly_payments,
         get_approval_stats,
         create_reward,
-        increment_metric,
-        get_metric,
-        get_user_stats,
-        get_system_stats,
-        log_admin_action,
-        get_recent_activities,
-        # פונקציות חדשות
-        backup_database,
-        cleanup_old_data,
-        get_user_payments_history,
-        update_user_balance,
-        create_support_ticket,
-        update_support_ticket,
-        get_pending_tickets,
-        log_audit_event
     )
     DB_AVAILABLE = True
-    logger.info("DB module loaded successfully with extended features")
+    logger.info("DB module loaded successfully, DB logging enabled.")
 except Exception as e:
     logger.warning("DB not available (missing db.py or error loading it): %s", e)
     DB_AVAILABLE = False
-    
-    # יצירת פונקציות דמה למקרה ש-DB לא זמין
-    def create_dummy_function(name):
-        def dummy(*args, **kwargs):
-            logger.warning(f"DB not available - {name} called but ignored")
-            return [] if "get" in name else None
-        return dummy
-    
-    # אתחול פונקציות דמה
-    for func_name in [
-        'init_schema', 'log_payment', 'update_payment_status', 'store_user', 
-        'add_referral', 'get_top_referrers', 'get_monthly_payments', 
-        'get_approval_stats', 'create_reward', 'increment_metric', 'get_metric',
-        'get_user_stats', 'get_system_stats', 'log_admin_action', 'get_recent_activities',
-        'backup_database', 'cleanup_old_data', 'get_user_payments_history',
-        'update_user_balance', 'create_support_ticket', 'update_support_ticket',
-        'get_pending_tickets', 'log_audit_event'
-    ]:
-        globals()[func_name] = create_dummy_function(func_name)
 
 # =========================
-# ניהול State ו-Cache מתקדם
+# משתני סביבה חיוניים
 # =========================
+BOT_TOKEN = os.environ.get("BOT_TOKEN")
+WEBHOOK_URL = os.environ.get("WEBHOOK_URL")  # חייב לכלול /webhook בסוף
 
-class RateLimiter:
-    """מגביל קצב בקשות למניעת התקפות"""
-    
-    def __init__(self):
-        self.requests = defaultdict(list)
-    
-    def is_limited(self, key: str, max_requests: int, window: int) -> bool:
-        """בודק אם המשתמש חורג ממגבלת הקצב"""
-        now = datetime.now()
-        window_start = now - timedelta(seconds=window)
-        
-        # ניקוי בקשות ישנות
-        self.requests[key] = [req_time for req_time in self.requests[key] if req_time > window_start]
-        
-        # בדיקת מגבלה
-        if len(self.requests[key]) >= max_requests:
-            return True
-        
-        self.requests[key].append(now)
-        return False
+if not BOT_TOKEN:
+    raise RuntimeError("BOT_TOKEN environment variable is not set")
 
-class SessionManager:
-    """מנהל סשנים למשתמשים"""
-    
-    def __init__(self):
-        self.sessions = {}
-        self.timeout = config.SESSION_TIMEOUT
-    
-    def create_session(self, user_id: int, data: Dict[str, Any] = None) -> str:
-        """יצירת סשן חדש"""
-        session_id = secrets.token_urlsafe(32)
-        self.sessions[session_id] = {
-            'user_id': user_id,
-            'created_at': datetime.now(),
-            'data': data or {}
-        }
-        return session_id
-    
-    def get_session(self, session_id: str) -> Optional[Dict[str, Any]]:
-        """קבלת סשן"""
-        session = self.sessions.get(session_id)
-        if not session:
-            return None
-        
-        # בדיקת תוקף
-        if datetime.now() - session['created_at'] > timedelta(seconds=self.timeout):
-            del self.sessions[session_id]
-            return None
-        
-        return session
-    
-    def cleanup_expired(self):
-        """ניקוי סשנים שפג תוקפם"""
-        now = datetime.now()
-        expired = []
-        for session_id, session in self.sessions.items():
-            if now - session['created_at'] > timedelta(seconds=self.timeout):
-                expired.append(session_id)
-        
-        for session_id in expired:
-            del self.sessions[session_id]
+if not WEBHOOK_URL:
+    raise RuntimeError("WEBHOOK_URL environment variable is not set")
 
-# אתחול מנהלים
-rate_limiter = RateLimiter()
-session_manager = SessionManager()
+logger.info("Starting bot with WEBHOOK_URL=%s", WEBHOOK_URL)
 
 # =========================
-# Dedup – מניעת כפילות מתקדמת
+# קבועים של המערכת שלך
 # =========================
 
-class DedupManager:
-    """מנהל מניעת כפילות עם cleanup אוטומטי"""
-    
-    def __init__(self, max_size: int = 5000):
-        self.processed_ids: Deque[int] = deque(maxlen=max_size)
-        self.processed_set: Set[int] = set()
-        self.max_size = max_size
-        
-    def is_duplicate(self, update_id: int) -> bool:
-        """בודק אם update כבר טופל"""
-        if update_id in self.processed_set:
-            return True
-        
-        self.processed_set.add(update_id)
-        self.processed_ids.append(update_id)
-        
-        # ניקוי אוטומטי אם הסט גדול מדי
-        if len(self.processed_set) > self.max_size + 100:
-            self._cleanup()
-            
-        return False
-    
-    def _cleanup(self):
-        """ניקוי סט לפי ה-deque"""
-        valid_ids = set(self.processed_ids)
-        self.processed_set.intersection_update(valid_ids)
+# קבוצת הקהילה (אחרי אישור תשלום)
+COMMUNITY_GROUP_LINK = "https://t.me/+HIzvM8sEgh1kNWY0"
+COMMUNITY_GROUP_ID = -1002981609404  # לא חובה לשימוש כרגע
 
-dedup_manager = DedupManager()
+# קבוצת תמיכה
+SUPPORT_GROUP_LINK = "https://t.me/+1ANn25HeVBoxNmRk"
+SUPPORT_GROUP_ID = -1001651506661  # כרגע רק לינק
+
+# מתכנת המערכת (אתה)
+DEVELOPER_USER_ID = 224223270
+
+# קבוצת לוגים ותשלומים (רק למארגנים, לא יוצג למשתמש)
+PAYMENTS_LOG_CHAT_ID = -1001748319682
+
+# לינקי תשלום (מה-ENV עם ברירת מחדל)
+PAYBOX_URL = os.environ.get(
+    "PAYBOX_URL",
+    "https://links.payboxapp.com/1SNfaJ6XcYb",
+)
+BIT_URL = os.environ.get(
+    "BIT_URL",
+    "https://www.bitpay.co.il/app/share-info?i=190693822888_19l4oyvE",
+)
+PAYPAL_URL = os.environ.get(
+    "PAYPAL_URL",
+    "https://paypal.me/osifdu",
+)
+
+# לינק לדף הנחיתה (GitHub Pages) – בשביל כפתור השיתוף
+LANDING_URL = os.environ.get(
+    "LANDING_URL",
+    "https://osifeu-prog.github.io/botshop/",
+)
+
+# Token קטן לדשבורד API (/admin/stats)
+ADMIN_DASH_TOKEN = os.environ.get("ADMIN_DASH_TOKEN")
+
+# נתיב התמונה הראשית של /start
+START_IMAGE_PATH = os.environ.get(
+    "START_IMAGE_PATH",
+    "assets/start_banner.jpg",  # תוודא שהתמונה הזו קיימת בפרויקט
+)
+
+# פרטי תשלום
+BANK_DETAILS = (
+    "🏦 *תשלום בהעברה בנקאית*\n\n"
+    "בנק הפועלים\n"
+    "סניף כפר גנים (153)\n"
+    "חשבון 73462\n"
+    "המוטב: קאופמן צביקה\n\n"
+    "סכום: *39 ש\"ח*\n"
+)
+
+PAYBOX_DETAILS = (
+    "📲 *תשלום בביט / פייבוקס / PayPal*\n\n"
+    "אפשר לשלם דרך האפליקציות שלך בביט או פייבוקס.\n"
+    "קישורי התשלום המעודכנים מופיעים בכפתורים למטה.\n\n"
+    "סכום: *39 ש\"ח*\n"
+)
+
+TON_DETAILS = (
+    "💎 *תשלום ב-TON (טלגרם קריפטו)*\n\n"
+    "אם יש לך כבר ארנק טלגרם (TON Wallet), אפשר לשלם גם ישירות בקריפטו.\n\n"
+    "ארנק לקבלת התשלום:\n"
+    "`UQCr743gEr_nqV_0SBkSp3CtYS_15R3LDLBvLmKeEv7XdGvp`\n\n"
+    "סכום: *39 ש\"ח* (שווה ערך ב-TON)\n\n"
+    "👀 בקרוב נחלק גם טוקני *SLH* ייחודיים על רשת TON וחלק מהמשתתפים יקבלו NFT\n"
+    "על פעילות, שיתופים והשתתפות בקהילה.\n"
+)
+
+# אדמינים שיכולים לאשר / לדחות תשלום
+ADMIN_IDS = {DEVELOPER_USER_ID}  # אפשר להוסיף עוד IDs אם תרצה
+
+PayMethod = Literal["bank", "paybox", "ton"]
+
+# =========================
+# Dedup – מניעת כפילות תגובות
+# =========================
+_processed_ids: Deque[int] = deque(maxlen=1000)
+_processed_set: Set[int] = set()
 
 def is_duplicate_update(update: Update) -> bool:
     """בודק אם update כבר טופל (ע״פ update_id)"""
-    if update is None or update.update_id is None:
+    if update is None:
         return False
-    return dedup_manager.is_duplicate(update.update_id)
+    uid = update.update_id
+    if uid in _processed_set:
+        return True
+    _processed_set.add(uid)
+    _processed_ids.append(uid)
+    # ניקוי סט לפי ה-deque
+    if len(_processed_set) > len(_processed_ids) + 10:
+        valid = set(_processed_ids)
+        _processed_set.intersection_update(valid)
+    return False
 
 # =========================
-# זיכרון פשוט לתשלומים + State
+# זיכרון פשוט לתשלומים אחרונים + דחיות ממתינות
 # =========================
+# bot_data["payments"][user_id] => dict עם פרטי העסקה האחרונה
+def get_payments_store(context: ContextTypes.DEFAULT_TYPE) -> Dict[int, Dict[str, Any]]:
+    store = context.application.bot_data.get("payments")
+    if store is None:
+        store = {}
+        context.application.bot_data["payments"] = store
+    return store
 
-class PaymentManager:
-    """מנהל תשלומים בזיכרון"""
-    
-    def __init__(self):
-        self.payments = {}
-        self.pending_rejects = {}
-        self.user_states = {}
-        
-    def get_payments_store(self, context: ContextTypes.DEFAULT_TYPE) -> Dict[int, Dict[str, Any]]:
-        """קבלת מאגר התשלומים"""
-        store = context.application.bot_data.get("payments")
-        if store is None:
-            store = {}
-            context.application.bot_data["payments"] = store
-        return store
-    
-    def get_pending_rejects(self, context: ContextTypes.DEFAULT_TYPE) -> Dict[int, int]:
-        """קבלת רשימת דחיות ממתינות"""
-        store = context.application.bot_data.get("pending_rejects")
-        if store is None:
-            store = {}
-            context.application.bot_data["pending_rejects"] = store
-        return store
-    
-    def set_user_state(self, user_id: int, state: str, data: Dict = None):
-        """הגדרת state למשתמש"""
-        self.user_states[user_id] = {
-            'state': state,
-            'data': data or {},
-            'timestamp': datetime.now()
-        }
-    
-    def get_user_state(self, user_id: int) -> Optional[Dict]:
-        """קבלת state של משתמש"""
-        state_data = self.user_states.get(user_id)
-        if not state_data:
-            return None
-        
-        # בדיקת תוקף state
-        if datetime.now() - state_data['timestamp'] > timedelta(minutes=30):
-            del self.user_states[user_id]
-            return None
-        
-        return state_data
-    
-    def clear_user_state(self, user_id: int):
-        """ניקוי state של משתמש"""
-        if user_id in self.user_states:
-            del self.user_states[user_id]
-
-payment_manager = PaymentManager()
+# bot_data["pending_rejects"][admin_id] = target_user_id
+def get_pending_rejects(context: ContextTypes.DEFAULT_TYPE) -> Dict[int, int]:
+    store = context.application.bot_data.get("pending_rejects")
+    if store is None:
+        store = {}
+        context.application.bot_data["pending_rejects"] = store
+    return store
 
 # =========================
-# אפליקציית Telegram עם persistence
+# אפליקציית Telegram
 # =========================
-
-try:
-    # ניסיון להשתמש ב-persistence
-    persistence = PicklePersistence(filepath="bot_data.pickle")
-    logger.info("Using PicklePersistence for bot data")
-except Exception as e:
-    logger.warning("Failed to initialize persistence: %s. Using in-memory storage.", e)
-    persistence = None
-
 ptb_app: Application = (
     Application.builder()
     .updater(None)  # אין polling – רק webhook
-    .token(config.BOT_TOKEN)
-    .persistence(persistence)
-    .concurrent_updates(True)  # תמיכה ב-concurrent updates
+    .token(BOT_TOKEN)
     .build()
 )
 
 # =========================
-# מערכת קומנדות אוטומטית
+# עזרי UI (מקשים)
 # =========================
 
-async def setup_commands():
-    """הגדרת פקודות הבוט בטלגרם"""
-    commands = [
-        BotCommand("start", "התחל - שער הכניסה לקהילה"),
-        BotCommand("help", "עזרה והסברים"),
-        BotCommand("status", "סטטוס המשתמש שלי"),
-        BotCommand("referral", "קישור ההפניה שלי"),
-    ]
-    
-    # הוספת פקודות אדמין
-    admin_commands = [
-        BotCommand("admin", "תפריט ניהול"),
-        BotCommand("stats", "סטטיסטיקות מערכת"),
-        BotCommand("approve", "אשר תשלום"),
-        BotCommand("reject", "דחה תשלום"),
-    ]
-    
-    try:
-        await ptb_app.bot.set_my_commands(commands)
-        logger.info("Bot commands set up successfully")
-    except Exception as e:
-        logger.error("Failed to set up bot commands: %s", e)
-
-# =========================
-# עזרי UI מתקדמים (מקשים ודפים)
-# =========================
-
-def main_menu_keyboard(user_id: int = None) -> InlineKeyboardMarkup:
-    """תפריט ראשי מותאם אישית"""
-    buttons = [
+def main_menu_keyboard() -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup([
         [
             InlineKeyboardButton("🚀 הצטרפות לקהילת העסקים (39 ₪)", callback_data="join"),
         ],
         [
             InlineKeyboardButton("ℹ מה אני מקבל?", callback_data="info"),
-            InlineKeyboardButton("📊 הסטטוס שלי", callback_data="user_status"),
         ],
         [
             InlineKeyboardButton("🔗 שתף את שער הקהילה", callback_data="share"),
-            InlineKeyboardButton("👥 ההפניות שלי", callback_data="my_referrals"),
         ],
         [
             InlineKeyboardButton("🆘 תמיכה", callback_data="support"),
-            InlineKeyboardButton("💬 צ'אט קהילה", url=config.COMMUNITY_GROUP_LINK),
         ],
-    ]
-    
-    # הוספת כפתור אדמין למשתמשים מורשים
-    if user_id and user_id in config.ADMIN_IDS:
-        buttons.append([
-            InlineKeyboardButton("🛠 ניהול", callback_data="admin_menu"),
-        ])
-    
-    return InlineKeyboardMarkup(buttons)
+    ])
 
 def payment_methods_keyboard() -> InlineKeyboardMarkup:
-    """בחירת סוג תשלום"""
+    """בחירת סוג תשלום (לוגי – לא לינקים)"""
     return InlineKeyboardMarkup([
         [
             InlineKeyboardButton("🏦 העברה בנקאית", callback_data="pay_bank"),
-            InlineKeyboardButton("📲 ביט/פייבוקס", callback_data="pay_paybox"),
+        ],
+        [
+            InlineKeyboardButton("📲 ביט / פייבוקס / PayPal", callback_data="pay_paybox"),
         ],
         [
             InlineKeyboardButton("💎 טלגרם (TON)", callback_data="pay_ton"),
-            InlineKeyboardButton("💳 PayPal", callback_data="pay_paypal"),
-        ],
-        [
-            InlineKeyboardButton("❓ עזרה בתשלום", callback_data="payment_help"),
         ],
         [
             InlineKeyboardButton("⬅ חזרה לתפריט ראשי", callback_data="back_main"),
         ],
     ])
 
-def payment_confirmation_keyboard(payment_method: str) -> InlineKeyboardMarkup:
-    """כפתורים לאישור שליחת תשלום"""
-    buttons = [
-        [
-            InlineKeyboardButton("✅ שלחתי תשלום", callback_data=f"confirm_paid:{payment_method}"),
-        ],
-        [
-            InlineKeyboardButton("❌ ביטול", callback_data="back_main"),
-        ]
-    ]
-    return InlineKeyboardMarkup(buttons)
-
-def payment_links_keyboard(payment_method: str) -> InlineKeyboardMarkup:
+def payment_links_keyboard() -> InlineKeyboardMarkup:
     """כפתורי לינקים אמיתיים לתשלום"""
-    buttons = []
-    
-    if payment_method in ["paybox", "paypal"]:
-        buttons.extend([
-            [InlineKeyboardButton("📲 תשלום בפייבוקס", url=config.PAYBOX_URL)],
-            [InlineKeyboardButton("📲 תשלום בביט", url=config.BIT_URL)],
-            [InlineKeyboardButton("💳 תשלום ב-PayPal", url=config.PAYPAL_URL)],
-        ])
-    elif payment_method == "bank":
-        buttons.append([InlineKeyboardButton("📋 העתק פרטי העברה", callback_data="copy_bank_details")])
-    elif payment_method == "ton":
-        buttons.append([InlineKeyboardButton("📋 העתק כתובת TON", callback_data="copy_ton_address")])
-    
-    buttons.extend([
-        [InlineKeyboardButton("🔄 החלפת שיטת תשלום", callback_data="change_payment_method")],
+    buttons = [
+        [InlineKeyboardButton("📲 תשלום בפייבוקס", url=PAYBOX_URL)],
+        [InlineKeyboardButton("📲 תשלום בביט", url=BIT_URL)],
+        [InlineKeyboardButton("💳 תשלום ב-PayPal", url=PAYPAL_URL)],
         [InlineKeyboardButton("⬅ חזרה לתפריט ראשי", callback_data="back_main")],
-    ])
-    
+    ]
     return InlineKeyboardMarkup(buttons)
 
 def support_keyboard() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup([
         [
-            InlineKeyboardButton("💬 קבוצת תמיכה", url=config.SUPPORT_GROUP_LINK),
-            InlineKeyboardButton("👨‍💻 מתכנת המערכת", url=f"tg://user?id={config.DEVELOPER_USER_ID}"),
+            InlineKeyboardButton("קבוצת תמיכה", url=SUPPORT_GROUP_LINK),
         ],
         [
-            InlineKeyboardButton("📞 יצירת קריאת תמיכה", callback_data="create_support_ticket"),
+            InlineKeyboardButton("פניה למתכנת המערכת", url=f"tg://user?id={DEVELOPER_USER_ID}"),
         ],
         [
             InlineKeyboardButton("⬅ חזרה לתפריט ראשי", callback_data="back_main"),
-        ],
-    ])
-
-def referral_keyboard(user_id: int) -> InlineKeyboardMarkup:
-    """כפתורי הפניות"""
-    referral_link = f"https://t.me/{(await ptb_app.bot.get_me()).username}?start=ref_{user_id}"
-    
-    return InlineKeyboardMarkup([
-        [
-            InlineKeyboardButton("🔗 קישור הפניה", url=referral_link),
-            InlineKeyboardButton("📤 שתף בקבוצה", callback_data="share_referral"),
-        ],
-        [
-            InlineKeyboardButton("📊 לוח מפנים", callback_data="referral_leaderboard"),
-        ],
-        [
-            InlineKeyboardButton("⬅ חזרה", callback_data="back_main"),
         ],
     ])
 
@@ -574,1307 +262,948 @@ def admin_approval_keyboard(user_id: int) -> InlineKeyboardMarkup:
             InlineKeyboardButton("✅ אשר תשלום", callback_data=f"adm_approve:{user_id}"),
             InlineKeyboardButton("❌ דחה תשלום", callback_data=f"adm_reject:{user_id}"),
         ],
-        [
-            InlineKeyboardButton("👀 צפה בפרופיל", callback_data=f"adm_view_profile:{user_id}"),
-            InlineKeyboardButton("💬 הודע למשתמש", callback_data=f"adm_message_user:{user_id}"),
-        ],
     ])
 
 def admin_menu_keyboard() -> InlineKeyboardMarkup:
-    """תפריט אדמין מתקדם"""
+    """תפריט אדמין"""
     return InlineKeyboardMarkup([
         [
             InlineKeyboardButton("📊 סטטוס מערכת", callback_data="adm_status"),
-            InlineKeyboardButton("👥 ניהול משתמשים", callback_data="adm_users"),
         ],
         [
-            InlineKeyboardButton("💰 תשלומים ממתינים", callback_data="adm_pending_payments"),
-            InlineKeyboardButton("📈 סטטיסטיקות", callback_data="adm_stats"),
+            InlineKeyboardButton("📈 מוני תמונה", callback_data="adm_counters"),
         ],
         [
-            InlineKeyboardButton("🎯 ניהול הטבות", callback_data="adm_rewards"),
-            InlineKeyboardButton("🔧 הגדרות", callback_data="adm_settings"),
-        ],
-        [
-            InlineKeyboardButton("🔄 גיבויים", callback_data="adm_backups"),
-            InlineKeyboardButton("📋 לוגים", callback_data="adm_logs"),
+            InlineKeyboardButton("💡 רעיונות לפיצ'רים", callback_data="adm_ideas"),
         ],
     ])
 
 # =========================
-# מערכת תבניות והודעות דינמיות
+# עוזר: שליחת תמונת ה-START עם מונים
 # =========================
 
-class MessageTemplates:
-    """מחלקה לניהול תבניות הודעות"""
-    
-    @staticmethod
-    def welcome_message(user: TelegramUser) -> str:
-        """הודעת ברוך הבא מותאמת אישית"""
-        name = user.first_name or "חבר/ה"
-        return f"""
-👋 שלום {name}!
-
-ברוך הבא ל**שער הכניסה לקהילת העסקים הדיגיטליים** - המקום שבו עסקים, יזמים ויוצרים נפגשים.
-
-🎯 **מה תמצא כאן?**
-• קהילת עסקים פעילה ותומכת
-• כלים לשיווק דיגיטלי מתקדם
-• הזדמנויות לשיתופי פעולה
-• נכסים דיגיטליים וטוקנים בלעדיים
-
-💼 **דמי הצטרפות:** {config.JOIN_FEE} ש"ח חד-פעמיים
-
-לאחר התשלום והאישור תקבל גישה מלאה לכל ההטבות והשירותים.
-
-בחר באפשרות הרצויה ממתפריט הבא:
-        """.strip()
-    
-    @staticmethod
-    def payment_instructions(method: str) -> str:
-        """הוראות תשלום לפי שיטה"""
-        base_instructions = """
-לאחר ביצוע התשלום:
-1. שלח/י אלינו את **אישור התשלום** (צילום מסך/תמונה)
-2. הצוות שלנו יאמת את התשלום בתוך עד 24 שעות
-3. עם האישור - תקבל/י קישור ישירות לקהילת העסקים
-
-❓ נתקלת בבעיה? פנה/י לקבוצת התמיכה
-        """.strip()
-        
-        methods = {
-            "bank": f"""
-🏦 **תשלום בהעברה בנקאית**
-
-בנק הפועלים
-סניף כפר גנים (153)
-חשבון 73462
-המוטב: קאופמן צביקה
-
-סכום: *{config.JOIN_FEE} ש"ח*
-
-{base_instructions}
-            """,
-            "paybox": f"""
-📲 **תשלום בביט / פייבוקס / PayPal**
-
-אפשר לשלם דרך האפליקציות שלך בביט, פייבוקס או PayPal.
-הקישורים המעודכנים מופיעים בכפתורים למטה.
-
-סכום: *{config.JOIN_FEE} ש"ח*
-
-{base_instructions}
-            """,
-            "ton": f"""
-💎 **תשלום ב-TON (טלגרם קריפטו)**
-
-אם יש לך כבר ארנק טלגרם (TON Wallet), אפשר לשלם גם בקריפטו.
-
-ארנק לקבלת התשלום:
-`UQCr743gEr_nqV_0SBkSp3CtYS_15R3LDLBvLmKeEv7XdGvp`
-
-סכום: *{config.JOIN_FEE} ש"ח* (שווה ערך ב-TON)
-
-👀 בקרוב נחלק גם טוקני *SLH* ייחודיים על רשת TON
-
-{base_instructions}
-            """,
-            "paypal": f"""
-💳 **תשלום ב-PayPal**
-
-ניתן לשלם באמצעות PayPal לכתובת:
-[הכנס כאן את כתובת ה-PayPal]
-
-סכום: *{config.JOIN_FEE} ש"ח*
-
-{base_instructions}
-            """
-        }
-        
-        return methods.get(method, "שיטת תשלום לא זמינה כרגע.")
-
-# =========================
-# עוזר: שליחת תמונת ה-START עם מונים מתקדמים
-# =========================
-
-async def send_start_image(context: ContextTypes.DEFAULT_TYPE, chat_id: int, mode: str = "view", user_id: int = None) -> None:
+async def send_start_image(context: ContextTypes.DEFAULT_TYPE, chat_id: int, mode: str = "view") -> None:
     """
     mode:
       - "view": הצגה ב-/start, מעלה מונה צפיות
       - "download": עותק ממוספר למשתמש אחרי אישור תשלום
-      - "reminder": תזכורת בקבוצת לוגים
-      - "welcome": תמונת ברוך הבא אישית
+      - "reminder": תזכורת בקבוצת לוגים – בלי לשנות מונים
     """
     app_data = context.application.bot_data
 
-    # אתחול מונים אם לא קיימים
-    if "start_image_views" not in app_data:
-        app_data["start_image_views"] = 0
-    if "start_image_downloads" not in app_data:
-        app_data["start_image_downloads"] = 0
-    if "user_downloads" not in app_data:
-        app_data["user_downloads"] = {}
-
-    views = app_data["start_image_views"]
-    downloads = app_data["start_image_downloads"]
+    views = app_data.get("start_image_views", 0)
+    downloads = app_data.get("start_image_downloads", 0)
 
     caption = ""
-    serial_number = None
-
     if mode == "view":
         views += 1
         app_data["start_image_views"] = views
         caption = (
             f"🌐 שער הכניסה לקהילת העסקים\n"
             f"מספר הצגה כולל: *{views}*\n"
-            "הצטרפ/י עכשיו כדי לקבל גישה בלעדית!"
         )
-        
     elif mode == "download":
         downloads += 1
         app_data["start_image_downloads"] = downloads
-        serial_number = downloads
-        
-        if user_id:
-            app_data["user_downloads"][user_id] = serial_number
-            
         caption = (
-            "🎁 **מתנה אישית שלך!**\n\n"
-            f"מספר סידורי לעותק: *#{serial_number}*\n"
-            "עותק זה הוא הסמל לגישה המלאה שלך לקהילת העסקים.\n"
-            "שמור/י אותו - הוא ייחודי רק עבורך!"
+            "🎁 זה העותק הממוספר שלך של שער הקהילה.\n"
+            f"מספר סידורי לעותק: *#{downloads}*\n"
         )
-        
     elif mode == "reminder":
         caption = (
-            "⏰ **תזכורת: בדיקת לינקי תשלום**\n\n"
-            f"מצב מונים נוכחי:\n"
+            "⏰ תזכורת: בדוק שהלינקים של PayBox / Bit / PayPal עדיין תקפים.\n\n"
+            f"מצב מונים כרגע:\n"
             f"• הצגות תמונה: {views}\n"
-            f"• עותקים ממוספרים שנשלחו: {downloads}\n\n"
-            "אנא וודא/י שהלינקים של PayBox/Bit/PayPal עדיין תקפים."
-        )
-        
-    elif mode == "welcome":
-        caption = (
-            "🎉 **ברוך הבא לקהילה!**\n\n"
-            "זו התמונה הרשמית של שער הקהילה - עותק אישי רק עבורך.\n"
-            "שמור/י אותו כסמל להצטרפותך לקהילת העסקים היוקרתית שלנו."
+            f"• עותקים ממוספרים שנשלחו: {downloads}\n"
         )
 
     try:
-        # בדיקה אם הקובץ קיים
-        if not os.path.exists(config.START_IMAGE_PATH):
-            logger.warning("Start image not found at %s, sending text only", config.START_IMAGE_PATH)
-            await context.bot.send_message(
-                chat_id=chat_id,
-                text=caption,
-                parse_mode="Markdown"
-            )
-            return
-
-        with open(config.START_IMAGE_PATH, "rb") as f:
-            # רישום במערכת המטרות אם זמינה
-            if DB_AVAILABLE:
-                try:
-                    if mode == "view":
-                        increment_metric("start_image_views", 1)
-                    elif mode == "download":
-                        increment_metric("start_image_downloads", 1)
-                        if user_id:
-                            log_audit_event(user_id, "image_download", f"Downloaded start image #{serial_number}")
-                except Exception as e:
-                    logger.error("Failed to update metrics: %s", e)
-
+        with open(START_IMAGE_PATH, "rb") as f:
             await context.bot.send_photo(
                 chat_id=chat_id,
                 photo=f,
                 caption=caption,
                 parse_mode="Markdown",
             )
-            
     except FileNotFoundError:
-        logger.error("Start image not found at path: %s", config.START_IMAGE_PATH)
-        await context.bot.send_message(
-            chat_id=chat_id,
-            text=caption,
-            parse_mode="Markdown"
-        )
+        logger.error("Start image not found at path: %s", START_IMAGE_PATH)
     except Exception as e:
         logger.error("Failed to send start image: %s", e)
-        # נסיון חלופי עם טקסט בלבד
-        try:
-            await context.bot.send_message(
-                chat_id=chat_id,
-                text=caption,
-                parse_mode="Markdown"
-            )
-        except Exception as e2:
-            logger.error("Failed to send fallback message: %s", e2)
 
 # =========================
-# Handlers – לוגיקת הבוט המתקדמת
+# Handlers – לוגיקת הבוט
 # =========================
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """תשובת /start משודרגת"""
-    message = update.message or update.effective_message
-    user = update.effective_user
-    
-    if not message or not user:
-        return
-
-    # בדיקת מגבלת קצב
-    user_key = f"start_{user.id}"
-    if rate_limiter.is_limited(user_key, 3, 60):  # 3 בקשות ב-60 שניות
-        await message.reply_text("⏳ יותר מדי בקשות. נסה שוב בעוד דקה.")
-        return
-
-    # 1. רישום משתמש ב-DB
-    if DB_AVAILABLE:
-        try:
-            store_user(user.id, user.username, user.first_name, user.last_name)
-            log_audit_event(user.id, "start_command", "User started the bot")
-        except Exception as e:
-            logger.error("Failed to store user: %s", e)
-
-    # 2. טיפול ב-deep link: /start ref_<referrer_id>
-    referral_processed = False
-    if message.text and message.text.startswith("/start") and len(message.text.split()) > 1:
-        ref_param = message.text.split()[1]
-        
-        if ref_param.startswith("ref_"):
-            try:
-                referrer_id = int(ref_param.split("ref_")[1])
-                if referrer_id != user.id:  # מניעת הפניה עצמית
-                    if DB_AVAILABLE:
-                        add_referral(referrer_id, user.id, source="bot_start")
-                        # מתן נקודות bonus למפנה
-                        update_user_balance(referrer_id, config.REFERRAL_BONUS, "referral_bonus")
-                    
-                    referral_processed = True
-                    logger.info("Referral processed: %s -> %s", referrer_id, user.id)
-                    
-            except (ValueError, IndexError) as e:
-                logger.error("Invalid referral parameter: %s", ref_param)
-            except Exception as e:
-                logger.error("Failed to process referral: %s", e)
-
-    # 3. שליחת תמונת ברוך הבא
-    await send_start_image(context, message.chat_id, mode="view", user_id=user.id)
-
-    # 4. הודעת ברוך הבא מותאמת אישית
-    welcome_text = MessageTemplates.welcome_message(user)
-    
-    if referral_processed:
-        welcome_text += "\n\n🎁 **הצטרפת דרך קישור הפניה - קיבלת בונוס נקודות!**"
-
-    await message.reply_text(
-        welcome_text,
-        parse_mode="Markdown",
-        reply_markup=main_menu_keyboard(user.id),
-    )
-
-async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """פקודת /help משודרגת"""
+    """תשובת /start – שער הכניסה לקהילה + הפניות (referrals)"""
     message = update.message or update.effective_message
     if not message:
         return
 
-    help_text = """
-🤖 **מדריך שימוש בבוט - שער קהילת העסקים**
-
-**פקודות בסיסיות:**
-/start - התחלת שיחה עם הבוט
-/help - הצגת מסך זה
-/status - הצגת הסטטוס האישי שלך
-/referral - קבלת קישור הפניה אישי
-
-**תהליך ההצטרפות:**
-1. לחץ/י על 'הצטרפות לקהילת העסקים'
-2. בחר/י שיטת תשלום
-3. שלח/י אישור תשלום לאחר הביצוע
-4. המתן/י לאישור (עד 24 שעות)
-5. קבל/י קישור לקהילה + מתנה דיגיטלית
-
-**הטבות לחברים:**
-• גישה לקהילת עסקים פרטית
-• הדרכות ושיתופי ידע
-• נכסים דיגיטליים בלעדיים
-• מערכת נקודות והטבות
-• תמיכה טכנית מלאה
-
-**תמיכה:**
-לשאלות ובעיות - פנה/י לקבוצת התמיכה או למתכנת המערכת.
-
-*המערכת מתעדכנת באופן שוטף עם פיצ'רים חדשים!*
-    """.strip()
-
-    await message.reply_text(help_text, parse_mode="Markdown")
-
-async def status_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """פקודת /status - מציגה סטטוס משתמש"""
-    message = update.message or update.effective_message
     user = update.effective_user
-    
-    if not message or not user:
-        return
 
-    # קבלת נתוני משתמש
-    user_data = {}
-    if DB_AVAILABLE:
+    # 1. שומרים משתמש ב-DB (אם אפשר)
+    if DB_AVAILABLE and user:
         try:
-            user_data = get_user_stats(user.id)
+            store_user(user.id, user.username)
         except Exception as e:
-            logger.error("Failed to get user stats: %s", e)
+            logger.error("Failed to store user: %s", e)
 
-    # בניית הודעת סטטוס
-    status_text = f"""
-📊 **הסטטוס האישי של {user.first_name}**
+    # 2. טיפול ב-deep link: /start ref_<referrer_id>
+    if message.text and message.text.startswith("/start") and user:
+        parts = message.text.split()
+        if len(parts) > 1 and parts[1].startswith("ref_"):
+            try:
+                referrer_id = int(parts[1].split("ref_")[1])
+                if DB_AVAILABLE and referrer_id != user.id:
+                    add_referral(referrer_id, user.id, source="bot_start")
+            except Exception as e:
+                logger.error("Failed to add referral: %s", e)
 
-👤 **פרופיל:**
-• ID: `{user.id}`
-• שם: {user.first_name or ""} {user.last_name or ""}
-• משתמש: @{user.username or "ללא"}
+    # 3. תמונה ממוספרת
+    await send_start_image(context, message.chat_id, mode="view")
 
-""".strip()
+    # 4. טקסט ותפריט
+    text = (
+        "ברוך הבא לשער הכניסה לקהילת העסקים שלנו 🌐\n\n"
+        "כאן אתה מצטרף למערכת של *עסקים, שותפים וקהל יוצר ערך* סביב:\n"
+        "• שיווק רשתי חכם\n"
+        "• נכסים דיגיטליים (NFT, טוקני SLH)\n"
+        "• מתנות, הפתעות ופרסים על פעילות ושיתופים\n\n"
+        "מה תקבל בהצטרפות?\n"
+        "✅ גישה לקבוצת עסקים פרטית\n"
+        "✅ למידה משותפת איך לייצר הכנסות משיווק האקו-סיסטם שלנו\n"
+        "✅ גישה למבצעים שיחולקו רק בקהילה\n"
+        "✅ השתתפות עתידית בחלוקת טוקני *SLH* ו-NFT ייחודיים למשתתפים פעילים\n"
+        "✅ מנגנון ניקוד למי שמביא חברים – שיוצג בקהילה\n\n"
+        "דמי הצטרפות חד־פעמיים: *39 ש\"ח*.\n\n"
+        "לאחר אישור התשלום *תקבל קישור לקהילת העסקים*.\n\n"
+        "כדי להתחיל – בחר באפשרות הרצויה:"
+    )
 
-    if user_data:
-        status_text += f"""
-📈 **פעילות:**
-• הצטרף: {user_data.get('join_date', 'לא ידוע')}
-• הפניות: {user_data.get('total_referrals', 0)}
-• נקודות: {user_data.get('total_points', 0)}
-• תשלומים: {user_data.get('payments_count', 0)}
-
-💎 **סטטוס חברות:**
-{"✅ פעיל" if user_data.get('payments_count', 0) > 0 else "❌ ממתין להצטרפות"}
-"""
-    else:
-        status_text += "\n❓ *נתונים לא זמינים כרגע*"
-
-    status_text += "\n\nלצפייה בנתונים מפורטים - השתמש/י בתפריט הראשי."
-
-    await message.reply_text(status_text, parse_mode="Markdown")
-
-# =========================
-# handlers לקליקים - גרסה משודרגת
-# =========================
+    await message.reply_text(
+        text,
+        parse_mode="Markdown",
+        reply_markup=main_menu_keyboard(),
+    )
 
 async def info_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """מידע מפורט על ההטבות"""
+    """מידע על ההטבות"""
     query = update.callback_query
     await query.answer()
 
-    info_text = """
-🎁 **מה אני מקבל בהצטרפות?**
-
-**קהילת עסקים פרטית:**
-• גישה לקבוצת טלגרם בלעדית לעסקים ויזמים
-• שיתופי פעולה ונטוורקינג
-• הדרכות מקצועיות שבועיות
-• עדכונים על מבצעים והטבות
-
-**נכסים דיגיטליים:**
-• טוקני SLH בלעדיים על רשת TON
-• NFT ייחודי לחברי קהילה
-• נקודות נאמנות שניתנות להמרה
-
-**כלים ושירותים:**
-• בוט ניהול עסקי אישי
-• מערכת הפניות מתקדמת
-• דשבורד ניהול אישי
-• תמיכה טכנית מלאה
-
-**יתרונות נוספים:**
-• עדיפות בהשתתפות במיזמים חדשים
-• הנחות על שירותים נוספים
-• גישה לתוכן בלעדי
-
-💵 **דמי הצטרפות:** 39 ש"ח חד-פעמיים
-⏱ **משך חברות:** ללא הגבלה
-
-*ההצטרפות כוללת את כל ההטבות הנוכחיות והעתידיות!*
-    """.strip()
+    text = (
+        "ℹ *מה מקבלים בקהילה?*\n\n"
+        "🚀 גישה לקבוצת עסקים סגורה שבה משתפים רעיונות, שיתופי פעולה והזדמנויות.\n"
+        "📚 הדרכות על שיווק רשתי, בניית קהילה, מכירות אונליין ונכסים דיגיטליים.\n"
+        "🎁 מתנות דיגיטליות, NFT והטבות שיחולקו בתוך הקהילה.\n"
+        "💎 בעתיד הקרוב – חלוקת טוקני *SLH* על פעילות, שיתופים והפניות.\n"
+        "🏆 מנגנון ניקוד למי שמביא חברים – שיוצג בקבוצה ויקבל עדיפות במבצעים.\n\n"
+        "דמי הצטרפות חד־פעמיים: *39 ש\"ח*.\n\n"
+        "כדי להצטרף – בחר אמצעי תשלום:"
+    )
 
     await query.edit_message_text(
-        info_text,
+        text,
         parse_mode="Markdown",
-        reply_markup=InlineKeyboardMarkup([
-            [InlineKeyboardButton("🚀 אני רוצה להצטרף!", callback_data="join")],
-            [InlineKeyboardButton("💬 שאלות נוספות", callback_data="support")],
-            [InlineKeyboardButton("⬅ חזרה", callback_data="back_main")],
-        ])
+        reply_markup=payment_methods_keyboard(),
     )
 
 async def join_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """הצטרפות לקהילה - גרסה משודרגת"""
+    """לחיצה על 'הצטרפות לקהילה'"""
     query = update.callback_query
     await query.answer()
 
-    user = query.from_user
-    
-    # בדיקה אם המשתמש כבר חבר קהילה
-    is_member = False
-    if DB_AVAILABLE:
-        try:
-            user_stats = get_user_stats(user.id)
-            is_member = user_stats.get('payments_count', 0) > 0
-        except Exception as e:
-            logger.error("Failed to check user membership: %s", e)
-
-    if is_member:
-        await query.edit_message_text(
-            "✅ *אתה כבר חבר קהילה!*\n\n"
-            f"הנה הקישור המעודכן לקהילה: {config.COMMUNITY_GROUP_LINK}\n\n"
-            "אם הקישור לא עובד - פנה לקבוצת התמיכה.",
-            parse_mode="Markdown",
-            reply_markup=main_menu_keyboard(user.id)
-        )
-        return
-
-    join_text = """
-🚀 **הצטרפות לקהילת העסקים**
-
-אנחנו שמחים שבחרת להצטרף לקהילת העסקים הדיגיטליים!
-
-**מה כוללת ההצטרפות?**
-✅ גישה לקהילת טלגרם פרטית
-✅ כל ההטבות והשירותים
-✅ תמיכה טכנית מלאה
-✅ עדכונים שוטפים
-
-**תהליך ההצטרפות:**
-1. בחר/י שיטת תשלום
-2. שלח/י אישור תשלום
-3. קבל/י אישור תוך 24 שעות
-4. היכנס/י לקהילה!
-
-**דמי הצטרפות:** 39 ש"ח (חד-פעמי)
-
-בחר/י את שיטת התשלום המועדפת:
-    """.strip()
+    text = (
+        "🔑 *הצטרפות לקהילת העסקים – 39 ש\"ח*\n\n"
+        "בחר את אמצעי התשלום המתאים לך:\n"
+        "• העברה בנקאית\n"
+        "• ביט / פייבוקס / PayPal\n"
+        "• טלגרם (TON)\n\n"
+        "לאחר ביצוע התשלום:\n"
+        "1. שלח כאן *צילום מסך או תמונה* של אישור התשלום.\n"
+        "2. הבוט יעביר את האישור למארגנים לבדיקה.\n"
+        "3. לאחר אישור ידני תקבל קישור לקהילת העסקים.\n\n"
+        "שימו לב: *אין קישור לקהילה לפני אישור תשלום.*"
+    )
 
     await query.edit_message_text(
-        join_text,
+        text,
         parse_mode="Markdown",
-        reply_markup=payment_methods_keyboard()
+        reply_markup=payment_methods_keyboard(),
     )
+
+async def support_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """מסך תמיכה"""
+    query = update.callback_query
+    await query.answer()
+
+    text = (
+        "🆘 *תמיכה ועזרה*\n\n"
+        "בכל שלב אפשר לקבל עזרה באחד הערוצים הבאים:\n\n"
+        f"• קבוצת תמיכה: {SUPPORT_GROUP_LINK}\n"
+        f"• פניה ישירה למתכנת המערכת: `tg://user?id={DEVELOPER_USER_ID}`\n\n"
+        "או חזור לתפריט הראשי:"
+    )
+
+    await query.edit_message_text(
+        text,
+        parse_mode="Markdown",
+        reply_markup=support_keyboard(),
+    )
+
+async def share_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """כפתור 'שתף את שער הקהילה' – שולח למשתמש את הלינק לדף הנחיתה"""
+    query = update.callback_query
+    await query.answer()
+
+    text = (
+        "🔗 *שתף את שער הקהילה*\n\n"
+        "כדי להזמין חברים לקהילה, אפשר לשלוח להם את הקישור הבא:\n"
+        f"{LANDING_URL}\n\n"
+        "מומלץ לשתף בסטורי / סטטוס / קבוצות, ולהוסיף כמה מילים אישיות משלך.\n"
+        "כל מי שייכנס דרך הלינק וילחץ על Start בבוט – יעבור דרך שער הקהילה."
+    )
+
+    await query.message.reply_text(
+        text,
+        parse_mode="Markdown",
+    )
+
+async def back_main_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """חזרה לתפריט ראשי"""
+    query = update.callback_query
+    await query.answer()
+    fake_update = Update(update_id=update.update_id, message=query.message)
+    await start(fake_update, context)
 
 async def payment_method_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """בחירת שיטת תשלום"""
+    """בחירת אמצעי תשלום"""
     query = update.callback_query
     await query.answer()
-    
     data = query.data
-    user = query.from_user
-    
+
+    method: Optional[PayMethod] = None
+    details_text = ""
+
     if data == "pay_bank":
         method = "bank"
+        details_text = BANK_DETAILS
     elif data == "pay_paybox":
-        method = "paybox" 
+        method = "paybox"
+        details_text = PAYBOX_DETAILS
     elif data == "pay_ton":
         method = "ton"
-    elif data == "pay_paypal":
-        method = "paypal"
-    elif data == "payment_help":
-        # הצגת עזרה בתשלום
-        await query.edit_message_text(
-            "❓ **עזרה בתהליך התשלום**\n\n"
-            "**בעיות נפוצות:**\n"
-            "• התשלום לא עובר - נסה שיטה אחרת\n"
-            "• אין אישור - שלח צילום מסך ידני\n"
-            "• שאלות על סכום - תמיד 39 ש\"ח\n\n"
-            "**תמיכה:**\n"
-            "לכל בעיה - פנה לקבוצת התמיכה או למתכנת המערכת.",
-            parse_mode="Markdown",
-            reply_markup=InlineKeyboardMarkup([
-                [InlineKeyboardButton("💬 קבוצת תמיכה", url=config.SUPPORT_GROUP_LINK)],
-                [InlineKeyboardButton("⬅ חזרה", callback_data="join")],
-            ])
-        )
-        return
-    else:
+        details_text = TON_DETAILS
+
+    if method is None:
         return
 
-    # שמירת שיטת התשלום ב-user_data
-    context.user_data["selected_payment_method"] = method
-    
-    # הצגת הוראות תשלום
-    payment_text = MessageTemplates.payment_instructions(method)
-    
-    await query.edit_message_text(
-        payment_text,
-        parse_mode="Markdown",
-        reply_markup=payment_links_keyboard(method)
+    context.user_data["last_pay_method"] = method
+
+    text = (
+        f"{details_text}\n"
+        "לאחר ביצוע התשלום:\n"
+        "1. שלח כאן *צילום מסך או תמונה* של אישור התשלום.\n"
+        "2. הבוט יעביר את האישור למארגנים לבדיקה.\n"
+        "3. לאחר אישור ידני תקבל קישור לקהילת העסקים.\n"
     )
 
+    # כאן מופיעים הכפתורים האמיתיים של התשלום
+    await query.edit_message_text(
+        text,
+        parse_mode="Markdown",
+        reply_markup=payment_links_keyboard(),
+    )
+
+# =========================
+# לוגיקת תשלום + DB + לוגים
+# =========================
+
 async def handle_payment_photo(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """טיפול בתמונות אישור תשלום - גרסה משודרגת"""
+    """
+    צילום שמגיע מהמשתמש – נניח שזה אישור תשלום:
+    1. ננסה להעביר לקבוצת הלוגים PAYMENTS_LOG_CHAT_ID
+    2. נשמור פרטי תשלום אחרון במבנה בזיכרון
+    3. אם הלוגים נכשלים – נשלח אליך (DEVELOPER_USER_ID) הודעה
+    4. מחזירים למשתמש הודעת 'בבדיקה'
+    5. אם DB זמין – רושמים רשומת 'pending' בטבלה
+    """
     message = update.message
     if not message or not message.photo:
         return
 
     user = update.effective_user
     chat_id = message.chat_id
-    
-    # בדיקת מגבלת קצב
-    user_key = f"payment_photo_{user.id}"
-    if rate_limiter.is_limited(user_key, 2, 300):  # 2 תמונות ב-5 דקות
-        await message.reply_text("⏳ יותר מדי אישורי תשלום. נסה שוב בעוד 5 דקות.")
-        return
+    username = f"@{user.username}" if user and user.username else "(ללא שם משתמש)"
 
-    # קבלת שיטת התשלום
-    payment_method = context.user_data.get("selected_payment_method", "unknown")
-    
-    # שמירת פרטי התשלום
-    photo = message.photo[-1]  # התמונה באיכות הגבוהה ביותר
-    file_id = photo.file_id
-    
-    payments = payment_manager.get_payments_store(context)
-    payments[user.id] = {
-        "file_id": file_id,
-        "pay_method": payment_method,
-        "username": f"@{user.username}" if user.username else user.first_name,
-        "chat_id": chat_id,
-        "timestamp": datetime.now().isoformat(),
-        "status": "pending"
-    }
+    pay_method = context.user_data.get("last_pay_method", "unknown")
+    pay_method_text = {
+        "bank": "העברה בנקאית",
+        "paybox": "ביט / פייבוקס / PayPal",
+        "ton": "טלגרם (TON)",
+        "unknown": "לא ידוע",
+    }.get(pay_method, "לא ידוע")
 
-    # רישום ב-DB
-    if DB_AVAILABLE:
-        try:
-            log_payment(user.id, user.username or user.first_name, payment_method)
-            log_audit_event(user.id, "payment_submitted", f"Submitted {payment_method} payment")
-        except Exception as e:
-            logger.error("Failed to log payment: %s", e)
-
-    # שליחה לקבוצת הלוגים
-    log_text = f"""
-📥 **אישור תשלום חדש**
-
-👤 **משתמש:**
-• ID: `{user.id}`
-• שם: {user.first_name or ""}
-• משתמש: @{user.username or "ללא"}
-
-💳 **תשלום:**
-• שיטה: {payment_method}
-• סכום: {config.JOIN_FEE} ש"ח
-• זמן: {datetime.now().strftime('%d/%m/%Y %H:%M')}
-
-**פעולות:**
-    """.strip()
-
-    try:
-        await context.bot.send_photo(
-            chat_id=config.PAYMENTS_LOG_CHAT_ID,
-            photo=file_id,
-            caption=log_text,
-            reply_markup=admin_approval_keyboard(user.id),
-            parse_mode="Markdown"
-        )
-        log_sent = True
-    except Exception as e:
-        logger.error("Failed to send payment to log group: %s", e)
-        log_sent = False
-
-    # הודעה למשתמש
-    user_message = """
-✅ **תודה! אישור התשלום התקבל**
-
-האישור נשלח לצוות שלנו לבדיקה.
-נעדכן אותך תוך עד 24 שעות.
-
-**מה עכשיו?**
-• המתן/י לאישור
-• תקבל/י הודעה עם קישור לקהילה
-• + מתנה דיגיטלית בלעדית!
-
-❓ **שאלות?** פנה/י לקבוצת התמיכה.
-    """.strip()
-
-    await message.reply_text(
-        user_message,
-        parse_mode="Markdown",
-        reply_markup=InlineKeyboardMarkup([
-            [InlineKeyboardButton("💬 קבוצת תמיכה", url=config.SUPPORT_GROUP_LINK)],
-            [InlineKeyboardButton("🏠 תפריט ראשי", callback_data="back_main")],
-        ])
+    caption_log = (
+        "📥 התקבל אישור תשלום חדש.\n\n"
+        f"user_id = {user.id}\n"
+        f"username = {username}\n"
+        f"from chat_id = {chat_id}\n"
+        f"שיטת תשלום: {pay_method_text}\n\n"
+        "לאישור:\n"
+        f"/approve {user.id}\n"
+        f"/reject {user.id} <סיבה>\n"
+        "(או להשתמש בכפתורי האישור/דחייה מתחת להודעה זו)\n"
     )
 
-    # גיבוי - שליחה למפתח אם הקבוצה הראשית נכשלה
-    if not log_sent:
+    # ניקח את התמונה הגדולה ביותר
+    photo = message.photo[-1]
+    file_id = photo.file_id
+
+    # נשמור בזיכרון את פרטי התשלום האחרון של המשתמש
+    payments = get_payments_store(context)
+    payments[user.id] = {
+        "file_id": file_id,
+        "pay_method": pay_method_text,
+        "username": username,
+        "chat_id": chat_id,
+    }
+
+    # לוג ל-DB (אופציונלי)
+    if DB_AVAILABLE:
+        try:
+            log_payment(user.id, username, pay_method_text)
+        except Exception as e:
+            logger.error("Failed to log payment to DB: %s", e)
+
+    # ננסה לשלוח לקבוצת לוגים
+    try:
+        await context.bot.send_photo(
+            chat_id=PAYMENTS_LOG_CHAT_ID,
+            photo=file_id,
+            caption=caption_log,
+            reply_markup=admin_approval_keyboard(user.id),
+        )
+    except Exception as e:
+        logger.error("Failed to forward payment photo to log group: %s", e)
+        # גיבוי: נשלח אליך בפרטי
         try:
             await context.bot.send_photo(
-                chat_id=config.DEVELOPER_USER_ID,
+                chat_id=DEVELOPER_USER_ID,
                 photo=file_id,
-                caption=f"גיבוי - אישור תשלום מ-{user.id}\n{log_text}",
-                parse_mode="Markdown"
+                caption="(Fallback – לא הצלחתי לשלוח לקבוצת לוגים)\n\n" + caption_log,
+                reply_markup=admin_approval_keyboard(user.id),
             )
-        except Exception as e:
-            logger.error("Failed to send backup payment notification: %s", e)
+        except Exception as e2:
+            logger.error("Failed to send fallback payment to developer: %s", e2)
+
+    await message.reply_text(
+        "תודה! אישור התשלום התקבל ונשלח לבדיקה ✅\n"
+        "לאחר אישור ידני תקבל ממני קישור להצטרפות לקהילת העסקים.\n\n"
+        "אם יש שאלה דחופה – אפשר לפנות גם לקבוצת התמיכה.",
+        reply_markup=support_keyboard(),
+    )
 
 # =========================
-# מערכת אישור/דחייה מתקדמת
+# עוזרים לאישור/דחייה – משותף לכפתורים ולפקודות
 # =========================
 
-async def do_approve(target_id: int, context: ContextTypes.DEFAULT_TYPE, source_message=None, admin_id: int = None) -> None:
-    """אישור תשלום - גרסה משודרגת"""
-    
-    # שליחת הודעה למשתמש
-    approval_text = f"""
-🎉 **מזל טוב! התשלום אושר**
-
-ברוך הבא לקהילת העסקים הדיגיטליים!
-
-**הקישור לקהילה:**
-{config.COMMUNITY_GROUP_LINK}
-
-**מה עכשיו?**
-1. היכנס/י לקהילה והצג/י את עצמך
-2. קבל/י את המתנה הדיגיטלית שלך
-3. התחל/י ליהנות מההטבות
-
-📞 **תמיכה:** תמיד זמינה בקבוצת התמיכה.
-
-*שמחים שהצטרפת אלינו!* 👋
-    """.strip()
-
+async def do_approve(target_id: int, context: ContextTypes.DEFAULT_TYPE, source_message) -> None:
+    """לוגיקת אישור תשלום – משותפת ל-/approve ולכפתור"""
+    text = (
+        "✅ התשלום שלך אושר!\n\n"
+        "ברוך הבא לקהילת העסקים שלנו 🎉\n"
+        "הנה הקישור להצטרפות לקהילה:\n"
+        f"{COMMUNITY_GROUP_LINK}\n\n"
+        "וכמו שהבטחנו – קבל את העותק הממוספר שלך של שער הקהילה בהודעה נפרדת 🎁\n"
+        "ניפגש בפנים 🙌"
+    )
     try:
-        await context.bot.send_message(
-            chat_id=target_id,
-            text=approval_text,
-            parse_mode="Markdown"
-        )
-        
-        # שליחת תמונה ממוספרת
-        await send_start_image(context, target_id, mode="download", user_id=target_id)
-        
-        # עדכון סטטוס
+        await context.bot.send_message(chat_id=target_id, text=text)
+        # שליחת העותק הממוספר של התמונה
+        await send_start_image(context, target_id, mode="download")
+
+        # עדכון סטטוס ב-DB
         if DB_AVAILABLE:
             try:
                 update_payment_status(target_id, "approved", None)
-                if admin_id:
-                    log_admin_action(admin_id, "payment_approval", f"Approved payment for user {target_id}")
             except Exception as e:
-                logger.error("Failed to update payment status: %s", e)
-        
-        # עדכון ההודעה המקורית
+                logger.error("Failed to update payment status in DB: %s", e)
+
         if source_message:
             await source_message.reply_text(
-                f"✅ תשלום של משתמש {target_id} אושר ונשלחו ההנחיות."
+                f"אושר ונשלח קישור + עותק ממוספר למשתמש {target_id}."
             )
-            
     except Exception as e:
-        logger.error("Failed to send approval: %s", e)
+        logger.error("Failed to send approval message: %s", e)
         if source_message:
-            await source_message.reply_text(f"❌ שגיאה באישור: {e}")
+            await source_message.reply_text(f"שגיאה בשליחת הודעה למשתמש {target_id}: {e}")
 
-async def do_reject(target_id: int, reason: str, context: ContextTypes.DEFAULT_TYPE, source_message=None, admin_id: int = None) -> None:
-    """דחיית תשלום - גרסה משודרגת"""
-    
-    rejection_text = f"""
-❌ **אישור התשלום נדחה**
+async def do_reject(target_id: int, reason: str, context: ContextTypes.DEFAULT_TYPE, source_message) -> None:
+    """לוגיקת דחיית תשלום – משותפת ל-/reject ולזרימת כפתור"""
+    payments = context.application.bot_data.get("payments", {})
+    payment_info = payments.get(target_id)
 
-לצערנו לא יכולנו לאמת את התשלום שלך.
-
-**סיבה:** {reason}
-
-**מה אפשר לעשות?**
-• שלח/י שוב את אישור התשלום
-• פנה/י לתמיכה אם לדעתך מדובר בטעות
-• נסה/י שיטת תשלום אחרת
-
-💬 **עזרה:** קבוצת התמיכה זמינה לשאלות.
-    """.strip()
+    base_text = (
+        "לצערנו לא הצלחנו לאמת את התשלום שנשלח.\n\n"
+        f"סיבה: {reason}\n\n"
+        "אם לדעתך מדובר בטעות – אנא פנה אלינו עם פרטי התשלום או נסה לשלוח מחדש."
+    )
 
     try:
-        # שליחת הודעת דחייה
-        await context.bot.send_message(
-            chat_id=target_id,
-            text=rejection_text,
-            parse_mode="Markdown"
-        )
-        
-        # עדכון סטטוס
+        if payment_info and payment_info.get("file_id"):
+            # שליחת צילום + הסבר
+            await context.bot.send_photo(
+                chat_id=target_id,
+                photo=payment_info["file_id"],
+                caption=base_text,
+            )
+        else:
+            await context.bot.send_message(chat_id=target_id, text=base_text)
+
+        # עדכון סטטוס ב-DB
         if DB_AVAILABLE:
             try:
                 update_payment_status(target_id, "rejected", reason)
-                if admin_id:
-                    log_admin_action(admin_id, "payment_rejection", f"Rejected payment for user {target_id}: {reason}")
             except Exception as e:
-                logger.error("Failed to update payment status: %s", e)
-        
+                logger.error("Failed to update payment status in DB: %s", e)
+
         if source_message:
             await source_message.reply_text(
-                f"❌ תשלום של משתמש {target_id} נדחה. סיבה: {reason}"
+                f"התשלום של המשתמש {target_id} נדחה והודעה נשלחה עם הסיבה."
             )
-            
     except Exception as e:
-        logger.error("Failed to send rejection: %s", e)
+        logger.error("Failed to send rejection message: %s", e)
         if source_message:
-            await source_message.reply_text(f"❌ שגיאה בדחייה: {e}")
+            await source_message.reply_text(
+                f"שגיאה בשליחת הודעת דחייה למשתמש {target_id}: {e}"
+            )
 
 # =========================
-# פקודות אדמין מתקדמות
+# אישור/דחייה – פקודות טקסט
 # =========================
 
-async def admin_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """פקודת /admin - תפריט ניהול"""
-    message = update.message or update.effective_message
-    user = update.effective_user
-    
-    if not message or not user or user.id not in config.ADMIN_IDS:
-        await message.reply_text("❌ אין לך הרשאות ניהול.")
+async def approve_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """אישור תשלום למשתמש: /approve <user_id>"""
+    if update.effective_user is None or update.effective_user.id not in ADMIN_IDS:
+        await update.effective_message.reply_text(
+            "אין לך הרשאה לבצע פעולה זו.\n"
+            "אם אתה חושב שזו טעות – דבר עם המתכנת: @OsifEU"
+        )
         return
 
-    admin_text = """
-🛠 **פאנל ניהול - שער קהילת העסקים**
+    if not context.args:
+        await update.effective_message.reply_text("שימוש: /approve <user_id>")
+        return
 
-**סטטוס מערכת:**
-• בוט: 🟢 פעיל
-• DB: {db_status}
-• Webhook: 🟢 פעיל
+    try:
+        target_id = int(context.args[0])
+    except ValueError:
+        await update.effective_message.reply_text("user_id חייב להיות מספרי.")
+        return
 
-**סטטיסטיקות מהירות:**
-• משתמשים: {user_count}
-• תשלומים: {payment_count}
-• ממתינים: {pending_count}
+    await do_approve(target_id, context, update.effective_message)
 
-**פעולות ניהול:**
-    """.strip()
+async def reject_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """דחיית תשלום למשתמש: /reject <user_id> <סיבה>"""
+    if update.effective_user is None or update.effective_user.id not in ADMIN_IDS:
+        await update.effective_message.reply_text(
+            "אין לך הרשאה לבצע פעולה זו.\n"
+            "אם אתה חושב שזו טעות – דבר עם המתכנת: @OsifEU"
+        )
+        return
 
-    # קבלת נתונים עדכניים
-    db_status = "🟢 פעיל" if DB_AVAILABLE else "🔴 כבוי"
-    user_count = "N/A"
-    payment_count = "N/A" 
-    pending_count = "N/A"
-    
-    if DB_AVAILABLE:
-        try:
-            stats = get_system_stats()
-            user_count = stats.get('total_users', 'N/A')
-            payment_count = stats.get('total_payments', 'N/A')
-            pending_count = stats.get('pending_payments', 'N/A')
-        except Exception as e:
-            logger.error("Failed to get system stats: %s", e)
+    if len(context.args) < 2:
+        await update.effective_message.reply_text("שימוש: /reject <user_id> <סיבה>")
+        return
 
-    admin_text = admin_text.format(
-        db_status=db_status,
-        user_count=user_count,
-        payment_count=payment_count,
-        pending_count=pending_count
-    )
+    try:
+        target_id = int(context.args[0])
+    except ValueError:
+        await update.effective_message.reply_text("user_id חייב להיות מספרי.")
+        return
 
-    await message.reply_text(
-        admin_text,
-        parse_mode="Markdown",
-        reply_markup=admin_menu_keyboard()
-    )
+    reason = " ".join(context.args[1:])
+    await do_reject(target_id, reason, context, update.effective_message)
 
-async def stats_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """פקודת /stats - סטטיסטיקות מערכת"""
-    message = update.message or update.effective_message
-    user = update.effective_user
-    
-    if not message or not user or user.id not in config.ADMIN_IDS:
-        await message.reply_text("❌ אין לך הרשאות ניהול.")
+# =========================
+# Leaderboard / סטטיסטיקות / Rewards – פקודות אדמין
+# =========================
+
+async def admin_leaderboard_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """לוח מפנים – /leaderboard"""
+    if update.effective_user is None or update.effective_user.id not in ADMIN_IDS:
+        await update.effective_message.reply_text(
+            "אין לך הרשאה לצפות בלוח המפנים.\n"
+            "אם אתה חושב שזו טעות – דבר עם המתכנת: @OsifEU"
+        )
         return
 
     if not DB_AVAILABLE:
-        await message.reply_text("❌ DB לא זמין לסטטיסטיקות.")
+        await update.effective_message.reply_text("DB לא פעיל כרגע.")
         return
 
     try:
-        stats = get_system_stats()
-        approval_stats = get_approval_stats()
-        top_referrers = get_top_referrers(5)
-        
-        stats_text = f"""
-📊 **סטטיסטיקות מערכת מפורטות**
-
-**משתמשים:**
-• סה"כ: {stats.get('total_users', 0)}
-• חדשים היום: {stats.get('new_users_today', 0)}
-• פעילים (24h): {stats.get('active_users_24h', 0)}
-
-**תשלומים:**
-• סה"כ: {stats.get('total_payments', 0)}
-• מאושרים: {approval_stats.get('approved', 0)}
-• נדחים: {approval_stats.get('rejected', 0)}
-• ממתינים: {approval_stats.get('pending', 0)}
-• אחוז אישור: {approval_stats.get('approval_rate', 0)}%
-
-**הכנסות:**
-• סה"כ: {stats.get('total_earnings', 0)} ש"ח
-• היום: {stats.get('earnings_today', 0)} ש"ח
-
-**מפנים מובילים:**
-        """.strip()
-
-        for i, referrer in enumerate(top_referrers, 1):
-            stats_text += f"\n{i}. {referrer.get('username', 'Unknown')} - {referrer.get('total_referrals', 0)} הפניות"
-        
-        await message.reply_text(stats_text, parse_mode="Markdown")
-        
+        rows: List[Dict[str, Any]] = get_top_referrers(10)
     except Exception as e:
-        logger.error("Failed to get system stats: %s", e)
-        await message.reply_text("❌ שגיאה בטעינת סטטיסטיקות.")
+        logger.error("Failed to get top referrers: %s", e)
+        await update.effective_message.reply_text("שגיאה בקריאת נתוני הפניות.")
+        return
+
+    if not rows:
+        await update.effective_message.reply_text("אין עדיין נתוני הפניות.")
+        return
+
+    lines = ["🏆 *לוח מפנים – Top 10* \n"]
+    rank = 1
+    for row in rows:
+        rid = row["referrer_id"]
+        uname = row["username"] or f"ID {rid}"
+        total = row["total_referrals"]
+        points = row["total_points"]
+        lines.append(f"{rank}. {uname} – {total} הפניות ({points} נק׳)")
+        rank += 1
+
+    await update.effective_message.reply_text(
+        "\n".join(lines),
+        parse_mode="Markdown",
+    )
+
+async def admin_payments_stats_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """דוח תשלומים – /payments_stats"""
+    if update.effective_user is None or update.effective_user.id not in ADMIN_IDS:
+        await update.effective_message.reply_text(
+            "אין לך הרשאה לצפות בסטטיסטיקות.\n"
+            "אם אתה צריך גישה – דבר עם המתכנת: @OsifEU"
+        )
+        return
+
+    if not DB_AVAILABLE:
+        await update.effective_message.reply_text("DB לא פעיל כרגע.")
+        return
+
+    now = datetime.utcnow()
+    year = now.year
+    month = now.month
+
+    try:
+        rows = get_monthly_payments(year, month)
+        stats = get_approval_stats()
+    except Exception as e:
+        logger.error("Failed to get payment stats: %s", e)
+        await update.effective_message.reply_text("שגיאה בקריאת נתוני תשלום.")
+        return
+
+    lines = [f"📊 *דוח תשלומים – {month:02d}/{year}* \n"]
+
+    if rows:
+        lines.append("*לפי אמצעי תשלום וסטטוס:*")
+        for row in rows:
+            lines.append(f"- {row['pay_method']} / {row['status']}: {row['count']}")
+    else:
+        lines.append("אין תשלומים בחודש זה.")
+
+    if stats and stats.get("total", 0) > 0:
+        total = stats["total"]
+        approved = stats["approved"]
+        rejected = stats["rejected"]
+        pending = stats["pending"]
+        approval_rate = round(approved * 100 / total, 1) if total else 0.0
+        lines.append("\n*סטטוס כללי:*")
+        lines.append(f"- אושרו: {approved}")
+        lines.append(f"- נדחו: {rejected}")
+        lines.append(f"- ממתינים: {pending}")
+        lines.append(f"- אחוז אישור: {approval_rate}%")
+    else:
+        lines.append("\nאין עדיין נתונים כלליים.")
+
+    await update.effective_message.reply_text(
+        "\n".join(lines),
+        parse_mode="Markdown",
+    )
+
+async def admin_reward_slh_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """
+    יצירת Reward ידני למשתמש – לדוגמה:
+    /reward_slh <user_id> <points> <reason...>
+    """
+    if update.effective_user is None or update.effective_user.id not in ADMIN_IDS:
+        await update.effective_message.reply_text(
+            "אין לך הרשאה ליצור Rewards.\n"
+            "אם אתה צריך גישה – דבר עם המתכנת: @OsifEU"
+        )
+        return
+
+    if not DB_AVAILABLE:
+        await update.effective_message.reply_text("DB לא פעיל כרגע.")
+        return
+
+    if len(context.args) < 3:
+        await update.effective_message.reply_text(
+            "שימוש: /reward_slh <user_id> <points> <reason...>"
+        )
+        return
+
+    try:
+        target_id = int(context.args[0])
+        points = int(context.args[1])
+    except ValueError:
+        await update.effective_message.reply_text("user_id ו-points חייבים להיות מספריים.")
+        return
+
+    reason = " ".join(context.args[2:])
+
+    try:
+        create_reward(target_id, "SLH", reason, points)
+    except Exception as e:
+        logger.error("Failed to create reward: %s", e)
+        await update.effective_message.reply_text("שגיאה ביצירת Reward.")
+        return
+
+    # הודעה למשתמש (עדיין ללא mint אמיתי – לוגי)
+    try:
+        await update.effective_message.reply_text(
+            f"נוצר Reward SLH למשתמש {target_id} ({points} נק׳): {reason}"
+        )
+
+        await ptb_app.bot.send_message(
+            chat_id=target_id,
+            text=(
+                "🎁 קיבלת Reward על הפעילות שלך בקהילה!\n\n"
+                f"סוג: *SLH* ({points} נק׳)\n"
+                f"סיבה: {reason}\n\n"
+                "Reward זה יאסף למאזן שלך ויאפשר הנפקת מטבעות/נכסים "
+                "דיגיטליים לפי המדיניות שתפורסם בקהילה."
+            ),
+            parse_mode="Markdown",
+        )
+    except Exception as e:
+        logger.error("Failed to notify user about reward: %s", e)
 
 # =========================
-# callback handlers לניהול
+# אישור/דחייה – כפתורי אדמין
 # =========================
 
-async def admin_menu_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """טיפול בבחירת תפריט אדמין"""
+async def admin_approve_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """כפתור 'אשר תשלום' בלוגים"""
     query = update.callback_query
     await query.answer()
-    
-    user = query.from_user
-    if user.id not in config.ADMIN_IDS:
-        await query.answer("❌ אין הרשאה", show_alert=True)
+    admin = query.from_user
+
+    if admin.id not in ADMIN_IDS:
+        await query.answer(
+            "אין לך הרשאה.\nאם אתה חושב שזו טעות – דבר עם @OsifEU",
+            show_alert=True,
+        )
+        return
+
+    data = query.data or ""
+    try:
+        _, user_id_str = data.split(":", 1)
+        target_id = int(user_id_str)
+    except Exception:
+        await query.answer("שגיאה בנתוני המשתמש.", show_alert=True)
+        return
+
+    await do_approve(target_id, context, query.message)
+
+async def admin_reject_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """כפתור 'דחה תשלום' – מבקש מהאדמין סיבה בהודעה הבאה שלו"""
+    query = update.callback_query
+    await query.answer()
+    admin = query.from_user
+
+    if admin.id not in ADMIN_IDS:
+        await query.answer(
+            "אין לך הרשאה.\nאם אתה חושב שזו טעות – דבר עם @OsifEU",
+            show_alert=True,
+        )
+        return
+
+    data = query.data or ""
+    try:
+        _, user_id_str = data.split(":", 1)
+        target_id = int(user_id_str)
+    except Exception:
+        await query.answer("שגיאה בנתוני המשתמש.", show_alert=True)
+        return
+
+    pending = get_pending_rejects(context)
+    pending[admin.id] = target_id
+
+    await query.message.reply_text(
+        f"❌ בחרת לדחות את התשלום של המשתמש {target_id}.\n"
+        "שלח עכשיו את סיבת הדחייה בהודעה אחת (טקסט), והיא תישלח אליו יחד עם צילום התשלום."
+    )
+
+async def admin_reject_reason_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """
+    הודעת טקסט מאדמין אחרי שלחץ 'דחה תשלום':
+    משתמשים בזה כסיבה לדחייה.
+    """
+    user = update.effective_user
+    if user is None or user.id not in ADMIN_IDS:
+        return
+
+    pending = get_pending_rejects(context)
+    if user.id not in pending:
+        return  # אין דחייה ממתינה עבור האדמין הזה
+
+    target_id = pending.pop(user.id)
+    reason = update.message.text.strip()
+    await do_reject(target_id, reason, context, update.effective_message)
+
+# =========================
+# עזרה + תפריט אדמין
+# =========================
+
+async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """עזרה בסיסית"""
+    message = update.message or update.effective_message
+    if not message:
+        return
+
+    text = (
+        "/start – התחלה מחדש ותפריט ראשי\n"
+        "/help – עזרה\n\n"
+        "אחרי ביצוע תשלום – שלח צילום מסך של האישור לבוט.\n\n"
+        "לשיתוף שער הקהילה: כפתור '🔗 שתף את שער הקהילה' בתפריט הראשי.\n\n"
+        "למארגנים / אדמינים:\n"
+        "/admin – תפריט אדמין\n"
+        "/leaderboard – לוח מפנים (Top 10)\n"
+        "/payments_stats – סטטיסטיקות תשלומים\n"
+        "/reward_slh <user_id> <points> <reason> – יצירת Reward ל-SLH\n"
+        "/approve <user_id> – אישור תשלום\n"
+        "/reject <user_id> <סיבה> – דחיית תשלום\n"
+        "או שימוש בכפתורי האישור/דחייה ליד כל תשלום בלוגים."
+    )
+
+    await message.reply_text(text)
+
+async def admin_menu_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """פקודת /admin – תפריט אדמין"""
+    if update.effective_user is None or update.effective_user.id not in ADMIN_IDS:
+        await update.effective_message.reply_text(
+            "אין לך הרשאה לתפריט אדמין.\n"
+            "אם אתה צריך גישה – דבר עם המתכנת: @OsifEU"
+        )
+        return
+
+    text = (
+        "🛠 *תפריט אדמין – Buy My Shop*\n\n"
+        "בחר אחת מהאפשרויות:\n"
+        "• סטטוס מערכת (DB, Webhook, לינקים)\n"
+        "• מוני תמונת שער (כמה פעמים הוצגה/נשלחה)\n"
+        "• רעיונות לפיצ'רים עתידיים לבוט\n\n"
+        "פקודות נוספות:\n"
+        "/leaderboard – לוח מפנים\n"
+        "/payments_stats – דוח תשלומים\n"
+        "/reward_slh – יצירת Reward SLH\n"
+    )
+
+    await update.effective_message.reply_text(
+        text,
+        parse_mode="Markdown",
+        reply_markup=admin_menu_keyboard(),
+    )
+
+async def admin_menu_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """טיפול בכפתורי תפריט האדמין"""
+    query = update.callback_query
+    await query.answer()
+    admin = query.from_user
+
+    if admin.id not in ADMIN_IDS:
+        await query.answer(
+            "אין לך הרשאה.\nאם אתה חושב שזו טעות – דבר עם @OsifEU",
+            show_alert=True,
+        )
         return
 
     data = query.data
-    
+
+    app_data = context.application.bot_data
+    views = app_data.get("start_image_views", 0)
+    downloads = app_data.get("start_image_downloads", 0)
+
     if data == "adm_status":
-        # סטטוס מערכת מפורט
-        status_text = await get_system_status_text()
-        await query.edit_message_text(
-            status_text,
-            parse_mode="Markdown",
-            reply_markup=admin_menu_keyboard()
+        text = (
+            "📊 *סטטוס מערכת*\n\n"
+            f"• DB: {'פעיל' if DB_AVAILABLE else 'כבוי'}\n"
+            f"• Webhook URL: `{WEBHOOK_URL}`\n"
+            f"• LANDING_URL: `{LANDING_URL}`\n"
+            f"• PAYBOX_URL: `{PAYBOX_URL}`\n"
+            f"• BIT_URL: `{BIT_URL}`\n"
+            f"• PAYPAL_URL: `{PAYPAL_URL}`\n"
         )
-        
-    elif data == "adm_pending_payments":
-        # תשלומים ממתינים
-        pending_text = await get_pending_payments_text(context)
-        await query.edit_message_text(
-            pending_text,
+        await query.message.edit_text(
+            text,
             parse_mode="Markdown",
-            reply_markup=InlineKeyboardMarkup([
-                [InlineKeyboardButton("🔄 רענן", callback_data="adm_pending_payments")],
-                [InlineKeyboardButton("⬅ חזרה", callback_data="admin_menu")],
-            ])
-        )
-        
-    elif data == "adm_stats":
-        # סטטיסטיקות מתקדמות
-        stats_text = await get_advanced_stats_text()
-        await query.edit_message_text(
-            stats_text,
-            parse_mode="Markdown",
-            reply_markup=InlineKeyboardMarkup([
-                [InlineKeyboardButton("📊 דוח מלא", callback_data="adm_full_report")],
-                [InlineKeyboardButton("⬅ חזרה", callback_data="admin_menu")],
-            ])
-        )
-    
-    elif data == "admin_menu":
-        await query.edit_message_text(
-            "🛠 **פאנל ניהול**\n\nבחר פעולה:",
-            parse_mode="Markdown",
-            reply_markup=admin_menu_keyboard()
+            reply_markup=admin_menu_keyboard(),
         )
 
-async def get_system_status_text() -> str:
-    """מחזיר טקסט סטטוס מערכת מפורט"""
-    basic_status = """
-🖥 **סטטוס מערכת - שער קהילת העסקים**
+    elif data == "adm_counters":
+        text = (
+            "📈 *מוני תמונת שער*\n\n"
+            f"• מספר הצגות (start): {views}\n"
+            f"• עותקים ממוספרים שנשלחו אחרי אישור: {downloads}\n\n"
+            "המונים מאופסים בכל הפעלה מחדש של הבוט (in-memory)."
+        )
+        await query.message.edit_text(
+            text,
+            parse_mode="Markdown",
+            reply_markup=admin_menu_keyboard(),
+        )
 
-**מערכת:**
-• בוט: 🟢 פעיל
-• Webhook: 🟢 פעיל
-• DB: {db_status}
-• זמן פעילות: {uptime}
-
-**משאבים:**
-• זיכרון: {memory_usage}
-• CPU: {cpu_usage}
-• דיסק: {disk_usage}
-    """.strip()
-
-    # נתונים דינמיים (בפועל צריך לקבל ממוניטורינג אמיתי)
-    import psutil
-    process = psutil.Process()
-    
-    db_status = "🟢 פעיל" if DB_AVAILABLE else "🔴 כבוי"
-    uptime = str(datetime.now() - start_time).split('.')[0]
-    memory_usage = f"{process.memory_info().rss / 1024 / 1024:.1f} MB"
-    cpu_usage = f"{process.cpu_percent():.1f}%"
-    disk_usage = "N/A"  # ניתן להוסיף בדיקת דיסק
-
-    return basic_status.format(
-        db_status=db_status,
-        uptime=uptime,
-        memory_usage=memory_usage,
-        cpu_usage=cpu_usage,
-        disk_usage=disk_usage
-    )
-
-async def get_pending_payments_text(context: ContextTypes.DEFAULT_TYPE) -> str:
-    """מחזיר טקסט תשלומים ממתינים"""
-    payments = payment_manager.get_payments_store(context)
-    pending_payments = {k: v for k, v in payments.items() if v.get('status') == 'pending'}
-    
-    if not pending_payments:
-        return "✅ **אין תשלומים ממתינים לאישור**"
-    
-    text = "📋 **תשלומים ממתינים לאישור:**\n\n"
-    
-    for user_id, payment_data in list(pending_payments.items())[:10]:  # הגבלה ל-10
-        text += f"• User ID: `{user_id}`\n"
-        text += f"  שיטה: {payment_data.get('pay_method', 'Unknown')}\n"
-        text += f"  זמן: {payment_data.get('timestamp', 'Unknown')}\n"
-        text += f"  [אשר](tg://user?id={config.DEVELOPER_USER_ID}) | [דחה](tg://user?id={config.DEVELOPER_USER_ID})\n\n"
-    
-    if len(pending_payments) > 10:
-        text += f"\n...ועוד {len(pending_payments) - 10} תשלומים"
-    
-    return text
+    elif data == "adm_ideas":
+        text = (
+            "💡 *רעיונות לפיצ'רים עתידיים לבוט*\n\n"
+            "1. מערכת ניקוד מלאה למפנים (Leaderboard בקבוצה).\n"
+            "2. דוחות מתקדמים יותר ב-DB:\n"
+            "   • פילוח לפי זמנים\n"
+            "   • פילוח לפי מקור הפניה.\n"
+            "3. הנפקת נכסים דיגיטליים (NFT / SLH) אוטומטית למשתתפים:\n"
+            "   • לפי מספר הפניות\n"
+            "   • לפי רמת פעילות בקהילה.\n"
+            "4. דשבורד וובי קטן (Read-only) להצגת הסטטיסטיקות.\n"
+            "5. אינטגרציה עם בוטי תוכן / קווסטים שמזינים את אותה מערכת נקודות.\n"
+        )
+        await query.message.edit_text(
+            text,
+            parse_mode="Markdown",
+            reply_markup=admin_menu_keyboard(),
+        )
 
 # =========================
-# רישום handlers מתקדם
+# רישום handlers
 # =========================
 
-def setup_handlers():
-    """הגדרת כל ה-handlers של הבוט"""
-    
-    # command handlers
-    ptb_app.add_handler(CommandHandler("start", start))
-    ptb_app.add_handler(CommandHandler("help", help_command))
-    ptb_app.add_handler(CommandHandler("status", status_command))
-    ptb_app.add_handler(CommandHandler("admin", admin_command))
-    ptb_app.add_handler(CommandHandler("stats", stats_command))
-    ptb_app.add_handler(CommandHandler("approve", approve_command))
-    ptb_app.add_handler(CommandHandler("reject", reject_command))
-    ptb_app.add_handler(CommandHandler("referral", referral_command))
+ptb_app.add_handler(CommandHandler("start", start))
+ptb_app.add_handler(CommandHandler("help", help_command))
+ptb_app.add_handler(CommandHandler("admin", admin_menu_command))
+ptb_app.add_handler(CommandHandler("approve", approve_command))
+ptb_app.add_handler(CommandHandler("reject", reject_command))
+ptb_app.add_handler(CommandHandler("leaderboard", admin_leaderboard_command))
+ptb_app.add_handler(CommandHandler("payments_stats", admin_payments_stats_command))
+ptb_app.add_handler(CommandHandler("reward_slh", admin_reward_slh_command))
 
-    # callback handlers
-    ptb_app.add_handler(CallbackQueryHandler(info_callback, pattern="^info$"))
-    ptb_app.add_handler(CallbackQueryHandler(join_callback, pattern="^join$"))
-    ptb_app.add_handler(CallbackQueryHandler(support_callback, pattern="^support$"))
-    ptb_app.add_handler(CallbackQueryHandler(share_callback, pattern="^share$"))
-    ptb_app.add_handler(CallbackQueryHandler(back_main_callback, pattern="^back_main$"))
-    ptb_app.add_handler(CallbackQueryHandler(payment_method_callback, pattern="^pay_"))
-    ptb_app.add_handler(CallbackQueryHandler(admin_menu_callback, pattern="^adm_"))
-    ptb_app.add_handler(CallbackQueryHandler(user_status_callback, pattern="^user_status$"))
-    ptb_app.add_handler(CallbackQueryHandler(my_referrals_callback, pattern="^my_referrals$"))
+ptb_app.add_handler(CallbackQueryHandler(info_callback, pattern="^info$"))
+ptb_app.add_handler(CallbackQueryHandler(join_callback, pattern="^join$"))
+ptb_app.add_handler(CallbackQueryHandler(support_callback, pattern="^support$"))
+ptb_app.add_handler(CallbackQueryHandler(share_callback, pattern="^share$"))
+ptb_app.add_handler(CallbackQueryHandler(back_main_callback, pattern="^back_main$"))
+ptb_app.add_handler(CallbackQueryHandler(payment_method_callback, pattern="^pay_"))
+ptb_app.add_handler(CallbackQueryHandler(admin_menu_callback, pattern="^adm_(status|counters|ideas)$"))
+ptb_app.add_handler(CallbackQueryHandler(admin_approve_callback, pattern="^adm_approve:"))
+ptb_app.add_handler(CallbackQueryHandler(admin_reject_callback, pattern="^adm_reject:"))
 
-    # message handlers
-    ptb_app.add_handler(MessageHandler(filters.PHOTO & filters.ChatType.PRIVATE, handle_payment_photo))
-    ptb_app.add_handler(MessageHandler(filters.TEXT & filters.User(list(config.ADMIN_IDS)), admin_reject_reason_handler))
+# כל תמונה בפרטי – נניח כאישור תשלום
+ptb_app.add_handler(MessageHandler(filters.PHOTO & filters.ChatType.PRIVATE, handle_payment_photo))
 
-    # error handler
-    ptb_app.add_error_handler(error_handler)
-
-    logger.info("All handlers registered successfully")
-
-async def error_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """טיפול בשגיאות כלליות"""
-    try:
-        raise context.error
-    except TelegramError as e:
-        logger.error(f"Telegram error: {e}")
-    except NetworkError as e:
-        logger.error(f"Network error: {e}")
-    except Exception as e:
-        logger.error(f"Unexpected error: {e}", exc_info=True)
-        
-        # שליחת התראה למפתח
-        try:
-            error_msg = f"❌ **שגיאה בבוט:**\n```{str(e)[:1000]}```"
-            await context.bot.send_message(
-                chat_id=config.DEVELOPER_USER_ID,
-                text=error_msg,
-                parse_mode="Markdown"
-            )
-        except Exception as notify_error:
-            logger.error(f"Failed to send error notification: {notify_error}")
+# הודעת טקסט מאדמין – אם יש דחייה ממתינה
+ptb_app.add_handler(MessageHandler(filters.TEXT & filters.User(list(ADMIN_IDS)), admin_reject_reason_handler))
 
 # =========================
-# FastAPI + Webhook + Admin Dashboard
+# JobQueue – תזכורת כל 6 ימים לעדכון לינקים
 # =========================
 
-# אתחול FastAPI
-app = FastAPI(
-    title="שער קהילת העסקים",
-    description="בוט ניהול קהילת עסקים דיגיטליים עם מערכת תשלומים והפניות",
-    version="2.0.0",
-    docs_url="/docs",
-    redoc_url="/redoc"
-)
+async def remind_update_links(context: ContextTypes.DEFAULT_TYPE) -> None:
+    await send_start_image(context, PAYMENTS_LOG_CHAT_ID, mode="reminder")
 
-# הרחבת lifespan
+# =========================
+# FastAPI + lifespan
+# =========================
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """
-    ניהול מחזור חיים של האפליקציה
+    בזמן עליית השרת:
+    1. מגדירים webhook ב-Telegram ל-WEBHOOK_URL
+    2. מפעילים את אפליקציית ה-Telegram
+    3. מפעילים JobQueue לתזכורת כל 6 ימים
+    4. אם יש DB – מרימים schema
     """
-    logger.info("Starting application lifespan...")
-    
-    # 1. אתחול DB
+    logger.info("Setting Telegram webhook to %s", WEBHOOK_URL)
+    await ptb_app.bot.setWebhook(url=WEBHOOK_URL, allowed_updates=Update.ALL_TYPES)
+
+    # init DB schema אם זמין
     if DB_AVAILABLE:
         try:
             init_schema()
-            logger.info("Database schema initialized")
+            logger.info("DB schema initialized.")
         except Exception as e:
-            logger.error("Failed to initialize database: %s", e)
-    
-    # 2. הגדרת webhook
-    try:
-        await ptb_app.bot.setWebhook(
-            url=config.WEBHOOK_URL,
-            allowed_updates=Update.ALL_TYPES,
-            drop_pending_updates=True
-        )
-        logger.info("Webhook set to: %s", config.WEBHOOK_URL)
-    except Exception as e:
-        logger.error("Failed to set webhook: %s", e)
-        raise
-    
-    # 3. אתחול הבוט
-    try:
+            logger.error("Failed to init DB schema: %s", e)
+
+    async with ptb_app:
+        logger.info("Starting Telegram Application")
         await ptb_app.start()
-        logger.info("Telegram application started")
-        
-        # הגדרת פקודות
-        await setup_commands()
-        
-        # אתחול job queue
+
+        # תזכורת כל 6 ימים
         if ptb_app.job_queue:
-            # תזכורת לעדכון לינקים כל 6 ימים
             ptb_app.job_queue.run_repeating(
                 remind_update_links,
-                interval=6 * 24 * 60 * 60,
-                first=10
+                interval=6 * 24 * 60 * 60,  # 6 ימים בשניות
+                first=6 * 24 * 60 * 60,
             )
-            
-            # cleanup יומי
-            ptb_app.job_queue.run_daily(
-                daily_cleanup,
-                time=datetime.time(hour=3, minute=0)  # 3:00 בלילה
-            )
-            
-            logger.info("Job queue initialized")
-        
-    except Exception as e:
-        logger.error("Failed to start Telegram application: %s", e)
-        raise
-    
-    # 4. אתחול מוצלח
-    logger.info("Application startup completed successfully")
-    global start_time
-    start_time = datetime.now()
-    
-    yield
-    
-    # 5. shutdown
-    logger.info("Shutting down application...")
-    try:
+
+        yield
+        logger.info("Stopping Telegram Application")
         await ptb_app.stop()
-        logger.info("Telegram application stopped")
-    except Exception as e:
-        logger.error("Error during shutdown: %s", e)
 
-# jobs
-async def remind_update_links(context: ContextTypes.DEFAULT_TYPE):
-    """תזכורת לעדכון לינקי תשלום"""
-    await send_start_image(context, config.PAYMENTS_LOG_CHAT_ID, mode="reminder")
-
-async def daily_cleanup(context: ContextTypes.DEFAULT_TYPE):
-    """ניקוי יומי של נתונים"""
-    logger.info("Running daily cleanup")
-    
-    # ניקוי סשנים
-    session_manager.cleanup_expired()
-    
-    # ניקוי DB אם זמין
-    if DB_AVAILABLE:
-        try:
-            cleanup_old_data()
-            logger.info("Database cleanup completed")
-        except Exception as e:
-            logger.error("Database cleanup failed: %s", e)
-    
-    # גיבוי אם זמין
-    if DB_AVAILABLE:
-        try:
-            backup_database()
-            logger.info("Database backup completed")
-        except Exception as e:
-            logger.error("Database backup failed: %s", e)
+app = FastAPI(lifespan=lifespan)
 
 # =========================
-# FastAPI Routes מתקדמים
+# Routes – Webhook + Health + Admin Stats API
 # =========================
 
 @app.post("/webhook")
 async def telegram_webhook(request: Request) -> Response:
-    """נקודת הכניסה לעדכונים מטלגרם"""
-    try:
-        data = await request.json()
-        update = Update.de_json(data, ptb_app.bot)
-        
-        # בדיקת כפילות
-        if is_duplicate_update(update):
-            logger.debug("Duplicate update ignored: %s", update.update_id)
-            return Response(status_code=HTTPStatus.OK)
-        
-        # עיבוד העדכון
-        await ptb_app.process_update(update)
-        return Response(status_code=HTTPStatus.OK)
-        
-    except Exception as e:
-        logger.error("Error processing webhook: %s", e)
-        return Response(status_code=HTTPStatus.INTERNAL_SERVER_ERROR)
+    """נקודת ה-webhook שטלגרם קורא אליה"""
+    data = await request.json()
+    update = Update.de_json(data, ptb_app.bot)
+
+    if is_duplicate_update(update):
+        logger.warning("Duplicate update_id=%s – ignoring", update.update_id)
+        return Response(status_code=HTTPStatus.OK.value)
+
+    await ptb_app.process_update(update)
+    return Response(status_code=HTTPStatus.OK.value)
+
 
 @app.get("/health")
 async def health():
-    """Healthcheck מקיף"""
-    health_status = {
-        "status": "healthy",
+    """Healthcheck ל-Railway / ניטור"""
+    return {
+        "status": "ok",
         "service": "telegram-gateway-community-bot",
-        "timestamp": datetime.now().isoformat(),
-        "version": "2.0.0",
-        "components": {
-            "bot": "active",
-            "webhook": "active",
-            "database": "enabled" if DB_AVAILABLE else "disabled",
-            "uptime": str(datetime.now() - start_time).split('.')[0] if 'start_time' in globals() else "unknown"
-        }
+        "db": "enabled" if DB_AVAILABLE else "disabled",
     }
-    
-    # בדיקות נוספות
-    try:
-        # בדיקת חיבור לבוט
-        bot_info = await ptb_app.bot.get_me()
-        health_status["components"]["bot_username"] = bot_info.username
-    except Exception as e:
-        health_status["status"] = "degraded"
-        health_status["components"]["bot"] = "error"
-        health_status["error"] = str(e)
-    
-    return health_status
+
 
 @app.get("/admin/stats")
-async def admin_stats_api(token: str = ""):
-    """API לסטטיסטיקות ניהול"""
-    if not config.ADMIN_DASH_TOKEN or token != config.ADMIN_DASH_TOKEN:
+async def admin_stats(token: str = ""):
+    """
+    דשבורד API קטן לקריאה בלבד.
+    להשתמש ב-ADMIN_DASH_TOKEN ב-ENV.
+    """
+    if not ADMIN_DASH_TOKEN or token != ADMIN_DASH_TOKEN:
         raise HTTPException(status_code=401, detail="Unauthorized")
-    
+
     if not DB_AVAILABLE:
-        return {"error": "Database not available"}
-    
+        return {"db": "disabled"}
+
     try:
-        stats = get_system_stats()
-        approval_stats = get_approval_stats()
-        top_referrers = get_top_referrers(10)
-        recent_activities = get_recent_activities(20)
-        
-        return {
-            "system": stats,
-            "payments": approval_stats,
-            "top_referrers": top_referrers,
-            "recent_activities": recent_activities,
-            "metrics": {
-                "start_image_views": get_metric("start_image_views"),
-                "start_image_downloads": get_metric("start_image_downloads"),
-                "total_payments": get_metric("total_payments"),
-            }
-        }
+        stats = get_approval_stats()
+        monthly = get_monthly_payments(datetime.utcnow().year, datetime.utcnow().month)
+        top_ref = get_top_referrers(5)
     except Exception as e:
         logger.error("Failed to get admin stats: %s", e)
-        raise HTTPException(status_code=500, detail="Internal server error")
+        raise HTTPException(status_code=500, detail="DB error")
 
-@app.get("/admin/dashboard")
-async def admin_dashboard_html(request: Request, token: str = ""):
-    """דשבורד ניהול HTML"""
-    if not config.ADMIN_DASH_TOKEN or token != config.ADMIN_DASH_TOKEN:
-        return HTMLResponse("""
-        <html dir="rtl">
-        <head><title>Unauthorized</title></head>
-        <body><h1>❌ אין הרשאה</h1></body>
-        </html>
-        """, status_code=401)
-    
-    # כאן ניתן להחזיר דשבורד HTML אמיתי
-    dashboard_html = """
-    <html dir="rtl">
-    <head>
-        <title>פאנל ניהול - שער קהילת העסקים</title>
-        <meta charset="utf-8">
-        <style>
-            body { font-family: Arial; background: #f5f5f5; margin: 0; padding: 20px; }
-            .container { max-width: 1200px; margin: 0 auto; }
-            .card { background: white; padding: 20px; margin: 10px 0; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
-            .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 20px; }
-            .stat-card { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 20px; border-radius: 8px; }
-        </style>
-    </head>
-    <body>
-        <div class="container">
-            <h1>🛠 פאנל ניהול - שער קהילת העסקים</h1>
-            
-            <div class="stats-grid" id="stats-grid">
-                <div class="stat-card">
-                    <h3>👥 משתמשים</h3>
-                    <p id="user-count">טוען...</p>
-                </div>
-                <div class="stat-card">
-                    <h3>💰 תשלומים</h3>
-                    <p id="payment-count">טוען...</p>
-                </div>
-                <div class="stat-card">
-                    <h3>📈 הכנסות</h3>
-                    <p id="earnings">טוען...</p>
-                </div>
-            </div>
-            
-            <div class="card">
-                <h2>סטטיסטיקות נוספות</h2>
-                <pre id="full-stats">טוען...</pre>
-            </div>
-        </div>
-        
-        <script>
-            async function loadStats() {
-                try {
-                    const response = await fetch('/admin/stats?token=' + new URLSearchParams(window.location.search).get('token'));
-                    const data = await response.json();
-                    
-                    document.getElementById('user-count').textContent = data.system?.total_users || 0;
-                    document.getElementById('payment-count').textContent = data.payments?.total || 0;
-                    document.getElementById('earnings').textContent = (data.system?.total_earnings || 0) + ' ש"ח';
-                    document.getElementById('full-stats').textContent = JSON.stringify(data, null, 2);
-                } catch (error) {
-                    console.error('Error loading stats:', error);
-                }
-            }
-            
-            loadStats();
-            setInterval(loadStats, 30000); // רענון כל 30 שניות
-        </script>
-    </body>
-    </html>
-    """
-    
-    return HTMLResponse(dashboard_html)
-
-# =========================
-# הרצת האפליקציה
-# =========================
-
-if __name__ == "__main__":
-    import uvicorn
-    
-    # הגדרת handlers
-    setup_handlers()
-    
-    # הרצת השרת
-    uvicorn.run(
-        app,
-        host="0.0.0.0",
-        port=int(os.environ.get("PORT", 8000)),
-        log_level="info"
-    )
+    return {
+        "db": "enabled",
+        "payments_stats": stats,
+        "monthly_breakdown": monthly,
+        "top_referrers": top_ref,
+    }
