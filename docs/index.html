@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="he" dir="rtl">
 <head>
   <meta charset="utf-8" />
@@ -532,25 +532,25 @@
       <div class="upgrade-options">
         <div class="upgrade-option free selected" data-plan="free">
           <h4>חינם</h4>
-          <div class="price">0 ₪</div>
+          <div class="price">0 </div>
           <ul style="text-align: right; list-style: none; font-size: 0.9rem;">
-            <li>✓ גישה מלאה לפיד החברתי</li>
-            <li>✓ יצירת פוסטים ותגובות</li>
-            <li>✓ עקיבה אחרי משתמשים</li>
-            <li>✓ השתתפות בקבוצות</li>
-            <li>✗ אפשרויות מסחר</li>
+            <li> גישה מלאה לפיד החברתי</li>
+            <li> יצירת פוסטים ותגובות</li>
+            <li> עקיבה אחרי משתמשים</li>
+            <li> השתתפות בקבוצות</li>
+            <li> אפשרויות מסחר</li>
           </ul>
         </div>
         
         <div class="upgrade-option premium" data-plan="premium">
           <h4>מסחר</h4>
-          <div class="price">39 ₪</div>
+          <div class="price">39 </div>
           <ul style="text-align: right; list-style: none; font-size: 0.9rem;">
-            <li>✓ כל הפיצ'רים החינמיים</li>
-            <li>✓ הוספת פרטי בנק</li>
-            <li>✓ חיבור לקבוצת טלגרם</li>
-            <li>✓ אפשרויות מסחר מלאות</li>
-            <li>✓ תמיכה טכנית</li>
+            <li> כל הפיצ'רים החינמיים</li>
+            <li> הוספת פרטי בנק</li>
+            <li> חיבור לקבוצת טלגרם</li>
+            <li> אפשרויות מסחר מלאות</li>
+            <li> תמיכה טכנית</li>
           </ul>
         </div>
       </div>
@@ -742,12 +742,12 @@
               <div class="user-avatar">מ</div>
               <div class="post-user-info">
                 <h4>מיכל ישראלי</h4>
-                <p>לפני 3 שעות · <i class="fas fa-globe-asia"></i></p>
+                <p>לפני 3 שעות  <i class="fas fa-globe-asia"></i></p>
               </div>
             </div>
             
             <div class="post-content">
-              <p>היי כולם! סוף סוף סיימתי את הפרויקט הגדול שלי בעבודה. כל כך מרוצה מהתוצאה! 🎉</p>
+              <p>היי כולם! סוף סוף סיימתי את הפרויקט הגדול שלי בעבודה. כל כך מרוצה מהתוצאה! </p>
             </div>
             
             <div class="post-stats">
@@ -755,7 +755,7 @@
                 <i class="fas fa-thumbs-up" style="color: #1877f2;"></i>
                 <span>15</span>
               </div>
-              <div>5 תגובות · 2 שיתופים</div>
+              <div>5 תגובות  2 שיתופים</div>
             </div>
             
             <div class="post-actions-bar">
@@ -780,7 +780,7 @@
               <div class="user-avatar">א</div>
               <div class="post-user-info">
                 <h4>אבי לוי</h4>
-                <p>אתמול · <i class="fas fa-globe-asia"></i></p>
+                <p>אתמול  <i class="fas fa-globe-asia"></i></p>
               </div>
             </div>
             
@@ -794,7 +794,7 @@
                 <i class="fas fa-thumbs-up" style="color: #1877f2;"></i>
                 <span>32</span>
               </div>
-              <div>12 תגובות · 5 שיתופים</div>
+              <div>12 תגובות  5 שיתופים</div>
             </div>
             
             <div class="post-actions-bar">
@@ -957,7 +957,7 @@
         });
       });
       
-      // Register user
+      // Register user (כרגע לוקלי; אפשר לחבר ל-API /api/social/register בהמשך)
       registerBtn.addEventListener('click', function() {
         const userName = document.getElementById('userName').value;
         const userEmail = document.getElementById('userEmail').value;
@@ -974,7 +974,7 @@
           return;
         }
         
-        // Create user object
+        // Create user object (לוגיקה לוקלית; החיבור ל-DB יתבצע דרך /api/social/register)
         currentUser = {
           name: userName,
           email: userEmail,
@@ -987,21 +987,15 @@
           following: 0
         };
         
-        // Save to localStorage
         localStorage.setItem('currentUser', JSON.stringify(currentUser));
-        
-        // Update UI
         updateUserInterface();
-        
-        // Close auth modal
         authContainer.style.display = 'none';
       });
       
       // Login link
       loginLink.addEventListener('click', function(e) {
         e.preventDefault();
-        // For demo purposes, we'll just show a message
-        alert('במערכת מלאה, כאן תהיה אפשרות התחברות עם אימייל וסיסמה');
+        alert('במערכת מלאה, כאן תהיה אפשרות התחברות עם אימייל וסיסמה / טלגרם / ארנק');
       });
       
       // Update UI based on user status
@@ -1035,12 +1029,10 @@
             commerceMenuItem.style.display = 'none';
           }
           
-          // Update stats
           document.getElementById('postCount').textContent = currentUser.posts;
           document.getElementById('followerCount').textContent = currentUser.followers;
           document.getElementById('followingCount').textContent = currentUser.following;
         } else {
-          // Guest user
           guestMessage.style.display = 'block';
           userMessage.style.display = 'none';
           userDisplayName.textContent = 'אורח';
@@ -1084,7 +1076,6 @@
             const postText = this.closest('.create-post').querySelector('textarea').value;
             if (postText.trim() === '') return;
             
-            // Create new post
             const newPost = document.createElement('div');
             newPost.className = 'card post fade-in';
             newPost.innerHTML = `
@@ -1092,7 +1083,7 @@
                 <div class="user-avatar">${currentUser ? currentUser.name.charAt(0) : '?'}</div>
                 <div class="post-user-info">
                   <h4>${currentUser ? currentUser.name : 'אורח'}</h4>
-                  <p>כרגע · <i class="fas fa-globe-asia"></i></p>
+                  <p>כרגע  <i class="fas fa-globe-asia"></i></p>
                 </div>
               </div>
               
@@ -1105,7 +1096,7 @@
                   <i class="fas fa-thumbs-up" style="color: #1877f2;"></i>
                   <span>0</span>
                 </div>
-                <div>0 תגובות · 0 שיתופים</div>
+                <div>0 תגובות  0 שיתופים</div>
               </div>
               
               <div class="post-actions-bar">
@@ -1125,18 +1116,14 @@
             `;
             
             document.getElementById('postsFeed').prepend(newPost);
-            
-            // Clear textarea
             this.closest('.create-post').querySelector('textarea').value = '';
             
-            // Update user post count if logged in
             if (currentUser) {
               currentUser.posts++;
               localStorage.setItem('currentUser', JSON.stringify(currentUser));
               document.getElementById('postCount').textContent = currentUser.posts;
             }
             
-            // Add like functionality to the new post
             const likeBtn = newPost.querySelector('.post-action-btn');
             likeBtn.addEventListener('click', function() {
               const icon = this.querySelector('i');
@@ -1160,7 +1147,6 @@
         }
       });
       
-      // Initialize
       updateUserInterface();
     });
   </script>
