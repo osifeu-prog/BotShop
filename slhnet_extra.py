@@ -1,4 +1,4 @@
-﻿import os
+import os
 from typing import List, Optional, Dict, Any
 from fastapi import APIRouter, Query
 from pydantic import BaseModel
@@ -22,7 +22,7 @@ def _ensure_tables(conn):
     with conn:
         with conn.cursor() as cur:
             cur.execute(
-                \"\"\"
+                """
                 CREATE TABLE IF NOT EXISTS slh_posts (
                     id SERIAL PRIMARY KEY,
                     user_id BIGINT,
@@ -33,10 +33,10 @@ def _ensure_tables(conn):
                     created_at TIMESTAMPTZ DEFAULT NOW(),
                     is_published BOOLEAN DEFAULT TRUE
                 );
-                \"\"\"
+                """
             )
             cur.execute(
-                \"\"\"
+                """
                 CREATE TABLE IF NOT EXISTS slh_token_sales (
                     id SERIAL PRIMARY KEY,
                     user_id BIGINT,
@@ -48,10 +48,10 @@ def _ensure_tables(conn):
                     tx_hash TEXT,
                     created_at TIMESTAMPTZ DEFAULT NOW()
                 );
-                \"\"\"
+                """
             )
             cur.execute(
-                \"\"\"
+                """
                 CREATE TABLE IF NOT EXISTS slh_staking_positions (
                     id SERIAL PRIMARY KEY,
                     user_id BIGINT,
@@ -63,7 +63,7 @@ def _ensure_tables(conn):
                     apy_target NUMERIC(10, 4),
                     status TEXT DEFAULT 'active'
                 );
-                \"\"\"
+                """
             )
 
 
@@ -157,13 +157,13 @@ def api_list_posts(limit: int = Query(20, ge=1, le=100)):
     with conn:
         with conn.cursor() as cur:
             cur.execute(
-                \"\"\"
+                """
                 SELECT id, user_id, username, title, content, share_url, created_at
                 FROM slh_posts
                 WHERE is_published = TRUE
                 ORDER BY created_at DESC
                 LIMIT %s;
-                \"\"\",
+                """,
                 (limit,),
             )
             for r in cur.fetchall():
@@ -191,13 +191,13 @@ def api_list_token_sales(limit: int = Query(50, ge=1, le=200)):
     with conn:
         with conn.cursor() as cur:
             cur.execute(
-                \"\"\"
+                """
                 SELECT id, user_id, username, wallet_address,
                        amount_slh, price_nis, status, tx_hash, created_at
                 FROM slh_token_sales
                 ORDER BY created_at DESC
                 LIMIT %s;
-                \"\"\",
+                """,
                 (limit,),
             )
             for r in cur.fetchall():
@@ -254,11 +254,11 @@ def api_staking_summary():
         with conn:
             with conn.cursor() as cur:
                 cur.execute(
-                    \"\"\"
+                    """
                     SELECT COALESCE(SUM(amount_slh), 0), COUNT(DISTINCT user_id)
                     FROM slh_staking_positions
                     WHERE status = 'active';
-                    \"\"\"
+                    """
                 )
                 res = cur.fetchone()
                 if res:

@@ -1,9 +1,9 @@
-﻿\"\"\"SLH Token integration on Binance Smart Chain (BSC)
+"""SLH Token integration on Binance Smart Chain (BSC)
 
 - Validate BSC addresses
 - Read SLH balance
 - Verify on-chain sale tx (Transfer from user -> treasury)
-\"\"\"
+"""
 
 import os
 from typing import Optional, Tuple
