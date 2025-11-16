@@ -2,298 +2,287 @@
 <html lang="he" dir="rtl">
 <head>
   <meta charset="utf-8" />
-  <title>SLHNET  שער הכניסה לרשת העסקית</title>
+  <title>SLHNET  שער הכניסה לנכס הדיגיטלי שלך</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <meta name="description" content="SLHNET  רשת עסקית סביב טוקן SLH על Binance Smart Chain, בוט טלגרם, חנויות דיגיטליות ומודל ריפרל מדורג." />
+  <meta name="description" content="קהילת עסקים, טוקן SLH, חנויות דיגיטליות ומודל ריפרל שקוף. תשלום חדפעמי של 39  פותח לך עולם של הכנסות, חשיפה והזדמנויות." />
 
-  <!-- Open Graph -->
+  <!-- Open Graph for social sharing -->
   <meta property="og:type" content="website" />
-  <meta property="og:title" content="SLHNET  שער הכניסה לרשת העסקית" />
-  <meta property="og:description" content="קהילת עסקים, טוקן SLH, חנויות דיגיטליות ושיווק חכם סביב מודל ריפרל שקוף." />
+  <meta property="og:title" content="SLHNET  שער הכניסה לנכס הדיגיטלי שלך" />
+  <meta property="og:description" content="שלם 39  פעם אחת, קבל גישה לקבוצת עסקים, חנות דיגיטלית אישית, לינק ריפרל ועתיד של סטייקינג וטוקני SLH." />
   <meta property="og:url" content="https://slh-nft.com/" />
-  <meta property="og:image" content="https://slh-nft.com/assets/start_banner.jpg" />
+  <meta property="og:image" content="https://slh-nft.com/static/slh-og.svg" />
 
-  <!-- Twitter -->
-  <meta name="twitter:card" content="summary_large_image" />
-  <meta name="twitter:title" content="SLHNET  שער הכניסה לרשת העסקית" />
-  <meta name="twitter:description" content="הצטרפו לאקו-סיסטם של SLHNET  עסקים, טוקן SLH וריפרל מדורג." />
-  <meta name="twitter:image" content="https://slh-nft.com/assets/start_banner.jpg" />
+  <link rel="icon" href="https://slh-nft.com/static/slh-og.svg" type="image/svg+xml" />
 
   <style>
     body {
       margin: 0;
       font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-      background: #050816;
-      color: #f9fafb;
-      direction: rtl;
+      background: radial-gradient(circle at top, #111827 0, #020617 55%, #000 100%);
+      color: #e5e7eb;
     }
-    a { color: #38bdf8; text-decoration: none; }
-    a:hover { text-decoration: underline; }
-    header {
-      padding: 1.5rem 1rem;
-      border-bottom: 1px solid rgba(148, 163, 184, 0.4);
-      background: radial-gradient(circle at top, rgba(56, 189, 248, 0.18), transparent 60%);
+    a { color: inherit; text-decoration: none; }
+    .page {
+      max-width: 1000px;
+      margin: 0 auto;
+      padding: 24px 16px 48px;
     }
-    .wrap { max-width: 960px; margin: 0 auto; }
-    .logo-row {
-      display: flex; align-items: center; gap: 0.75rem;
-      font-weight: 700; font-size: 1.25rem;
-    }
-    .logo-circle {
-      width: 40px; height: 40px; border-radius: 999px;
-      background: radial-gradient(circle at 30% 20%, #38bdf8, #1d4ed8);
-      display: flex; align-items: center; justify-content: center;
-      font-weight: 900; letter-spacing: 1px;
-    }
-    nav { margin-top: 0.75rem; display: flex; flex-wrap: wrap; gap: 0.5rem; font-size: 0.9rem; }
-    nav a {
-      padding: 0.35rem 0.7rem;
-      border-radius: 999px;
-      background: rgba(15,23,42,0.8);
-      border: 1px solid rgba(148,163,184,0.35);
-    }
-    main { padding: 1.5rem 1rem 3rem; }
-    .grid {
+    .hero {
       display: grid;
-      grid-template-columns: minmax(0, 2fr) minmax(0, 1.2fr);
-      gap: 1.5rem;
+      grid-template-columns: minmax(0, 3fr) minmax(0, 2fr);
+      gap: 24px;
+      align-items: center;
     }
     @media (max-width: 768px) {
-      .grid { grid-template-columns: minmax(0,1fr); }
-    }
-    .card {
-      border-radius: 1.25rem;
-      border: 1px solid rgba(148,163,184,0.35);
-      background: linear-gradient(145deg, rgba(15,23,42,0.96), rgba(15,23,42,0.94));
-      box-shadow: 0 18px 40px rgba(15,23,42,0.8);
-      padding: 1.25rem 1.5rem;
+      .hero { grid-template-columns: minmax(0, 1fr); }
     }
     .badge {
       display: inline-flex;
       align-items: center;
-      gap: 0.4rem;
-      padding: 0.2rem 0.6rem;
+      gap: 8px;
+      padding: 4px 10px;
       border-radius: 999px;
-      background: rgba(15,23,42,0.9);
-      border: 1px solid rgba(52,211,153,0.5);
-      font-size: 0.75rem;
-      color: #a7f3d0;
-    }
-    h1 { font-size: 1.7rem; margin: 0.6rem 0 0.5rem; }
-    h2 { font-size: 1.2rem; margin-top: 0; }
-    p { margin: 0.35rem 0; line-height: 1.6; font-size: 0.95rem; color: #e5e7eb; }
-    ul { margin: 0.4rem 0 0.4rem 1.2rem; padding: 0; }
-    li { margin: 0.15rem 0; }
-    .pill-row { display:flex; flex-wrap:wrap; gap:0.4rem; margin-top:0.6rem; }
-    .pill {
-      font-size: 0.78rem;
-      padding: 0.15rem 0.55rem;
-      border-radius: 999px;
-      background: rgba(15,23,42,0.9);
-      border: 1px solid rgba(148,163,184,0.4);
+      border: 1px solid rgba(148, 163, 184, 0.4);
+      font-size: 12px;
       color: #cbd5f5;
+      background: rgba(15, 23, 42, 0.75);
+      backdrop-filter: blur(14px);
     }
-    .cta-group { display:flex; flex-wrap:wrap; gap:0.6rem; margin-top:0.9rem; }
-    .btn-primary, .btn-ghost {
+    .title {
+      font-size: clamp(26px, 4vw, 34px);
+      font-weight: 700;
+      margin: 18px 0 8px;
+      color: #f9fafb;
+    }
+    .subtitle {
+      font-size: 16px;
+      line-height: 1.7;
+      color: #cbd5f5;
+      margin-bottom: 20px;
+    }
+    .pill-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      font-size: 13px;
+      margin-bottom: 18px;
+    }
+    .pill {
+      padding: 4px 10px;
       border-radius: 999px;
-      padding: 0.55rem 1.1rem;
-      font-size: 0.9rem;
-      font-weight: 500;
-      display:inline-flex;
-      align-items:center;
-      gap:0.35rem;
+      background: rgba(30, 64, 175, 0.25);
+      border: 1px solid rgba(129, 140, 248, 0.35);
+      color: #e0e7ff;
+    }
+    .cta-main {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-bottom: 14px;
     }
     .btn-primary {
-      background: linear-gradient(to left, #22c55e, #22c55e, #16a34a);
+      padding: 10px 16px;
+      border-radius: 999px;
       border: none;
+      cursor: pointer;
+      font-weight: 600;
+      font-size: 14px;
+      background: linear-gradient(135deg, #22c55e, #16a34a);
       color: #022c22;
-      box-shadow: 0 14px 28px rgba(34,197,94,0.42);
+      box-shadow: 0 10px 30px rgba(34, 197, 94, 0.45);
     }
-    .btn-ghost {
-      background: rgba(15,23,42,0.9);
-      border: 1px solid rgba(148,163,184,0.6);
+    .btn-secondary {
+      padding: 9px 14px;
+      border-radius: 999px;
+      border: 1px solid rgba(148, 163, 184, 0.5);
+      background: transparent;
+      color: #e5e7eb;
+      font-size: 14px;
+      cursor: pointer;
+    }
+    .mini-note {
+      font-size: 12px;
+      color: #9ca3af;
+    }
+    .card {
+      border-radius: 18px;
+      padding: 16px 18px;
+      background: radial-gradient(circle at top, rgba(15, 23, 42, 0.95) 0, rgba(15, 23, 42, 0.9) 40%, rgba(15, 23, 42, 0.92) 100%);
+      border: 1px solid rgba(148, 163, 184, 0.4);
+      box-shadow: 0 12px 40px rgba(15, 23, 42, 0.65);
+    }
+    .card h3 {
+      margin: 0 0 8px;
+      font-size: 16px;
       color: #e5e7eb;
     }
-    .stat {
-      display:inline-flex;
-      align-items:center;
-      gap:0.3rem;
-      font-size:0.85rem;
-      color:#cbd5f5;
-      margin-top:0.4rem;
+    .card p {
+      margin: 0 0 10px;
+      font-size: 13px;
+      color: #cbd5f5;
+      line-height: 1.6;
     }
-    .investor-card h3 { margin: 0 0 0.45rem; }
-    .investor-card p { font-size: 0.9rem; }
-    .investor-details { font-size: 0.9rem; margin-top:0.4rem; }
-    footer {
-      font-size: 0.8rem;
+    .card ul {
+      margin: 0;
+      padding-inline-start: 18px;
+      font-size: 13px;
+      color: #e5e7eb;
+    }
+    .section-title {
+      margin: 32px 0 8px;
+      font-size: 18px;
+      font-weight: 600;
+    }
+    .section-sub {
+      margin: 0 0 18px;
+      font-size: 13px;
       color: #9ca3af;
-      padding: 1rem;
-      border-top: 1px solid rgba(148,163,184,0.3);
-      margin-top: 2rem;
+    }
+    .grid-3 {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 16px;
+    }
+    @media (max-width: 900px) {
+      .grid-3 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    }
+    @media (max-width: 640px) {
+      .grid-3 { grid-template-columns: minmax(0, 1fr); }
+    }
+    .stacked {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      font-size: 13px;
+      color: #cbd5f5;
+    }
+    .investor-card {
+      margin-top: 12px;
+      border-radius: 16px;
+      padding: 12px 14px;
+      background: rgba(15, 23, 42, 0.9);
+      border: 1px dashed rgba(250, 204, 21, 0.7);
+      font-size: 13px;
+      color: #fef9c3;
+    }
+    .investor-card strong {
+      color: #fde68a;
+    }
+    footer {
+      margin-top: 32px;
+      font-size: 11px;
+      color: #6b7280;
       text-align: center;
     }
   </style>
 </head>
 <body>
-  <header>
-    <div class="wrap">
-      <div class="logo-row">
-        <div class="logo-circle">SL</div>
-        <div>
-          <div>SLHNET</div>
-          <small>הרשת העסקית סביב טוקן SLH</small>
+  <div class="page">
+    <section class="hero" id="top">
+      <div>
+        <div class="badge">
+          <span>SLHNET</span>
+          <span></span>
+          <span>נכס דיגיטלי לכל אחד</span>
+        </div>
+        <h1 class="title">שלם 39  פעם אחת  וקבל נכס דיגיטלי שיכול לעבוד בשבילך כל החיים.</h1>
+        <p class="subtitle">
+          SLHNET מחברת בין בעלי עסקים, יוצרים ומשווקים לרשת ריפרל חכמה סביב טוקן
+          <strong>SLH</strong>, חנויות דיגיטליות וקהילת עסקים פעילה. כל מי שנכנס דרך הלינק שלך
+          מתועד בעץ הפניות שקוף  ואתה הראשון ליהנות.
+        </p>
+        <div class="pill-row">
+          <div class="pill">גישה לקבוצת עסקים פרטית</div>
+          <div class="pill">חנות דיגיטלית אישית</div>
+          <div class="pill">לינק ריפרל ייחודי</div>
+          <div class="pill">איירדרופים וסטייקינג עתידי</div>
+        </div>
+        <div class="cta-main" id="join39">
+          <a href="https://links.payboxapp.com/1SNfaJ6XcYb" target="_blank" rel="noopener">
+            <button class="btn-primary"> תשלום חדפעמי 39  וגישה מלאה</button>
+          </a>
+          <a href="https://t.me/Buy_My_Shop_bot" target="_blank" rel="noopener">
+            <button class="btn-secondary"> כניסה לבוט SLHNET</button>
+          </a>
+        </div>
+        <div class="mini-note">
+          אפשר לשלם גם בביט / PayPal  כל הפרטים בבוט ובקבוצת העסקים אחרי ההצטרפות.
         </div>
       </div>
-      <nav>
-        <a href="#overview">סקירה</a>
-        <a href="#wallet">אזור ארנק</a>
-        <a href="#social">פיד חברתי</a>
-        <a href="#exchange">בורסת SLHNET</a>
-        <a href="#admin">פאנל ניהול</a>
-      </nav>
-    </div>
-  </header>
-
-  <main>
-    <div class="wrap">
-      <section id="overview" class="grid">
-        <article class="card">
-          <span class="badge">שער הכניסה ל-SLHNET</span>
-          <h1>שער הכניסה לאקו-סיסטם העסקי סביב SLH</h1>
-          <p>
-            SLHNET מחברת בין חנויות דיגיטליות, טוקן SLH על Binance Smart Chain, קבוצות טלגרם
-            ורשת חברתית לשיתופי תוכן והמלצות  סביב מודל ריפרל מדורג וצמיחה אורגנית מלמטה למעלה.
-          </p>
-          <p>
-            תשלום <strong>39 </strong> או פעילות של <strong>39 שיתופים איכותיים</strong> פותחים גישה מלאה
-            לכל שכבות הרשת: קבוצות פרימיום, חנויות, בוטים, איירדרופים והטבות נוספות.
-          </p>
-
-          <div class="cta-group">
-            <a class="btn-primary" href="https://t.me/Buy_My_Shop" target="_blank" rel="noopener">
-              כניסה לבוט SLHNET בטלגרם
-            </a>
-            <a class="btn-ghost" href="#payment">
-              תשלום 39  וגישה מלאה
-            </a>
+      <div>
+        <div class="card">
+          <h3>מה קורה אחרי שאתה משלים תשלום 39 ?</h3>
+          <p>זו לא עוד "קבוצת וואטסאפ". אתה מקבל <strong>נכס דיגיטלי</strong> שממשיך לעבוד בשבילך:</p>
+          <ul>
+            <li>גישה לקבוצת עסקים סגורה עם הדרכות, שיתופי פעולה ותוכן איכותי.</li>
+            <li>פתיחת חנות דיגיטלית אישית שתוכל למכור דרכה מוצרים/שירותים.</li>
+            <li>לינק ריפרל אישי  כל מי שנכנס דרכך מתועד ברשת SLHNET.</li>
+            <li>השתתפות עתידית בסטייקינג, איירדרופים ותגמולים נוספים בטוקני SLH.</li>
+          </ul>
+          <div class="investor-card">
+            <strong>משקיעים / שותפים אסטרטגיים</strong><br/>
+            יוצרים מודל ריפרל שקוף וסטייקינג חכם סביב אקו-סיסטם אמיתי של עסקים  לא סביב "אוויר".<br/>
+            קשר ישיר: טלפון 058-420-3384  טלגרם <a href="https://t.me/Osif83" target="_blank">@Osif83</a>
           </div>
+        </div>
+      </div>
+    </section>
 
-          <div class="pill-row">
-            <span class="pill">Web3 לעסקים אמיתיים</span>
-            <span class="pill">מודל ריפרל מדורג ושקוף</span>
-            <span class="pill">חנויות דיגיטליות + טוקן SLH</span>
-          </div>
+    <section>
+      <h2 class="section-title">איך מרוויחים ב-SLHNET בפועל?</h2>
+      <p class="section-sub">מודל ריפרל מדורג + נכסים דיגיטליים אמיתיים + טוקן SLH על Binance Smart Chain.</p>
+      <div class="grid-3">
+        <div class="card">
+          <h3>1. מצטרפים ומשלימים 39 </h3>
+          <p>פותחים לעצמכם "שער כניסה" אישי לרשת  כולל קישור שיתוף, חנות ופרופיל עסקי.</p>
+        </div>
+        <div class="card">
+          <h3>2. בונים עץ הפניות</h3>
+          <p>כל מי שנכנס דרך הקישור שלך מתועד. אנחנו בונים עץ קשרים שקוף  מי הביא את מי, ומתי.</p>
+        </div>
+        <div class="card">
+          <h3>3. נהנים מחשיפה ותגמולים</h3>
+          <p>הקהילה, הפוסטים, החנויות והסטייקינג מייצרים עבורך ערך מתמשך  גם כשאתה לא "רודף" אחרי לידים.</p>
+        </div>
+      </div>
+    </section>
 
-          <div class="stat">
-            <span>שער יציג SLH (לש"ח):</span>
-            <strong>444</strong>
-            <span style="opacity:0.8;">(נתון לדוגמה לשלב MVP)</span>
-          </div>
-        </article>
+    <section>
+      <h2 class="section-title">SLHNET + SLH Token</h2>
+      <p class="section-sub">השילוב בין טוקן על BSC לבין רשת חברתית-עסקית מייצר מודל חדש של Social-Fi.</p>
+      <div class="grid-3">
+        <div class="card">
+          <h3>טוקן SLH על BSC</h3>
+          <p>Contract: <code>0xACb0A09414CEA1C879c67bB7A877E4e19480f022</code></p>
+          <p>ניתן להחזקה בכל ארנק שתומך ב-BSC. בהמשך  סטייקינג, תגמולים והצבעות קהילה.</p>
+        </div>
+        <div class="card">
+          <h3>סטייקינג (פאזה 1)</h3>
+          <p>מתחילים ממודל נקודות פנימי על בסיס פעילות, שיתופים והפניות. בהמשך  קישור ישיר לסטייקינג ב-SLH.</p>
+        </div>
+        <div class="card">
+          <h3>DAO קהילתי</h3>
+          <p>שקיפות מלאה: מי הרוויח, כמה, ועל בסיס מה. כל זה נבנה בהדרגה לתוך לוגיקת המערכת.</p>
+        </div>
+      </div>
+    </section>
 
-        <aside class="card investor-card">
-          <h3>כרטיס משקיע  קשר ישיר</h3>
-          <p>
-            מחפשים להצטרף כמשקיעים ראשונים באקו-סיסטם? כאן מתחיל הדיאלוג. הפרויקט נבנה
-            כמודל חברתי-פיננסי בו הריפרל, החנות והטוקן יושבים על רשת אחת שקופה.
-          </p>
-          <div class="investor-details">
-            <p><strong>טלפון:</strong> <a href="tel:0584203384">058-420-3384</a></p>
-            <p><strong>טלגרם:</strong> <a href="https://t.me/Osif83" target="_blank" rel="noopener">@Osif83</a></p>
-            <p>
-              <strong>לפרטים נוספים דרך הבוט:</strong> שלח פקודה
-              <code>/investor</code> לבוט SLHNET.
-            </p>
-          </div>
-        </aside>
-      </section>
+    <section>
+      <h2 class="section-title">מוכן להתחיל?</h2>
+      <div class="stacked">
+        <div>1. לוחצים על כפתור <strong>תשלום 39 </strong> ומבצעים רכישה מאובטחת.</div>
+        <div>2. נכנסים לבוט: <a href="https://t.me/Buy_My_Shop_bot" target="_blank">@Buy_My_Shop_bot</a> ומבצעים /start.</div>
+        <div>3. מצטרפים לקבוצת העסקים, מקבלים קישורים ייחודיים ומתחילים להפיץ את הנכס הדיגיטלי שלכם.</div>
+      </div>
+      <div style="margin-top:16px;">
+        <a href="#top"><span style="font-size:12px;color:#9ca3af;"> חזרה למעלה</span></a>
+      </div>
+    </section>
 
-      <section id="wallet" class="card" style="margin-top:1.5rem;">
-        <h2>אזור ארנק אישי</h2>
-        <p>
-          את הארנק מנהלים דרך הבוט, אבל כאן יוצג תקציר (בהמשך) על בסיס שכבת ה-API:
-          יתרה, סטטוס זכאות לגישה מלאה, ומדדי פעילות ברשת.
-        </p>
-        <p>
-          בבוט: שלח <code>/wallet</code> עם כתובת BSC שלך (0x...) כדי לקשר את הארנק למערכת.
-        </p>
-        <h3>הגדרת רשת BSC + טוקן SLH בארנק</h3>
-        <ul>
-          <li>Network Name: Smart Chain</li>
-          <li>New RPC URL: https://bsc-dataseed.binance.org/</li>
-          <li>ChainID: 56</li>
-          <li>Symbol: BNB</li>
-          <li>Block Explorer URL: https://bscscan.com</li>
-        </ul>
-        <p>טוקן SLH (Custom Token):</p>
-        <ul>
-          <li>Contract: <code>0xACb0A09414CEA1C879c67bB7A877E4e19480f022</code></li>
-          <li>Decimals: <code>15</code></li>
-        </ul>
-      </section>
-
-      <section id="social" class="card" style="margin-top:1.5rem;">
-        <h2>פוסטים מהקהילה SLHNET Social</h2>
-        <p>
-          חברי הרשת יוכלו ליצור פוסטים דרך הבוט (למשל: <code>/post כותרת | תוכן</code>) והם
-          יוצגו כאן לשיתוף ברשתות. השכבה הזו מחוברת למודל הריפרל  כל פוסט יכול להפוך לנקודת כניסה חדשה.
-        </p>
-        <p style="opacity:0.8;">טוען פוסטים מהשרת (MVP בגרסה הבאה)</p>
-      </section>
-
-      <section id="exchange" class="card" style="margin-top:1.5rem;">
-        <h2>בורסת SLHNET (טיוטה ראשונית)</h2>
-        <p>
-          המטרה: לאפשר מסחר P2P בטוקן SLH, טוקני קהילה ו-NFTים בצורה שקופה ופשוטה, ישירות מתוך הרשת.
-          שכבת ה-API כבר נבנית ותחובר למסך זה בשלבים הבאים.
-        </p>
-        <p style="opacity:0.8;">
-          נתוני עסקאות יופיעו כאן ברגע שה-API יתחיל לאסוף אותן.
-        </p>
-      </section>
-
-      <section id="payment" class="card" style="margin-top:1.5rem;">
-        <h2>תשלום 39  וגישה מלאה</h2>
-        <p>
-          הצעד הראשון הוא הצטרפות לקהילת העסקים הסגורה. ניתן להצטרף באמצעות:
-        </p>
-        <ul>
-          <li>תשלום בנקאי / PayBox / Bit / PayPal / TON לפי ההוראות בבוט.</li>
-          <li>או פעילות של 39 שיתופים איכותיים, כפי שיוגדרו בבוט בהמשך.</li>
-        </ul>
-        <p>
-          אחרי אישור התשלום תקבל קישור לקבוצת העסקים + מעקב אישי ברשת ההפניות.
-        </p>
-        <p>
-          מתחילים מהבוט: <a href="https://t.me/Buy_My_Shop" target="_blank" rel="noopener">https://t.me/Buy_My_Shop</a>
-        </p>
-      </section>
-
-      <section id="admin" class="card" style="margin-top:1.5rem;">
-        <h2>פאנל ניהול / API למשקיעים</h2>
-        <p>
-          שכבת ה-API של SLHNET כבר מתחילה להיבנות כמרכז ניהול נתונים: ריפרלים, פיד, פעילות וסטטוס משתמשים.
-          מעליה יישב פאנל ניהול גרפי למשקיעים ואדמינים.
-        </p>
-        <p style="opacity:0.85;">
-          נקודות קצה מתוכננות:
-        </p>
-        <ul>
-          <li><code>GET /health</code>  סטטוס שרת.</li>
-          <li><code>GET /api/token/price</code>  מחיר SLH בייצוג לש"ח.</li>
-          <li><code>GET /api/token/sales?limit=50</code>  עסקאות אחרונות.</li>
-          <li><code>GET /api/posts?limit=20</code>  פוסטים אחרונים.</li>
-          <li><code>GET /api/referral/stats</code>  סטטיסטיקות ריפרל.</li>
-          <li><code>GET /api/referral/tree/&lt;user_id&gt;</code>  עץ הפניות למשתמש.</li>
-          <li><code>POST /api/referral/track_visit</code>  מעקב אחרי כניסות דרך לינקים.</li>
-        </ul>
-      </section>
-    </div>
-  </main>
-
-  <footer>
-    SLHNET  פרויקט אקו-סיסטם קהילתי סביב טוקן SLH. נבנה בהדרגה, בשקיפות ועם קהילה פעילה.
-  </footer>
+    <footer>
+      SLHNET  Social-Fi for real-world businesses  Powered by SLH token on BSC
+    </footer>
+  </div>
 </body>
 </html>

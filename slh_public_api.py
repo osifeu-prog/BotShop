@@ -71,3 +71,4 @@ async def get_token_price():
 async def get_token_sales(limit: int = 50):
     # לעת עתה  רשימה ריקה כדי למנוע שגיאות בצד ה-Front
     return []
+

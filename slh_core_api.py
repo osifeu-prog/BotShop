@@ -47,7 +47,7 @@ def get_public_config() -> PublicConfig:
     """
     links = {
         "landing": "https://slh-nft.com/",
-        "bot": "https://t.me/Buy_My_Shop",
+        "bot": "https://t.me/Buy_My_Shop_bot",
         "investor_telegram": "https://t.me/Osif83",
     }
     meta = {
@@ -237,3 +237,4 @@ def get_referral_tree(user_id: int) -> ReferralNode:
         )
 
     return _build_tree(user_id)
+
