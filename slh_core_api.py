@@ -1,228 +1,239 @@
 ﻿from __future__ import annotations
 
-import json
-from pathlib import Path
-from typing import Dict, Any, List, Optional, Set
+import os
+import time
+from datetime import datetime
+from typing import Dict, List, Optional, Set
 
 from fastapi import APIRouter, HTTPException
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
-BASE_DIR = Path(__file__).resolve().parent
-DATA_DIR = BASE_DIR / "data"
-DATA_DIR.mkdir(exist_ok=True)
-REF_FILE = DATA_DIR / "referrals.json"
-VISITS_FILE = DATA_DIR / "referral_visits.json"
+# ============================================================
+# SLHNET Core API  public config + referral MVP
+# ============================================================
 
-router = APIRouter()
+core_router = APIRouter(tags=["slh_core"])
 
+# --- Token / project config ---
 
-def _safe_read(path: Path, default: Dict[str, Any]) -> Dict[str, Any]:
-    if not path.exists():
-        return default
-    try:
-        return json.loads(path.read_text(encoding="utf-8"))
-    except Exception:
-        return default
+SLH_SYMBOL = "SLH"
+SLH_CONTRACT = "0xACb0A09414CEA1C879c67bB7A877E4e19480f022"
+SLH_DECIMALS = 15
 
-
-def _load_referrals() -> Dict[str, Any]:
-    return _safe_read(REF_FILE, {"users": {}})
+# מאפשר לשלוט במחיר דרך משתנה סביבה SLH_PRICE_ILS, ברירת מחדל: 444
+try:
+    SLH_PRICE_ILS = float(os.getenv("SLH_PRICE_ILS", "444"))
+except ValueError:
+    SLH_PRICE_ILS = 444.0
 
 
-def _save_referrals(data: Dict[str, Any]) -> None:
-    REF_FILE.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
+class PublicConfig(BaseModel):
+    project: str = "SLHNET"
+    landing_url: str = "https://slh-nft.com/"
+    token_symbol: str = SLH_SYMBOL
+    token_contract: str = SLH_CONTRACT
+    token_decimals: int = SLH_DECIMALS
+    token_price_ils: float = Field(..., description="Demo price of SLH in ILS")
+    links: Dict[str, str]
+    meta: Dict[str, str]
 
 
-def _load_visits() -> Dict[str, Any]:
-    return _safe_read(VISITS_FILE, {"visits": []})
+@core_router.get("/config/public", response_model=PublicConfig)
+def get_public_config() -> PublicConfig:
+    """
+    קונפיג ציבורי  מיועד לאתר / קליינט.
+    כרגע מחזיר נתונים סטטיים + קישורים מרכזיים.
+    ניתן להרחבה בהמשך.
+    """
+    links = {
+        "landing": "https://slh-nft.com/",
+        "bot": "https://t.me/Buy_My_Shop",
+        "investor_telegram": "https://t.me/Osif83",
+    }
+    meta = {
+        "description": "SLHNET  רשת עסקית סביב טוקן SLH, ריפרל מדורג ואקו-סיסטם של חנויות דיגיטליות.",
+        "stage": "mvp-core-api",
+    }
+    return PublicConfig(
+        token_price_ils=SLH_PRICE_ILS,
+        links=links,
+        meta=meta,
+    )
 
 
-def _save_visits(data: Dict[str, Any]) -> None:
-    VISITS_FILE.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
+@core_router.get("/api/token/price")
+def get_token_price():
+    """
+    נקודת קצה פשוטה שמחזירה את מחיר ה-SLH בשקלים.
+    כרגע: קונפיג ידני דרך SLH_PRICE_ILS או ברירת מחדל 444.
+    בעתיד ניתן לחבר ל-Oracle / בורסה חיצונית.
+    """
+    return {
+        "symbol": SLH_SYMBOL,
+        "contract": SLH_CONTRACT,
+        "decimals": SLH_DECIMALS,
+        "price_ils": SLH_PRICE_ILS,
+        "source": "manual_config",
+        "updated_at": datetime.utcnow().isoformat() + "Z",
+    }
 
 
-class ReferralUser(BaseModel):
+# ============================================================
+# Referral MVP  עץ הפניות בסיסי בזיכרון
+# ============================================================
+
+class ReferralNode(BaseModel):
     user_id: int
-    referrer: Optional[int] = None
+    username: Optional[str] = None
+    children: List["ReferralNode"] = []
+
+
+ReferralNode.update_forward_refs()
 
 
 class ReferralStats(BaseModel):
     total_users: int
-    total_with_referrer: int
-    total_roots: int
-    roots: List[int]
-    network_sizes: Dict[str, int]
-
-
-class ReferralNode(BaseModel):
-    user_id: int
-    referrer: Optional[int]
-    children: List[int]
-    path_to_root: List[int]
-
-
-class ReferralVisitIn(BaseModel):
-    referrer_id: Optional[int] = None
-    landing_variant: Optional[str] = None
-    utm_source: Optional[str] = None
-    utm_campaign: Optional[str] = None
-
-
-class ReferralVisitOut(BaseModel):
+    total_relations: int
     total_visits: int
-    by_referrer: Dict[str, int]
+    roots: List[int]
 
 
-class ReferralGraph(BaseModel):
-    nodes: List[Dict[str, Any]]
-    links: List[Dict[str, Any]]
-
-
-@router.get("/api/referral/stats", response_model=ReferralStats)
-async def referral_stats():
-    data = _load_referrals()
-    users = data.get("users", {})
-
-    total_users = len(users)
-    total_with_referrer = sum(1 for u in users.values() if u.get("referrer"))
-    roots: List[int] = []
-    for uid, u in users.items():
-        if not u.get("referrer"):
-            try:
-                roots.append(int(uid))
-            except ValueError:
-                continue
-
-    # בונים גרף ילדים לכל משתמש
-    children_map: Dict[str, List[str]] = {}
-    for uid in users.keys():
-        children_map.setdefault(uid, [])
-    for uid, u in users.items():
-        ref = u.get("referrer")
-        if ref:
-            children_map.setdefault(str(ref), []).append(uid)
-
-    def bfs_size(root_id: str) -> int:
-        seen: Set[str] = set()
-        queue: List[str] = [root_id]
-        while queue:
-            cur = queue.pop(0)
-            if cur in seen:
-                continue
-            seen.add(cur)
-            for ch in children_map.get(cur, []):
-                if ch not in seen:
-                    queue.append(ch)
-        return len(seen)
-
-    network_sizes: Dict[str, int] = {}
-    for r in roots:
-        s = bfs_size(str(r))
-        network_sizes[str(r)] = s
-
-    return ReferralStats(
-        total_users=total_users,
-        total_with_referrer=total_with_referrer,
-        total_roots=len(roots),
-        roots=roots,
-        network_sizes=network_sizes,
+class TrackVisitRequest(BaseModel):
+    """
+    בקשה לרישום ביקור / כניסה דרך לינק ריפרל.
+    זה לא מחליף לוגיקת הרשמה בבוט, אלא שכבת טלמטריה / גרף חברתי.
+    """
+    referrer_id: int = Field(..., description="telegram user_id של המפנה")
+    visitor_id: Optional[int] = Field(
+        None,
+        description="telegram user_id של המבקר, אם ידוע (אחרי /start בבוט)",
+    )
+    source: Optional[str] = Field(
+        None,
+        description="מקור / תיוג: למשל 'landing', 'whatsapp', 'telegram_share' וכו'",
+    )
+    ts: Optional[float] = Field(
+        None,
+        description="timestamp שנשלח מהלקוח (אם יש). אם לא  נשתמש ב-time.time().",
     )
 
 
-@router.get("/api/referral/tree/{user_id}", response_model=ReferralNode)
-async def referral_tree(user_id: int):
-    data = _load_referrals()
-    users = data.get("users", {})
+# "Fake DB" בזיכרון  MVP בלבד.
+# בהמשך אפשר להחליף למשהו מבוסס Postgres דרך db.py
+_REFERRAL_GRAPH: Dict[int, List[int]] = {}
+_USER_ALIASES: Dict[int, str] = {}
+_VISITS: List[Dict[str, object]] = []
 
-    suid = str(user_id)
-    if suid not in users:
-        raise HTTPException(status_code=404, detail="user not found in referral map")
 
-    # מי הפנה אותו
-    ref_raw = users[suid].get("referrer")
-    referrer: Optional[int] = int(ref_raw) if ref_raw else None
+def _add_relation(referrer_id: int, visitor_id: int) -> None:
+    """
+    רישום קשר ריפרל בסיסי: referrer -> visitor.
+    אם כבר קיים, לא נוסיף שוב.
+    """
+    if referrer_id == visitor_id:
+        return
 
-    # מי הילדים שלו
-    children: List[int] = []
-    for uid, u in users.items():
-        if u.get("referrer") == suid:
-            try:
-                children.append(int(uid))
-            except ValueError:
-                continue
+    children = _REFERRAL_GRAPH.setdefault(referrer_id, [])
+    if visitor_id not in children:
+        children.append(visitor_id)
 
-    # מסלול עד השורש
-    path_to_root: List[int] = []
-    cur = suid
-    seen: Set[str] = set()
-    while True:
-        if cur in seen:
-            break
-        seen.add(cur)
-        path_to_root.append(int(cur))
-        ref = users.get(cur, {}).get("referrer")
-        if not ref:
-            break
-        cur = str(ref)
 
+def _collect_all_users() -> Set[int]:
+    users: Set[int] = set()
+    for src, dsts in _REFERRAL_GRAPH.items():
+        users.add(src)
+        users.update(dsts)
+    return users
+
+
+def _find_roots() -> List[int]:
+    """
+    משתמשים שאין להם 'מפנה מעליהם'  נחשבים שורשים בגרף.
+    """
+    all_users = _collect_all_users()
+    all_children: Set[int] = set()
+    for dsts in _REFERRAL_GRAPH.values():
+        all_children.update(dsts)
+    roots = sorted(all_users - all_children)
+    return roots
+
+
+def _build_tree(user_id: int, depth: int = 0, max_depth: int = 6) -> ReferralNode:
+    """
+    בניית עץ ריפרל רקורסיבי עד עומק מוגבל (כדי להימנע ממעגלים אינסופיים).
+    """
+    if depth > max_depth:
+        return ReferralNode(user_id=user_id, username=_USER_ALIASES.get(user_id), children=[])
+
+    children_ids = _REFERRAL_GRAPH.get(user_id, [])
+    children_nodes = [
+        _build_tree(child_id, depth=depth + 1, max_depth=max_depth)
+        for child_id in children_ids
+    ]
     return ReferralNode(
         user_id=user_id,
-        referrer=referrer,
-        children=children,
-        path_to_root=path_to_root,
+        username=_USER_ALIASES.get(user_id),
+        children=children_nodes,
     )
 
 
-@router.post("/api/referral/track_visit", response_model=ReferralVisitOut)
-async def track_visit(payload: ReferralVisitIn):
-    visits = _load_visits()
-    vlist: List[Dict[str, Any]] = visits.setdefault("visits", [])
-    rec = {
-        "referrer_id": payload.referrer_id,
-        "landing_variant": payload.landing_variant,
-        "utm_source": payload.utm_source,
-        "utm_campaign": payload.utm_campaign,
+@core_router.post("/api/referral/track_visit")
+def track_visit(req: TrackVisitRequest):
+    """
+    רושם ביקור דרך לינק ריפרל.
+    * אם יש visitor_id  מוסיף קשת בגרף referrer -> visitor.
+    * שומר אירוע ב-LOG בזיכרון (MVP).
+    """
+    ts = req.ts or time.time()
+    event = {
+        "referrer_id": req.referrer_id,
+        "visitor_id": req.visitor_id,
+        "source": req.source or "unknown",
+        "ts": ts,
     }
-    vlist.append(rec)
-    _save_visits(visits)
+    _VISITS.append(event)
 
-    # סטטוס מקוצר
-    counts: Dict[str, int] = {}
-    for v in vlist:
-        key = str(v.get("referrer_id") or "none")
-        counts[key] = counts.get(key, 0) + 1
+    if req.visitor_id:
+        _add_relation(req.referrer_id, req.visitor_id)
 
-    return ReferralVisitOut(
-        total_visits=len(vlist),
-        by_referrer=counts,
+    return {
+        "status": "ok",
+        "stored": True,
+        "event": event,
+    }
+
+
+@core_router.get("/api/referral/stats", response_model=ReferralStats)
+def get_referral_stats() -> ReferralStats:
+    """
+    סטטיסטיקות עיקריות על גרף ההפניות.
+    כרגע על בסיס הזיכרון בתהליך.
+    """
+    all_users = _collect_all_users()
+    roots = _find_roots()
+    total_relations = sum(len(v) for v in _REFERRAL_GRAPH.values())
+
+    return ReferralStats(
+        total_users=len(all_users),
+        total_relations=total_relations,
+        total_visits=len(_VISITS),
+        roots=roots,
     )
 
 
-@router.get("/api/referral/graph", response_model=ReferralGraph)
-async def referral_graph():
-    data = _load_referrals()
-    users = data.get("users", {})
-
-    nodes: List[Dict[str, Any]] = []
-    links: List[Dict[str, Any]] = []
-
-    for uid, u in users.items():
-        ref = u.get("referrer")
-        nodes.append(
-            {
-                "id": int(uid),
-                "referrer": int(ref) if ref else None,
-            }
+@core_router.get("/api/referral/tree/{user_id}", response_model=ReferralNode)
+def get_referral_tree(user_id: int) -> ReferralNode:
+    """
+    מחזיר עץ ריפרל למשתמש נתון (כולל הילדים שלו ברמות הבאות).
+    אם אין נתונים  מחזירים צומת ריק (ילדים = []) כדי לא לשבור קליינט.
+    """
+    all_users = _collect_all_users()
+    if user_id not in all_users and user_id not in _REFERRAL_GRAPH:
+        # אין עץ רשום עבור המשתמש  מחזירים צומת בסיסי.
+        return ReferralNode(
+            user_id=user_id,
+            username=_USER_ALIASES.get(user_id),
+            children=[],
         )
-        if ref:
-            try:
-                links.append(
-                    {
-                        "source": int(ref),
-                        "target": int(uid),
-                    }
-                )
-            except ValueError:
-                continue
 
-    return ReferralGraph(nodes=nodes, links=links)
+    return _build_tree(user_id)
