@@ -15,115 +15,162 @@ if not DATABASE_URL:
     logger.warning("DATABASE_URL is not set. DB functions will be no-op.")
 
 
-def get_conn():
-    """מחזיר חיבור ל-Postgres או None אם אין DATABASE_URL"""
-    if not DATABASE_URL:
-        return None
-    conn = psycopg2.connect(DATABASE_URL, cursor_factory=psycopg2.extras.DictCursor)
-    return conn
-
-
 @contextmanager
 def db_cursor():
-    conn = get_conn()
-    if conn is None:
+    """
+    הקשר נוח לעבודה עם psycopg2.
+    מחזיר (conn, cur) או (None, None) אם אין DATABASE_URL.
+    """
+    if not DATABASE_URL:
         yield None, None
         return
+
+    conn = None
+    cur = None
     try:
-        cur = conn.cursor()
+        conn = psycopg2.connect(DATABASE_URL)
+        cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
         yield conn, cur
-        conn.commit()
-    except Exception:
-        conn.rollback()
+        if conn:
+            conn.commit()
+    except Exception as e:
+        logger.error("DB error: %s", e)
+        if conn:
+            conn.rollback()
         raise
     finally:
-        cur.close()
-        conn.close()
+        if cur:
+            cur.close()
+        if conn:
+            conn.close()
 
+
+# =========================
+# יצירת טבלאות (schema)
+# =========================
 
 def init_schema() -> None:
     """
-    מריץ CREATE TABLE IF NOT EXISTS לכל הטבלאות.
-    לא מוחק ולא שובר כלום, רק מוסיף אם חסר.
+    יוצר את כל הטבלאות הדרושות אם הן לא קיימות.
+    לא מוחק או משנה טבלאות קיימות.
     """
-    if not DATABASE_URL:
-        logger.warning("init_schema called but DATABASE_URL not set.")
-        return
-
     with db_cursor() as (conn, cur):
         if cur is None:
-            logger.warning("No DB cursor available in init_schema.")
+            logger.warning("init_schema called without DB.")
             return
 
-        # payments – כבר קיימת אצלך, כאן רק לוודא
-        cur.execute(
-            """
-            CREATE TABLE IF NOT EXISTS payments (
-                id SERIAL PRIMARY KEY,
-                user_id BIGINT NOT NULL,
-                username TEXT,
-                pay_method TEXT,
-                status TEXT NOT NULL DEFAULT 'pending',
-                reason TEXT,
-                created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-                updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-            );
-            """
-        )
-
-        # users – רשימת משתמשים
+        # users – משתמשי טלגרם
         cur.execute(
             """
             CREATE TABLE IF NOT EXISTS users (
-                id BIGINT PRIMARY KEY,      -- Telegram user id
-                username TEXT,
-                first_seen_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+                user_id      BIGINT PRIMARY KEY,
+                username     TEXT,
+                created_at   TIMESTAMPTZ NOT NULL DEFAULT NOW()
             );
             """
         )
 
-        # referrals – הפניות
+        # payments – תשלומים / אישורים
+        cur.execute(
+            """
+            CREATE TABLE IF NOT EXISTS payments (
+                id          SERIAL PRIMARY KEY,
+                user_id     BIGINT NOT NULL,
+                username    TEXT,
+                pay_method  TEXT NOT NULL,
+                status      TEXT NOT NULL DEFAULT 'pending',  -- pending/approved/rejected
+                reason      TEXT,
+                created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                updated_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
+            );
+            """
+        )
+
+        # referrals – מי הפנה את מי
         cur.execute(
             """
             CREATE TABLE IF NOT EXISTS referrals (
-                id SERIAL PRIMARY KEY,
-                referrer_id BIGINT NOT NULL,
-                referred_id BIGINT NOT NULL,
-                source TEXT,
-                points INT NOT NULL DEFAULT 1,
-                created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+                id               SERIAL PRIMARY KEY,
+                referrer_id      BIGINT NOT NULL,
+                referred_user_id BIGINT NOT NULL,
+                source           TEXT,
+                created_at       TIMESTAMPTZ NOT NULL DEFAULT NOW()
             );
             """
         )
+        # למנוע כפילויות בסיסיות
+        cur.execute(
+            """
+            CREATE UNIQUE INDEX IF NOT EXISTS idx_referrals_unique
+            ON referrals(referrer_id, referred_user_id, COALESCE(source, ''));
+            """
+        )
 
-        # rewards – פרסים/נקודות (SLH, NFT, SHARE וכו')
+        # rewards – נקודות/תגמולים (למשל SLH, NFT וכו')
         cur.execute(
             """
             CREATE TABLE IF NOT EXISTS rewards (
-                id SERIAL PRIMARY KEY,
-                user_id BIGINT NOT NULL,
-                reward_type TEXT NOT NULL,      -- "SLH", "NFT", "SHARE", ...
-                reason TEXT,
-                points INT NOT NULL DEFAULT 0,
-                status TEXT NOT NULL DEFAULT 'pending',   -- pending/sent/failed
-                tx_hash TEXT,
-                created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-                updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+                id          SERIAL PRIMARY KEY,
+                user_id     BIGINT NOT NULL,
+                reward_type TEXT NOT NULL,              -- "SLH", "NFT", "SHARE", ...
+                reason      TEXT,
+                points      INT NOT NULL DEFAULT 0,
+                status      TEXT NOT NULL DEFAULT 'pending',   -- pending/sent/failed
+                tx_hash     TEXT,
+                created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
             );
             """
         )
 
-        # metrics – מונים גלובליים (למשל start_image_views)
+        # promoters – בעלי נכס דיגיטלי (שער קהילה אישי)
+        cur.execute(
+            """
+            CREATE TABLE IF NOT EXISTS promoters (
+                user_id            BIGINT PRIMARY KEY,
+                bank_details       TEXT,
+                personal_group_link TEXT,
+                global_group_link   TEXT,
+                custom_price       NUMERIC,
+                created_at         TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                updated_at         TIMESTAMPTZ NOT NULL DEFAULT NOW()
+            );
+            """
+        )
+
+        # metrics – ספירות כלליות
         cur.execute(
             """
             CREATE TABLE IF NOT EXISTS metrics (
-                key TEXT PRIMARY KEY,
+                key   TEXT PRIMARY KEY,
                 value BIGINT NOT NULL DEFAULT 0
             );
             """
         )
 
-        logger.info("DB schema ensured (payments, users, referrals, rewards, metrics).")
+        logger.info("DB schema ensured (users, payments, referrals, rewards, promoters, metrics).")
+
+
+# =========================
+# users
+# =========================
+
+def store_user(user_id: int, username: Optional[str]) -> None:
+    """
+    שומר/מעדכן משתמש.
+    """
+    with db_cursor() as (conn, cur):
+        if cur is None:
+            logger.warning("store_user called without DB.")
+            return
+        cur.execute(
+            """
+            INSERT INTO users (user_id, username)
+            VALUES (%s, %s)
+            ON CONFLICT (user_id)
+            DO UPDATE SET username = EXCLUDED.username;
+            """,
+            (user_id, username),
+        )
 
 
 # =========================
@@ -140,17 +187,15 @@ def log_payment(user_id: int, username: Optional[str], pay_method: str) -> None:
             return
         cur.execute(
             """
-            INSERT INTO payments (user_id, username, pay_method, status, created_at, updated_at)
-            VALUES (%s, %s, %s, 'pending', NOW(), NOW());
+            INSERT INTO payments (user_id, username, pay_method, status)
+            VALUES (%s, %s, %s, 'pending');
             """,
             (user_id, username, pay_method),
         )
 
-
 def update_payment_status(user_id: int, status: str, reason: Optional[str]) -> None:
     """
-    מעדכן את הסטטוס של התשלום האחרון של משתמש מסוים.
-    status: 'approved' / 'rejected' / 'pending'
+    מעדכן את הסטטוס של התשלום האחרון של המשתמש.
     """
     with db_cursor() as (conn, cur):
         if cur is None:
@@ -174,87 +219,16 @@ def update_payment_status(user_id: int, status: str, reason: Optional[str]) -> N
         )
 
 
-# =========================
-# users / referrals – למערכת ניקוד ו-Leaderboard
-# =========================
-
-def store_user(user_id: int, username: Optional[str]) -> None:
-    """
-    שומר/מעדכן משתמש בטבלת users.
-    אם קיים – מעדכן username.
-    """
-    with db_cursor() as (conn, cur):
-        if cur is None:
-            return
-        cur.execute(
-            """
-            INSERT INTO users (id, username, first_seen_at)
-            VALUES (%s, %s, NOW())
-            ON CONFLICT (id) DO UPDATE
-              SET username = EXCLUDED.username;
-            """,
-            (user_id, username),
-        )
-
-
-def add_referral(referrer_id: int, referred_id: int, source: str) -> None:
-    """
-    מוסיף רשומת הפנייה.
-    """
-    with db_cursor() as (conn, cur):
-        if cur is None:
-            return
-        cur.execute(
-            """
-            INSERT INTO referrals (referrer_id, referred_id, source, points)
-            VALUES (%s, %s, %s, 1)
-            ON CONFLICT DO NOTHING;
-            """,
-            (referrer_id, referred_id, source),
-        )
-
-
-def get_top_referrers(limit: int = 10) -> List[Dict[str, Any]]:
-    """
-    מחזיר את המפנים הטופ לפי סך נקודות / מספר הפניות.
-    """
-    with db_cursor() as (conn, cur):
-        if cur is None:
-            return []
-        cur.execute(
-            """
-            SELECT r.referrer_id,
-                   u.username,
-                   COUNT(*) AS total_referrals,
-                   SUM(r.points) AS total_points
-            FROM referrals r
-            LEFT JOIN users u ON u.id = r.referrer_id
-            GROUP BY r.referrer_id, u.username
-            ORDER BY total_points DESC, total_referrals DESC
-            LIMIT %s;
-            """,
-            (limit,),
-        )
-        rows = cur.fetchall()
-        return [dict(row) for row in rows]
-
-
-# =========================
-# דוחות על תשלומים
-# =========================
-
 def get_monthly_payments(year: int, month: int) -> List[Dict[str, Any]]:
     """
-    מחזיר פילוח לפי שיטת תשלום וסטטוס לחודש נתון.
+    מחזיר אגרגציה של תשלומים לפי אמצעי תשלום וסטטוס עבור חודש נתון.
     """
     with db_cursor() as (conn, cur):
         if cur is None:
             return []
         cur.execute(
             """
-            SELECT pay_method,
-                   status,
-                   COUNT(*) AS count
+            SELECT pay_method, status, COUNT(*) AS count
             FROM payments
             WHERE EXTRACT(YEAR FROM created_at) = %s
               AND EXTRACT(MONTH FROM created_at) = %s
@@ -263,109 +237,254 @@ def get_monthly_payments(year: int, month: int) -> List[Dict[str, Any]]:
             """,
             (year, month),
         )
-        rows = cur.fetchall()
-        return [dict(row) for row in rows]
+        return [dict(row) for row in cur.fetchall()]
 
 
-def get_approval_stats() -> Optional[Dict[str, Any]]:
+def get_approval_stats() -> Dict[str, int]:
     """
-    מחזיר סטטיסטיקה כללית על statuses מהמכלול.
+    מחזיר סטטיסטיקות בסיסיות על תשלומים:
+    total / approved / rejected / pending
     """
     with db_cursor() as (conn, cur):
         if cur is None:
-            return None
+            return {"total": 0, "approved": 0, "rejected": 0, "pending": 0}
+
+        cur.execute("SELECT COUNT(*) AS total FROM payments;")
+        total = int(cur.fetchone()["total"])
+
+        def _count_status(st: str) -> int:
+            cur.execute("SELECT COUNT(*) AS c FROM payments WHERE status = %s;", (st,))
+            return int(cur.fetchone()["c"])
+
+        approved = _count_status("approved")
+        rejected = _count_status("rejected")
+        pending = _count_status("pending")
+
+        return {
+            "total": total,
+            "approved": approved,
+            "rejected": rejected,
+            "pending": pending,
+        }
+
+
+# =========================
+# referrals & leaderboard
+# =========================
+
+def add_referral(referrer_id: int, referred_user_id: int, source: Optional[str] = None) -> None:
+    """
+    מוסיף רשומת הפניה (referral). אם כבר קיים זוג כזה – מתעלמים.
+    """
+    with db_cursor() as (conn, cur):
+        if cur is None:
+            logger.warning("add_referral called without DB.")
+            return
+        try:
+            cur.execute(
+                """
+                INSERT INTO referrals (referrer_id, referred_user_id, source)
+                VALUES (%s, %s, %s)
+                ON CONFLICT ON CONSTRAINT idx_referrals_unique DO NOTHING;
+                """,
+                (referrer_id, referred_user_id, source),
+            )
+        except Exception as e:
+            # אם האינדקס/constraint לא קיים – ננסה ללא ON CONFLICT
+            logger.debug("add_referral ON CONFLICT failed, retrying without it: %s", e)
+            cur.execute(
+                """
+                INSERT INTO referrals (referrer_id, referred_user_id, source)
+                VALUES (%s, %s, %s)
+                ON CONFLICT DO NOTHING;
+                """,
+                (referrer_id, referred_user_id, source),
+            )
+
+
+def get_top_referrers(limit: int = 10) -> List[Dict[str, Any]]:
+    """
+    מחזיר Top referrers לפי מספר הפניות + סכום נקודות rewards (אם קיימים).
+    """
+    with db_cursor() as (conn, cur):
+        if cur is None:
+            return []
+
         cur.execute(
             """
             SELECT
-              COUNT(*) FILTER (WHERE status = 'pending') AS pending,
-              COUNT(*) FILTER (WHERE status = 'approved') AS approved,
-              COUNT(*) FILTER (WHERE status = 'rejected') AS rejected,
-              COUNT(*) AS total
-            FROM payments;
-            """
+                r.referrer_id,
+                u.username,
+                COUNT(DISTINCT r.referred_user_id) AS total_referrals,
+                COALESCE(SUM(CASE WHEN rw.points IS NULL THEN 0 ELSE rw.points END), 0) AS total_points
+            FROM referrals r
+            LEFT JOIN users u
+                ON u.user_id = r.referrer_id
+            LEFT JOIN rewards rw
+                ON rw.user_id = r.referrer_id
+            GROUP BY r.referrer_id, u.username
+            ORDER BY total_referrals DESC, total_points DESC
+            LIMIT %s;
+            """,
+            (limit,),
         )
-        row = cur.fetchone()
-        if not row:
-            return None
-        return dict(row)
+        return [dict(row) for row in cur.fetchall()]
 
 
 # =========================
-# rewards – בסיס ל-NFT / SLH / SHARE
+# rewards
 # =========================
 
-def create_reward(user_id: int, reward_type: str, reason: str, points: int = 0) -> None:
+def create_reward(user_id: int, reward_type: str, reason: str, points: int) -> None:
     """
-    יוצר רשומת Reward במצב 'pending'.
+    יצירת Reward – לדוגמה SLH points.
     """
     with db_cursor() as (conn, cur):
         if cur is None:
+            logger.warning("create_reward called without DB.")
             return
         cur.execute(
             """
-            INSERT INTO rewards (user_id, reward_type, reason, points, status, created_at, updated_at)
-            VALUES (%s, %s, %s, %s, 'pending', NOW(), NOW());
+            INSERT INTO rewards (user_id, reward_type, reason, points)
+            VALUES (%s, %s, %s, %s);
             """,
             (user_id, reward_type, reason, points),
         )
 
 
-def get_user_total_points(user_id: int, reward_type: Optional[str] = None) -> int:
+# =========================
+# promoters – שכבת הנכס הדיגיטלי
+# =========================
+
+def ensure_promoter(user_id: int) -> None:
     """
-    מחזיר סך נקודות למשתמש מתוך rewards.
-    אם reward_type לא None – מסנן לפי סוג (למשל 'SHARE').
+    מוודא שקיימת רשומה ב-promoters עבור המשתמש.
     """
     with db_cursor() as (conn, cur):
         if cur is None:
-            return 0
+            logger.warning("ensure_promoter called without DB.")
+            return
+        cur.execute(
+            """
+            INSERT INTO promoters (user_id)
+            VALUES (%s)
+            ON CONFLICT (user_id) DO NOTHING;
+            """,
+            (user_id,),
+        )
 
-        if reward_type:
-            cur.execute(
-                """
-                SELECT COALESCE(SUM(points), 0) AS total_points
-                FROM rewards
-                WHERE user_id = %s
-                  AND reward_type = %s;
-                """,
-                (user_id, reward_type),
-            )
-        else:
-            cur.execute(
-                """
-                SELECT COALESCE(SUM(points), 0) AS total_points
-                FROM rewards
-                WHERE user_id = %s;
-                """,
-                (user_id,),
-            )
 
+def update_promoter_settings(
+    user_id: int,
+    bank_details: Optional[str] = None,
+    personal_group_link: Optional[str] = None,
+    global_group_link: Optional[str] = None,
+) -> None:
+    """
+    עדכון פרטי promoter – רק השדות שלא None יתעדכנו.
+    """
+    fields = []
+    params: List[Any] = []
+    if bank_details is not None:
+        fields.append("bank_details = %s")
+        params.append(bank_details)
+    if personal_group_link is not None:
+        fields.append("personal_group_link = %s")
+        params.append(personal_group_link)
+    if global_group_link is not None:
+        fields.append("global_group_link = %s")
+        params.append(global_group_link)
+
+    if not fields:
+        return
+
+    params.append(user_id)
+
+    with db_cursor() as (conn, cur):
+        if cur is None:
+            logger.warning("update_promoter_settings called without DB.")
+            return
+        cur.execute(
+            f"""
+            UPDATE promoters
+            SET {", ".join(fields)},
+                updated_at = NOW()
+            WHERE user_id = %s;
+            """,
+            params,
+        )
+
+
+def get_promoter_summary(user_id: int) -> Optional[Dict[str, Any]]:
+    """
+    מחזיר פרטי promoter + כמה הפניות ותשלומים אושרו.
+    """
+    with db_cursor() as (conn, cur):
+        if cur is None:
+            return None
+
+        cur.execute(
+            """
+            SELECT
+                p.user_id,
+                p.bank_details,
+                p.personal_group_link,
+                p.global_group_link,
+                p.custom_price,
+                p.created_at,
+                p.updated_at
+            FROM promoters p
+            WHERE p.user_id = %s;
+            """,
+            (user_id,),
+        )
         row = cur.fetchone()
-        return int(row["total_points"]) if row else 0
+        if not row:
+            return None
+
+        promoter = dict(row)
+
+        # כמה הפניות רשומות לו
+        cur.execute(
+            "SELECT COUNT(*) AS c FROM referrals WHERE referrer_id = %s;",
+            (user_id,),
+        )
+        promoter["total_referrals"] = int(cur.fetchone()["c"])
+
+        # כמה תשלומים אושרו למופנים שלו (אם נרצה – אפשר לשדרג את זה)
+        cur.execute(
+            """
+            SELECT COUNT(*) AS c
+            FROM payments pay
+            JOIN referrals ref
+              ON ref.referred_user_id = pay.user_id
+            WHERE ref.referrer_id = %s
+              AND pay.status = 'approved';
+            """,
+            (user_id,),
+        )
+        promoter["approved_referrals"] = int(cur.fetchone()["c"])
+
+        return promoter
 
 
 # =========================
-# metrics – מונים גלובליים
+# metrics
 # =========================
 
-def increment_metric(key: str, amount: int = 1) -> int:
-    """
-    מעלה מונה גלובלי ומחזיר את הערך החדש.
-    """
+def incr_metric(key: str, delta: int = 1) -> None:
     with db_cursor() as (conn, cur):
         if cur is None:
-            return 0
+            return
         cur.execute(
             """
             INSERT INTO metrics (key, value)
             VALUES (%s, %s)
             ON CONFLICT (key)
-            DO UPDATE SET value = metrics.value + EXCLUDED.value
-            RETURNING value;
+            DO UPDATE SET value = metrics.value + EXCLUDED.value;
             """,
-            (key, amount),
+            (key, delta),
         )
-        row = cur.fetchone()
-        return int(row["value"]) if row else 0
 
 
 def get_metric(key: str) -> int:

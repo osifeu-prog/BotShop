@@ -45,6 +45,9 @@ try:
         get_monthly_payments,
         get_approval_stats,
         create_reward,
+        ensure_promoter,
+        update_promoter_settings,
+        get_promoter_summary,
     )
     DB_AVAILABLE = True
     logger.info("DB module loaded successfully, DB logging enabled.")
@@ -57,6 +60,7 @@ except Exception as e:
 # =========================
 BOT_TOKEN = os.environ.get("BOT_TOKEN")
 WEBHOOK_URL = os.environ.get("WEBHOOK_URL")  # חייב לכלול /webhook בסוף
+BOT_USERNAME = os.environ.get("BOT_USERNAME")  # לשיתוף קישור אישי להפצה
 
 if not BOT_TOKEN:
     raise RuntimeError("BOT_TOKEN environment variable is not set")
@@ -83,6 +87,15 @@ DEVELOPER_USER_ID = 224223270
 
 # קבוצת לוגים ותשלומים (רק למארגנים, לא יוצג למשתמש)
 PAYMENTS_LOG_CHAT_ID = -1001748319682
+
+
+def build_personal_share_link(user_id: int) -> str:
+    """
+    בונה קישור אישי לשיתוף שער הקהילה.
+    אם BOT_USERNAME קיים ב-ENV – נשתמש בו, אחרת נ fallback לשם הידוע.
+    """
+    base_username = BOT_USERNAME or "Buy_My_Shop_bot"
+    return f"https://t.me/{base_username}?start=ref_{user_id}"
 
 # לינקי תשלום (מה-ENV עם ברירת מחדל)
 PAYBOX_URL = os.environ.get(
@@ -125,10 +138,8 @@ BANK_DETAILS = (
 
 PAYBOX_DETAILS = (
     "📲 *תשלום בביט / פייבוקס / PayPal*\n\n"
-    "אפשר לשלם באחד מהאמצעים הבאים:\n\n"
-    f"• פייבוקס: {PAYBOX_URL}\n"
-    f"• PayPal: {PAYPAL_URL}\n"
-    f"• ביט: {BIT_URL}\n\n"
+    "אפשר לשלם דרך האפליקציות שלך בביט או פייבוקס.\n"
+    "קישורי התשלום המעודכנים מופיעים בכפתורים למטה.\n\n"
     "סכום: *39 ש\"ח*\n"
 )
 
@@ -235,21 +246,13 @@ def payment_methods_keyboard() -> InlineKeyboardMarkup:
     ])
 
 def payment_links_keyboard() -> InlineKeyboardMarkup:
-    """כפתורי לינקים אמיתיים לתשלום (רק אם יש URL תקין)"""
-    buttons: List[List[InlineKeyboardButton]] = []
-
-    if PAYBOX_URL:
-        buttons.append([InlineKeyboardButton("📲 תשלום בפייבוקס", url=PAYBOX_URL)])
-
-    # כפתור ביט יוצג רק אם BIT_URL נראה כמו URL (ולא רק מספר טלפון)
-    if BIT_URL and BIT_URL.startswith("http"):
-        buttons.append([InlineKeyboardButton("📲 תשלום בביט", url=BIT_URL)])
-
-    if PAYPAL_URL:
-        buttons.append([InlineKeyboardButton("💳 תשלום ב-PayPal", url=PAYPAL_URL)])
-
-    buttons.append([InlineKeyboardButton("⬅ חזרה לתפריט ראשי", callback_data="back_main")])
-
+    """כפתורי לינקים אמיתיים לתשלום"""
+    buttons = [
+        [InlineKeyboardButton("📲 תשלום בפייבוקס", url=PAYBOX_URL)],
+        [InlineKeyboardButton("📲 תשלום בביט", url=BIT_URL)],
+        [InlineKeyboardButton("💳 תשלום ב-PayPal", url=PAYPAL_URL)],
+        [InlineKeyboardButton("⬅ חזרה לתפריט ראשי", callback_data="back_main")],
+    ]
     return InlineKeyboardMarkup(buttons)
 
 def support_keyboard() -> InlineKeyboardMarkup:
@@ -621,7 +624,7 @@ async def handle_payment_photo(update: Update, context: ContextTypes.DEFAULT_TYP
 
 async def do_approve(target_id: int, context: ContextTypes.DEFAULT_TYPE, source_message) -> None:
     """לוגיקת אישור תשלום – משותפת ל-/approve ולכפתור"""
-    text = (
+    community_text = (
         "✅ התשלום שלך אושר!\n\n"
         "ברוך הבא לקהילת העסקים שלנו 🎉\n"
         "הנה הקישור להצטרפות לקהילה:\n"
@@ -629,21 +632,41 @@ async def do_approve(target_id: int, context: ContextTypes.DEFAULT_TYPE, source_
         "וכמו שהבטחנו – קבל את העותק הממוספר שלך של שער הקהילה בהודעה נפרדת 🎁\n"
         "ניפגש בפנים 🙌"
     )
+
+    # קישור אישי להפצת השער (נכס דיגיטלי בסיסי)
+    personal_link = build_personal_share_link(target_id)
+    promoter_text = (
+        "🚀 מהיום יש לך *שער קהילה דיגיטלי* משלך!\n\n"
+        "זה הקישור האישי שלך להפצה לחברים ולקוחות:\n"
+        f"{personal_link}\n\n"
+        "כל מי שייכנס דרך הקישור הזה, ישלם ויאושר – ייזקף לזכותך במערכת.\n"
+        "תוכל לעדכן את פרטי הבנק והקבוצות שלך דרך הפקודות:\n"
+        "/set_bank – הגדרת פרטי חשבון לקבלת תשלום\n"
+        "/set_groups – קישורי קבוצות\n"
+        "/my_bot – צפייה בסיכום הנכס הדיגיטלי שלך"
+    )
+
     try:
-        await context.bot.send_message(chat_id=target_id, text=text)
+        # הודעת קהילה + קישור
+        await context.bot.send_message(chat_id=target_id, text=community_text)
+
         # שליחת העותק הממוספר של התמונה
         await send_start_image(context, target_id, mode="download")
+
+        # הודעת נכס דיגיטלי אישי
+        await context.bot.send_message(chat_id=target_id, text=promoter_text, parse_mode="Markdown")
 
         # עדכון סטטוס ב-DB
         if DB_AVAILABLE:
             try:
                 update_payment_status(target_id, "approved", None)
+                ensure_promoter(target_id)
             except Exception as e:
-                logger.error("Failed to update payment status in DB: %s", e)
+                logger.error("Failed to update payment status / promoter in DB: %s", e)
 
         if source_message:
             await source_message.reply_text(
-                f"אושר ונשלח קישור + עותק ממוספר למשתמש {target_id}."
+                f"אושר ונשלח קישור + עותק ממוספר + קישור הפצה אישי למשתמש {target_id}."
             )
     except Exception as e:
         logger.error("Failed to send approval message: %s", e)
@@ -891,6 +914,120 @@ async def admin_reward_slh_command(update: Update, context: ContextTypes.DEFAULT
     except Exception as e:
         logger.error("Failed to notify user about reward: %s", e)
 
+
+# =========================
+# נכס דיגיטלי אישי למקדמים – פקודות משתמש
+# =========================
+
+async def my_bot_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """
+    מציג למשתמש מידע על הנכס הדיגיטלי שלו (אם קיים).
+    """
+    user = update.effective_user
+    if user is None:
+        return
+
+    if not DB_AVAILABLE:
+        await update.effective_message.reply_text("DB לא פעיל כרגע, נסה מאוחר יותר.")
+        return
+
+    summary = get_promoter_summary(user.id)
+    personal_link = build_personal_share_link(user.id)
+
+    if not summary:
+        await update.effective_message.reply_text(
+            "כרגע עדיין לא רשום לך נכס דיגיטלי כמקדם.\n"
+            "אם ביצעת תשלום והתקבל אישור – נסה שוב בעוד מספר דקות."
+        )
+        return
+
+    bank = summary.get("bank_details") or "לא הוגדר"
+    p_group = summary.get("personal_group_link") or "לא הוגדר"
+    g_group = summary.get("global_group_link") or "לא הוגדר"
+    total_ref = summary.get("total_referrals", 0)
+    approved_ref = summary.get("approved_referrals", 0)
+
+    text = (
+        "📌 *הנכס הדיגיטלי שלך – שער קהילה אישי*\n\n"
+        f"*קישור אישי להפצה:*\n{personal_link}\n\n"
+        "*פרטי בנק לקבלת תשלום:*\n"
+        f"{bank}\n\n"
+        "*קבוצת לקוחות פרטית:*\n"
+        f"{p_group}\n\n"
+        "*קבוצת משחק/קהילה כללית:*\n"
+        f"{g_group}\n\n"
+        "*סטטוס פעילות:*\n"
+        f"- סה\"כ הפניות רשומות: {total_ref}\n"
+        f"- מהן אושרו עם תשלום: {approved_ref}\n\n"
+        "אפשר לעדכן פרטים בכל רגע עם:\n"
+        "/set_bank – עדכון פרטי בנק\n"
+        "/set_groups – עדכון קישורי קבוצות"
+    )
+
+    await update.effective_message.reply_text(text, parse_mode="Markdown")
+
+
+async def set_bank_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """
+    עדכון פרטי הבנק של המקדם. שימוש:
+    /set_bank <טקסט חופשי עם פרטי החשבון>
+    """
+    user = update.effective_user
+    if user is None:
+        return
+
+    if not DB_AVAILABLE:
+        await update.effective_message.reply_text("DB לא פעיל כרגע, נסה מאוחר יותר.")
+        return
+
+    if not context.args:
+        await update.effective_message.reply_text(
+            "שלח את הפקודה כך:\n"
+            "/set_bank בנק הפועלים, סניף 153, חשבון 73462, המוטב: קאופמן צביקה"
+        )
+        return
+
+    bank_details = " ".join(context.args).strip()
+
+    # נוודא שקיימת רשומת promoter
+    ensure_promoter(user.id)
+    update_promoter_settings(user.id, bank_details=bank_details)
+
+    await update.effective_message.reply_text("פרטי הבנק עודכנו בהצלחה ✅")
+
+
+async def set_groups_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """
+    עדכון קישורי קבוצות. שימוש:
+    /set_groups <קישור לקבוצה שלך> <קישור לקבוצת המשחק הכללית (אופציונלי)>
+    """
+    user = update.effective_user
+    if user is None:
+        return
+
+    if not DB_AVAILABLE:
+        await update.effective_message.reply_text("DB לא פעיל כרגע, נסה מאוחר יותר.")
+        return
+
+    if not context.args:
+        await update.effective_message.reply_text(
+            "שלח את הפקודה כך:\n"
+            "/set_groups <קישור לקבוצת הלקוחות שלך> <קישור לקבוצת המשחק הכללית (אופציונלי)>"
+        )
+        return
+
+    personal_group_link = context.args[0]
+    global_group_link = context.args[1] if len(context.args) > 1 else None
+
+    ensure_promoter(user.id)
+    update_promoter_settings(
+        user.id,
+        personal_group_link=personal_group_link,
+        global_group_link=global_group_link,
+    )
+
+    await update.effective_message.reply_text("קישורי הקבוצות עודכנו בהצלחה ✅")
+
 # =========================
 # אישור/דחייה – כפתורי אדמין
 # =========================
@@ -1097,6 +1234,9 @@ ptb_app.add_handler(CommandHandler("reject", reject_command))
 ptb_app.add_handler(CommandHandler("leaderboard", admin_leaderboard_command))
 ptb_app.add_handler(CommandHandler("payments_stats", admin_payments_stats_command))
 ptb_app.add_handler(CommandHandler("reward_slh", admin_reward_slh_command))
+ptb_app.add_handler(CommandHandler("my_bot", my_bot_command))
+ptb_app.add_handler(CommandHandler("set_bank", set_bank_command))
+ptb_app.add_handler(CommandHandler("set_groups", set_groups_command))
 
 ptb_app.add_handler(CallbackQueryHandler(info_callback, pattern="^info$"))
 ptb_app.add_handler(CallbackQueryHandler(join_callback, pattern="^join$"))
