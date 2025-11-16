@@ -1,162 +1,113 @@
+﻿# Buy My Shop  Gateway Minimal
 
-# BotShop Gateway Minimal – SLHNET Onboarding
+שער כניסה מינימלי לקהילת העסקים שלך, מותאם ל-Railway ולתצורת המשתנים הקיימת.
 
-פרויקט מינימלי לשער כניסה לקהילת SLHNET:
-- בוט טלגרם עם Webhook (FastAPI)
-- לוגים מלאים לקבוצת אדמינים
-- קבלת אישורי תשלום (תמונה) ורישום ב-Postgres
-- מערכת פניות תמיכה פשוטה
+## מה הבוט עושה?
 
-## 1. מבנה הפרויקט
+1. כל `/start`:
+   - שולח הודעת לוג לקבוצת האדמינים (ADMIN_LOG_CHAT_ID) עם:
+     - Chat ID
+     - User ID
+     - Username
+     - Full name
+   - שולח למשתמש טקסט הסבר + כפתורים:
+     - איך מצטרפים?
+     - שליחת הוכחת תשלום
+     - תמיכה טכנית
+     - קישור לאתר LANDING_URL
 
-```text
-botshop_gateway_minimal/
-├── main.py          # FastAPI + Telegram Webhook
-├── db.py            # SQLAlchemy + טבלאות users/payments/support
-├── config.py        # קריאת משתני סביבה
-├── requirements.txt
-├── Procfile         # uvicorn main:app ...
-├── .gitignore
-└── README.md
-```
+2. הצטרפות ותשלום:
+   - מסך "איך מצטרפים" מציג:
+     - סכום ההצטרפות (SLH_NIS, ברירת מחדל 39)
+     - קישורי תשלום אם הוגדרו: PAYBOX_URL, PAYPAL_URL, BIT_URL
+   - המשתמש לוחץ "שליחת הוכחת תשלום" ושולח תמונה/מסמך.
+   - הבוט מעביר את האישור לקבוצת האדמינים (ADMIN_LOG_CHAT_ID) עם כל הפרטים.
 
-## 2. משתני סביבה (Railway)
+3. תמיכה טכנית:
+   - המשתמש לוחץ "תמיכה טכנית", כותב הודעה.
+   - הבוט מעביר את ההודעה לקבוצת התמיכה (SUPPORT_GROUP_ID).
 
-להגדיר ב-Service של הבוט:
+4. אישור תשלום:
+   - בקבוצת האדמינים שולחים: `/approve <user_id>`
+   - הבוט שולח למשתמש שנרשם:
+     - הודעה שהתשלום אושר
+     - קישור לקבוצת העסקים BUSINESS_GROUP_URL / GROUP_STATIC_INVITE
 
-חובה:
-```env
-BOT_TOKEN=xxx
-BOT_USERNAME=Buy_My_Shop_bot
-WEBHOOK_URL=https://webwook-production-4861.up.railway.app/webhook
+## מבנה הפרויקט
 
-DATABASE_URL=${Postgres.DATABASE_URL}
-```
+- `main.py`  אפליקציית FastAPI + אינטגרציית Telegram Webhook
+- `requirements.txt`  תלויות מינימליות
+- `Procfile`  הפעלת uvicorn ב-Railway
+- `docs/index.html`  דף תדמיתי פשוט (נגיש ב-`/site/index.html`)
 
-לוגים ותמיכה (חובה כדי שהמערכת תהיה שימושית):
+## משתני סביבה נדרשים (Railway)
 
-```env
-ADMIN_LOGS_CHAT_ID=-100xxxxxxxxxx        # הקבוצה: https://t.me/+aww1rlTDUSplODc0
-SUPPORT_GROUP_CHAT_ID=-100yyyyyyyyyy     # הקבוצה: https://t.me/+1ANn25HeVBoxNmRk
-```
+הבוט משתמש רק בחלק מהמשתנים שיש לך כבר ב-Railway.
+אין צורך למחוק משתנים מיותרים  הם פשוט יתעלמו.
 
-קישורים ציבוריים (משתמשים רואים רק את ה-URLים האלו):
+### חובה
 
-```env
-BUSINESS_GROUP_URL=https://t.me/+HIzvM8sEgh1kNWY0
-SUPPORT_GROUP_URL=https://t.me/+1ANn25HeVBoxNmRk
-LANDING_URL=https://slh-nft.com
-DEFAULT_LANG=he
-```
+- `BOT_TOKEN`  טוקן של הבוט בטלגרם
+- `WEBHOOK_URL`  לדוגמה: `https://webwook-production-4861.up.railway.app/webhook`
+- `BOT_USERNAME`  לדוגמה: `Buy_My_Shop_bot`
 
-תשלום (39 ש"ח):
+- `ADMIN_LOG_CHAT_ID`  מספר `chat_id` של קבוצת הלוגים/אדמינים  
+  (הקבוצה שלך: https://t.me/+aww1rlTDUSplODc0)
 
-```env
-SLH_NIS=39
-BIT_URL=0546671882
-PAYBOX_URL=https://links.payboxapp.com/1SNfaJ6XcYb
-PAYPAL_URL=https://paypal.me/osifdu
-```
+- `SUPPORT_GROUP_ID`  מספר `chat_id` של קבוצת התמיכה  
+  (https://t.me/+1ANn25HeVBoxNmRk)
 
-אפשר להשאיר את שאר המשתנים הקיימים ב-Railway – הקוד פשוט מתעלם מהם.
+- `BUSINESS_GROUP_URL`  לינק ההצטרפות לקהילת העסקים  
+  (לדוגמה: https://t.me/+HIzvM8sEgh1kNWY0)
 
-### איך להשיג chat_id של קבוצות (ADMIN_LOGS / SUPPORT)
+### מומלץ
 
-1. ודא שהבוט הוא admin בקבוצה.
-2. שלח הודעה בקבוצה.
-3. הרץ סקריפט קצר מקומי עם bot token שמדפיס `update.effective_chat.id`,
-   או השתמש בבוט כללי (כמו RawDataBot) כדי לקרוא את ה-chat_id.
-4. עדכן את הערכים ב-Railway.
+- `LANDING_URL`  כתובת האתר הראשי (לדוגמה: `https://slh-nft.com`)
+- `PAYBOX_URL`  לינק PayBox לתשלום 39 
+- `PAYPAL_URL`  לינק PayPal שלך
+- `BIT_URL`  טלפון להעברת Bit / העברה בנקאית (לפי מה שהצגת עד עכשיו)
+- `SLH_NIS`  סכום ההצטרפות (ברירת מחדל 39)
 
-## 3. לוגיקת הבוט
+### משתנים קיימים ברלווי שהקוד המינימלי לא משתמש בהם
 
-### /start
+לא חובה למחוק, אבל אפשר אם רוצים סדר:
 
-- רושם/מעדכן את המשתמש ב-Postgres (`botshop_users`).
-- שולח הודעת לוג לקבוצת האדמינים (ADMIN_LOGS_CHAT_ID):
-  - ID
-  - username
-  - full name
-  - chat_id
-- שולח למשתמש הודעה עם:
-  - הסבר על SLHNET וה-39 ש"ח
-  - כפתור "💳 לשלם 39 ש"ח"
-  - כפתור "📢 קהילת העסקים" (לינק לקבוצה)
-  - כפתור "🛠 תמיכה טכנית"
-  - כפתור "🌐 אתר הפרויקט"
+- `ADMIN_DASH_TOKEN`
+- `AI_DAILY_QUOTA_FREE`
+- `AI_DAILY_QUOTA_PAID`
+- `AI_ENABLE`
+- `AI_POINTS_THRESHOLD`
+- `HF_IMAGE_MODEL`
+- `HF_TEXT_MODEL`
+- `HF_TOKEN`
+- `OPENAI_API_KEY`
+- `START_IMAGE_PATH`
+- וכל שאר משתני AI / Dashboard / Layer מתקדמת.
 
-### תשלום – כפתור "💳 לשלם 39 ש"ח"
+הם לא ישפיעו על גרסה זו.
 
-- מציג למשתמש טקסט עם כל אפשרויות התשלום:
-  - Bit (BIT_URL)
-  - PayBox (PAYBOX_URL)
-  - PayPal (PAYPAL_URL)
-- מבקש מהמשתמש לשלוח תמונה של אישור התשלום לבוט.
+## איך לפרוס
 
-### אישור תשלום (תמונה)
+1. ודא שהקבצים למעלה קיימים בריפו שמחובר ל-Railway.
+2. `git add . && git commit -m "minimal gateway bot" && git push`.
+3. ב-Railway:
+   - Root Directory = שורש הריפו (שם `main.py` ו-`Procfile`).
+   - השתמש בפקודת הweb מה-Procfile (Railpack עושה זאת לבד).
+4. עדכן את משתני הסביבה הדרושים.
+5. עשה Deploy מחדש.
 
-- כל תמונה בצ'אט פרטי:
-  - נרשמת כ-`botshop_payment_proofs` ב-Postgres.
-  - נשלחת לקבוצת האדמינים (ADMIN_LOGS_CHAT_ID) עם:
-    - user_id
-    - username
-    - from chat_id
-    - צילום האישור עצמו.
-- למשתמש נשלחת תשובה:
-  - "✅ תודה! אישור התשלום התקבל ונמצא כעת בבדיקה..."
+בדיקות:
 
-(שלב האישור הידני והכנסת המשתמש לקבוצת העסקים ייעשו ידנית בשלב זה.)
+- פתח `/health`  אמור להחזיר JSON עם `status: "ok"`.
+- פתח `/site/index.html`  אמור להציג את דף התדמית.
+- שלח `/start` לבוט:
+  - אתה אמור לראות הודעת לוג בקבוצת האדמינים.
+  - המשתמש מקבל טקסט + כפתורי הצטרפות/תשלום/תמיכה.
+- שלח צילום אישור תשלום  אמור להגיע לקבוצת האדמינים.
+- בקבוצת האדמינים נסה `/approve <user_id>`  המשתמש אמור לקבל קישור לקבוצת העסקים.
 
-### תמיכה – כפתור "🛠 תמיכה טכנית"
+מכאן אפשר לחדש פרסום ממומן ולמדוד:
+- כמות פתיחות `/start` מהלידים.
+- כמות הוכחות תשלום שמגיעות.
+- כמה אישורים / הצטרפויות בפועל.
 
-- הבוט מבקש מהמשתמש לכתוב את נושא ותוכן הפניה.
-- ההודעה הראשונה שנשלחת לאחר מכן:
-  - נרשמת בטבלה `botshop_support_tickets`.
-  - נשלחת לקבוצת התמיכה (SUPPORT_GROUP_CHAT_ID) עם:
-    - ID
-    - username
-    - נושא
-    - טקסט מלא של ההודעה.
-- לאחר השליחה:
-  - למשתמש נשלחת תשובה: "✅ ההודעה נשלחה לתמיכה..."
-
-## 4. הרצה מקומית (אופציונלי)
-
-```bash
-python -m venv .venv
-source .venv/bin/activate  # ב-Windows: .venv\Scripts\activate
-pip install -r requirements.txt
-
-export BOT_TOKEN=...
-export WEBHOOK_URL=http://localhost:8000/webhook
-export DATABASE_URL=postgresql://...
-
-uvicorn main:app --reload
-```
-
-(להרצת webhook לוקאלי צריך להשתמש ב-ngrok או כלי דומה – ב-Railway זה כבר מוגדר דרך WEBHOOK_URL.)
-
-## 5. פריסה ל-Railway
-
-1. צור ריפו GitHub חדש (למשל `botshop-gateway-minimal`).
-2. העלה אליו את כל קבצי התיקייה.
-3. חבר את ה-Repo ל-Railway.
-4. ודא ש:
-   - `Procfile` נמצא בשורש.
-   - `requirements.txt` בשורש.
-   - HEALTHCHECK מוגדר ל-`/health`.
-5. עדכן משתני סביבה בדיוק כפי שמופיעים למעלה.
-6. פרוס (Deploy) את השירות.
-
-אם /health מחזיר:
-```json
-{"status": "ok", "service": "botshop-gateway-minimal", "db": "enabled"}
-```
-המערכת מוכנה לפרסום.
-
----
-
-בשלב הבא נוכל להרחיב מכאן ל:
-- חיבור למערכת החנויות / SLH Shop System
-- הוספת לוגיקת "אישור תשלום" שמשנה סטטוס בבסיס הנתונים
-- שליחת קישור אוטומטית לקבוצת העסקים לאחר אישור.

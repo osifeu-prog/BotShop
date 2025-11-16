@@ -1,6 +1,5 @@
-fastapi==0.115.5
+﻿fastapi==0.115.5
 uvicorn[standard]==0.32.0
 python-telegram-bot==22.5
-SQLAlchemy==2.0.36
-psycopg2-binary==2.9.11
+httpx==0.28.1
 python-dotenv==1.0.1

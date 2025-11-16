@@ -1,346 +1,361 @@
+﻿import logging
+import os
+from typing import Optional, Dict
 
-    import logging
-    from datetime import datetime
+from fastapi import FastAPI, Request
+from fastapi.responses import JSONResponse, HTMLResponse, RedirectResponse
+from fastapi.staticfiles import StaticFiles
 
-    from fastapi import FastAPI, Request
-    from fastapi.responses import JSONResponse, RedirectResponse
+from telegram import Update, InlineKeyboardMarkup, InlineKeyboardButton
+from telegram.ext import (
+    Application,
+    ApplicationBuilder,
+    CommandHandler,
+    MessageHandler,
+    CallbackQueryHandler,
+    ContextTypes,
+    filters,
+)
+import asyncio
 
-    from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
-    from telegram.ext import (
-        Application,
-        ApplicationBuilder,
-        CommandHandler,
-        MessageHandler,
-        CallbackQueryHandler,
-        ContextTypes,
-        filters,
+logging.basicConfig(
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+    level=logging.INFO,
+)
+logger = logging.getLogger("botshop-gateway-minimal")
+
+BOT_TOKEN = os.getenv("BOT_TOKEN")
+WEBHOOK_URL = os.getenv("WEBHOOK_URL")
+BOT_USERNAME = os.getenv("BOT_USERNAME", "Buy_My_Shop_bot")
+
+# קבוצת לוגים / אדמינים (chat_id כ-int, לא לינק)
+ADMIN_LOG_CHAT_ID = os.getenv("ADMIN_LOG_CHAT_ID")
+# קבוצת העסקים אליה מקבלים קישור אחרי אישור (Invite link קבוע)
+BUSINESS_GROUP_URL = os.getenv("BUSINESS_GROUP_URL") or os.getenv("GROUP_STATIC_INVITE")
+# קבוצת תמיכה  לשם נשלחות פניות תמיכה
+SUPPORT_GROUP_ID = os.getenv("SUPPORT_GROUP_ID")
+
+LANDING_URL = os.getenv("LANDING_URL", "https://slh-nft.com")
+PAYBOX_URL = os.getenv("PAYBOX_URL")
+PAYPAL_URL = os.getenv("PAYPAL_URL")
+BIT_PHONE = os.getenv("BIT_URL")  # טלפון להעברת ביט
+SLH_NIS = os.getenv("SLH_NIS", "39")
+
+if not BOT_TOKEN:
+    raise RuntimeError("BOT_TOKEN is required")
+
+# === FastAPI app ===
+app = FastAPI(title="Buy My Shop  Gateway Bot")
+
+# שרת את docs כסטטי
+docs_path = os.path.join(os.path.dirname(__file__), "docs")
+if os.path.isdir(docs_path):
+    app.mount("/site", StaticFiles(directory=docs_path, html=True), name="site")
+
+
+@app.get("/", response_class=HTMLResponse)
+async def root():
+    # הפניה לדף התדמיתי
+    return RedirectResponse(url="/site/index.html")
+
+
+@app.get("/health")
+async def health():
+    return {"status": "ok", "service": "telegram-gateway-community-bot", "db": "disabled"}
+
+
+# === Telegram Application ===
+telegram_app: Application = ApplicationBuilder().token(BOT_TOKEN).build()
+
+# זיכרון מינימלי לבקשות תמיכה
+SUPPORT_WAITING: Dict[int, bool] = {}
+
+
+def _safe_int(value: Optional[str]) -> Optional[int]:
+    try:
+        return int(value) if value is not None else None
+    except ValueError:
+        return None
+
+
+def build_main_keyboard() -> InlineKeyboardMarkup:
+    buttons = [
+        [
+            InlineKeyboardButton("איך מצטרפים?", callback_data="how_to_join"),
+        ],
+        [
+            InlineKeyboardButton("שליחת הוכחת תשלום", callback_data="send_proof"),
+        ],
+        [
+            InlineKeyboardButton("תמיכה טכנית", callback_data="support"),
+        ],
+        [
+            InlineKeyboardButton("לאתר הפרויקט", url=LANDING_URL),
+        ],
+    ]
+    return InlineKeyboardMarkup(buttons)
+
+
+async def notify_admins_new_start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    if not ADMIN_LOG_CHAT_ID:
+        return
+
+    chat = update.effective_chat
+    user = update.effective_user
+    text = (
+        "📥 הפעלה חדשה של הבוט\n"
+        f"Chat ID: {chat.id}\n"
+        f"User ID: {user.id}\n"
+        f"Username: @{user.username if user.username else '-'}\n"
+        f"Full name: {user.full_name}\n"
+    )
+    try:
+        await context.bot.send_message(chat_id=int(ADMIN_LOG_CHAT_ID), text=text)
+    except Exception as e:
+        logger.error("Failed to notify admins on start: %s", e)
+
+
+async def start_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    await notify_admins_new_start(update, context)
+
+    text = (
+        "🌐 *שער הכניסה לקהילת העסקים של SLH*\n\n"
+        f"עלות ההצטרפות: *{SLH_NIS} ש\"ח* בלבד (חדפעמי).\n\n"
+        "מה תקבלו לאחר אישור התשלום:\n"
+        "• גישה לקבוצת עסקים פרטית וסגורה.\n"
+        "• נכסים דיגיטליים (בוטים, קלפים, NFT, טוקני SLH) שיחולקו בקבוצה.\n"
+        "• הסבר איך להשתמש בבוטים כדי לייצר הכנסה משיתופים.\n"
+        "• קישור אישי לשיתוף  שמאפשר לכם להרוויח מהפניות נוספות.\n\n"
+        "כדי להתחיל  בחרו אחת מהאפשרויות שלמטה."
+    )
+    await update.effective_chat.send_message(
+        text=text,
+        reply_markup=build_main_keyboard(),
+        parse_mode="Markdown",
     )
 
-    from config import (
-        BOT_TOKEN,
-        BOT_USERNAME,
-        WEBHOOK_URL,
-        ADMIN_LOGS_CHAT_ID,
-        SUPPORT_GROUP_CHAT_ID,
-        BUSINESS_GROUP_URL,
-        SUPPORT_GROUP_URL,
-        SLH_NIS,
-        BIT_URL,
-        PAYBOX_URL,
-        PAYPAL_URL,
-        LANDING_URL,
-    )
-    from db import SessionLocal, init_db, get_or_create_user, PaymentProof, SupportTicket
 
-    logging.basicConfig(
-        format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
-        level=logging.INFO,
-    )
-    logger = logging.getLogger("botshop-gateway")
-
-    app = FastAPI(title="BotShop Gateway Minimal")
-
-    telegram_app: Application | None = None
+async def help_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    await start_cmd(update, context)
 
 
-    # =========================
-    # Telegram Handlers
-    # =========================
+async def callback_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    query = update.callback_query
+    await query.answer()
 
-
-    async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-        if update.effective_user is None or update.effective_chat is None:
-            return
-
-        tg_user = update.effective_user
-        chat = update.effective_chat
-
-        # DB: ensure user exists
-        session = SessionLocal()
-        try:
-            user = get_or_create_user(session, tg_user)
-        finally:
-            session.close()
-
-        # Log to admin group
-        if ADMIN_LOGS_CHAT_ID:
-            try:
-                text = (
-                    "📥 משתמש חדש הפעיל את הבוט\n"
-                    f"ID: {tg_user.id}\n"
-                    f"Username: @{tg_user.username}\n"
-                    f"Name: {tg_user.full_name}\n"
-                    f"Chat ID: {chat.id}\n"
-                )
-                await context.bot.send_message(chat_id=ADMIN_LOGS_CHAT_ID, text=text)
-            except Exception as e:
-                logger.warning("Failed to send new user log: %s", e)
-
-        # Message to user
-        text_lines = [
-            "🌐 שער הכניסה ל-SLHNET – נכס דיגיטלי לכל אחד",
+    if query.data == "how_to_join":
+        lines = [
+            "🧭 *איך מצטרפים לקהילת העסקים?*",
             "",
-            f"חד פעמית: *{int(SLH_NIS)} ש"ח* להצטרפות לקהילת העסקים שלנו.",
-            "",
-            "מה תקבל אחרי התשלום?",
-            "• גישה לקבוצת עסקים פרטית (הדרכות, שיתופי פעולה, מבצעים).",
-            "• מקום לקבל נכסים דיגיטליים, קלפים ו-NFT מניבי ערך.",
-            "• קישור שיתוף אישי – כל מי שנכנס דרכך מתועד במערכת.",
-            "",
-            "אחרי ביצוע התשלום – שלח כאן *צילום מסך / אישור העברה* ונאשר אותך ידנית.",
+            f"1. מעבירים *{SLH_NIS} ש\"ח* באחת מהאפשרויות הבאות:",
         ]
+        if PAYBOX_URL:
+            lines.append(f"• PayBox: {PAYBOX_URL}")
+        if PAYPAL_URL:
+            lines.append(f"• PayPal: {PAYPAL_URL}")
+        if BIT_PHONE:
+            lines.append(f"• Bit / העברה בנקאית לטלפון: {BIT_PHONE}")
+        lines.extend(
+            [
+                "",
+                "2. לאחר ביצוע התשלום  חוזרים לבוט ולוחצים על _\"שליחת הוכחת תשלום\"_.",
+                "3. מעלים צילום מסך / צילום של האישור.",
+                "4. לאחר האישור  תקבלו קישור לקבוצת העסקים הסגורה שלנו.",
+            ]
+        )
+        await query.edit_message_text(
+            "\n".join(lines),
+            parse_mode="Markdown",
+            reply_markup=build_main_keyboard(),
+        )
 
-        keyboard = [
-            [
-                InlineKeyboardButton("💳 לשלם 39 ש"ח", callback_data="pay"),
-            ],
-            [
-                InlineKeyboardButton("📢 קהילת העסקים (לאחר תשלום)", url=BUSINESS_GROUP_URL or LANDING_URL),
-            ],
-            [
-                InlineKeyboardButton("🛠 תמיכה טכנית", callback_data="support"),
-            ],
-            [
-                InlineKeyboardButton("🌐 אתר הפרויקט", url=LANDING_URL),
-            ],
-        ]
-        reply_markup = InlineKeyboardMarkup(keyboard)
+    elif query.data == "send_proof":
+        await query.edit_message_text(
+            "📤 *שליחת הוכחת תשלום*\n\n"
+            "נא העלה כאן צילום מסך של האישור (PayBox / PayPal / העברה בנקאית).\n"
+            "אנו נבדוק ונאשר, ואז נשלח לך קישור לקבוצת העסקים.",
+            parse_mode="Markdown",
+            reply_markup=build_main_keyboard(),
+        )
 
-        await update.message.reply_text(
-            "\n".join(text_lines),
-            reply_markup=reply_markup,
+    elif query.data == "support":
+        user_id = update.effective_user.id
+        SUPPORT_WAITING[user_id] = True
+        await query.edit_message_text(
+            "🆘 *תמיכה טכנית*\n\n"
+            "כתוב עכשיו את הפנייה שלך (טקסט בלבד), ואעביר אותה ישירות לצוות התמיכה.",
+            parse_mode="Markdown",
+            reply_markup=build_main_keyboard(),
+        )
+
+
+async def handle_support_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    if not SUPPORT_GROUP_ID:
+        return
+
+    user = update.effective_user
+    chat = update.effective_chat
+
+    if not update.message or not update.message.text:
+        return
+
+    if not SUPPORT_WAITING.get(user.id):
+        return
+
+    SUPPORT_WAITING[user.id] = False
+
+    text = update.message.text
+    msg = (
+        "🆘 *פניית תמיכה חדשה*\n\n"
+        f"From User ID: `{user.id}`\n"
+        f"Username: @{user.username if user.username else '-'}\n"
+        f"Chat ID: `{chat.id}`\n\n"
+        f"Message:\n{text}"
+    )
+    try:
+        await context.bot.send_message(
+            chat_id=int(SUPPORT_GROUP_ID),
+            text=msg,
             parse_mode="Markdown",
         )
+    except Exception as e:
+        logger.error("Failed to send support message to group: %s", e)
+
+    await update.message.reply_text(
+        "✅ פנייתך נשלחה לתמיכה. נשיב לך בהקדם האפשרי."
+    )
 
 
-    async def on_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-        if update.callback_query is None:
-            return
-        query = update.callback_query
-        data = query.data or ""
-
-        if data == "pay":
-            lines = [
-                "💳 אפשרויות תשלום להצטרפות (39 ש"ח):",
-                "",
-                "1) Bit:",
-                f"   {BIT_URL or 'עודכן מול האדמין'}",
-                "",
-                "2) PayBox:",
-                f"   {PAYBOX_URL or 'עודכן מול האדמין'}",
-                "",
-                "3) PayPal:",
-                f"   {PAYPAL_URL or 'עודכן מול האדמין'}",
-                "",
-                "לאחר התשלום – שלח כאן צילום של אישור ההעברה ונאשר אותך ידנית לקבוצת העסקים.",
-            ]
-            await query.answer()
-            await query.edit_message_text("\n".join(lines))
-            return
-
-        if data == "support":
-            await query.answer()
-            await query.edit_message_text(
-                "🛠 תמיכה טכנית\n\n"
-                "כתוב לי כאן את נושא הפניה וההודעה, ואני אעביר אותה ישירות לצוות התמיכה. "
-                "תוכל גם לצרף צילום מסך במידת הצורך."
-            )
-            # נסמן שאנחנו במצב תמיכה (בתור flag)
-            if context.user_data is not None:
-                context.user_data["awaiting_support"] = True
-            return
-
-        await query.answer()
-
-
-    async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-        """כל תמונה בצ'אט פרטי נחשבת כאישור תשלום."""
-        if update.message is None or update.effective_user is None:
-            return
-        if update.effective_chat is None or update.effective_chat.type != "private":
-            return
-
-        tg_user = update.effective_user
-        message = update.message
-
-        if not message.photo:
-            return
-
-        photo = message.photo[-1]  # highest resolution
-        file_id = photo.file_id
-        caption = message.caption or ""
-
-        # DB save
-        session = SessionLocal()
-        try:
-            user = get_or_create_user(session, tg_user)
-            proof = PaymentProof(
-                user_id=user.id,
-                telegram_id=tg_user.id,
-                username=tg_user.username,
-                photo_file_id=file_id,
-                caption=caption,
-                status="pending",
-            )
-            session.add(proof)
-            session.commit()
-        finally:
-            session.close()
-
-        # Forward to admin logs
-        if ADMIN_LOGS_CHAT_ID:
-            try:
-                text = (
-                    "📥 התקבל אישור תשלום חדש.\n"
-                    f"user_id = {tg_user.id}\n"
-                    f"username = @{tg_user.username}\n"
-                    f"from chat_id = {update.effective_chat.id}\n"
-                    "\n"
-                    "לאישור ידני של תשלום זה, יש ליצור קשר עם המשתמש בפרטי."
-                )
-                await context.bot.send_photo(
-                    chat_id=ADMIN_LOGS_CHAT_ID,
-                    photo=file_id,
-                    caption=text,
-                )
-            except Exception as e:
-                logger.warning("Failed to forward payment proof to admin group: %s", e)
-
-        await message.reply_text(
-            "✅ תודה! אישור התשלום התקבל ונמצא כעת בבדיקה.
-"
-            "לאחר האישור תקבל קישור לקבוצת העסקים שלנו."
-        )
-
-
-    async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-        if update.message is None or update.effective_user is None:
-            return
-
-        tg_user = update.effective_user
-        text = update.message.text or ""
-
-        # אם המשתמש במוד תמיכה
-        if context.user_data is not None and context.user_data.get("awaiting_support"):
-            subject = text.split("\n", 1)[0][:200]
-
-            session = SessionLocal()
-            try:
-                ticket = SupportTicket(
-                    telegram_id=tg_user.id,
-                    username=tg_user.username,
-                    subject=subject,
-                    message=text,
-                )
-                session.add(ticket)
-                session.commit()
-            finally:
-                session.close()
-
-            # שליחה לקבוצת התמיכה
-            if SUPPORT_GROUP_CHAT_ID:
-                try:
-                    msg = (
-                        "🛠 פניה חדשה לתמיכה\n"
-                        f"ID: {tg_user.id}\n"
-                        f"Username: @{tg_user.username}\n"
-                        "\n"
-                        f"נושא: {subject}\n"
-                        "\n"
-                        f"הודעה:\n{text}"
-                    )
-                    await context.bot.send_message(chat_id=SUPPORT_GROUP_CHAT_ID, text=msg)
-                except Exception as e:
-                    logger.warning("Failed to send support message to group: %s", e)
-
-            if context.user_data is not None:
-                context.user_data["awaiting_support"] = False
-
-            await update.message.reply_text(
-                "✅ ההודעה נשלחה לתמיכה. נחזור אליך בהקדם האפשרי."
-            )
-            return
-
-        # טקסט רגיל – נחזיר רמז ללחיצה על /start
+async def handle_payment_proof(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    if not ADMIN_LOG_CHAT_ID:
         await update.message.reply_text(
-            "כדי להתחיל, השתמש בפקודת /start.
-"
-            "לאחר תשלום 39 ש"ח ושליחת אישור, תצורף לקבוצת העסקים."
+            "התקבלה הוכחת תשלום. המערכת בתהליך הגדרה, נעדכן לאחר האישור."
         )
+        return
 
+    user = update.effective_user
+    chat = update.effective_chat
 
-    # =========================
-    # FastAPI routes
-    # =========================
+    caption = (
+        "📥 *התקבלה הוכחת תשלום חדשה*\n\n"
+        f"From User ID: `{user.id}`\n"
+        f"Username: @{user.username if user.username else '-'}\n"
+        f"Full name: {user.full_name}\n"
+        f"Chat ID: `{chat.id}`\n"
+    )
 
-
-    @app.get("/health")
-    async def health() -> dict:
-        return {
-            "status": "ok",
-            "service": "botshop-gateway-minimal",
-            "db": "enabled",
-        }
-
-
-    @app.get("/")
-    async def index() -> RedirectResponse:
-        return RedirectResponse(LANDING_URL)
-
-
-    @app.post("/webhook")
-    async def telegram_webhook(request: Request):
-        global telegram_app
-        if telegram_app is None:
-            return JSONResponse({"ok": False, "error": "telegram app not ready"}, status_code=503)
-
-        data = await request.json()
-        update = Update.de_json(data, telegram_app.bot)
-        await telegram_app.process_update(update)
-        return JSONResponse({"ok": True})
-
-
-    # =========================
-    # Lifespan: init DB + Telegram app
-    # =========================
-
-
-    @app.on_event("startup")
-    async def on_startup() -> None:
-        global telegram_app
-        logger.info("Starting up BotShop Gateway Minimal...")
-        # DB tables
-        init_db()
-
-        if not BOT_TOKEN:
-            logger.error("BOT_TOKEN is not set – Telegram bot will not start.")
-            return
-
-        telegram_app = ApplicationBuilder().token(BOT_TOKEN).build()
-
-        # Telegram handlers
-        telegram_app.add_handler(CommandHandler("start", cmd_start))
-        telegram_app.add_handler(CallbackQueryHandler(on_callback))
-        telegram_app.add_handler(MessageHandler(filters.PHOTO & ~filters.COMMAND, handle_photo))
-        telegram_app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_text))
-
-        await telegram_app.initialize()
-        await telegram_app.start()
-
-        if WEBHOOK_URL:
-            try:
-                await telegram_app.bot.set_webhook(WEBHOOK_URL)
-                logger.info("Telegram webhook set to %s", WEBHOOK_URL)
-            except Exception as e:
-                logger.error("Failed to set Telegram webhook: %s", e)
+    try:
+        if update.message.photo:
+            photo = update.message.photo[-1]
+            await context.bot.send_photo(
+                chat_id=int(ADMIN_LOG_CHAT_ID),
+                photo=photo.file_id,
+                caption=caption,
+                parse_mode="Markdown",
+            )
+        elif update.message.document:
+            await context.bot.send_document(
+                chat_id=int(ADMIN_LOG_CHAT_ID),
+                document=update.message.document.file_id,
+                caption=caption,
+                parse_mode="Markdown",
+            )
         else:
-            logger.warning("WEBHOOK_URL is not set – webhook not configured.")
+            await context.bot.send_message(
+                chat_id=int(ADMIN_LOG_CHAT_ID),
+                text=caption + "\n(ללא קובץ מצורף)",
+                parse_mode="Markdown",
+            )
+    except Exception as e:
+        logger.error("Failed to forward payment proof: %s", e)
+
+    await update.message.reply_text(
+        "✅ קיבלנו את האישור. לאחר בדיקה ואישור ידני תקבל קישור לקבוצת העסקים."
+    )
 
 
-    @app.on_event("shutdown")
-    async def on_shutdown() -> None:
-        global telegram_app
-        if telegram_app is not None:
-            await telegram_app.stop()
-            await telegram_app.shutdown()
-            logger.info("Telegram application stopped.")
+async def approve_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    \"\"\"/approve <user_id>  לרשום בקבוצת האדמינים בלבד.\"\"\"
+    if not BUSINESS_GROUP_URL:
+        await update.message.reply_text("BUSINESS_GROUP_URL לא מוגדר במערכת.")
+        return
+
+    if not ADMIN_LOG_CHAT_ID or update.effective_chat.id != int(ADMIN_LOG_CHAT_ID):
+        await update.message.reply_text("הפקודה זמינה רק בקבוצת האדמינים.")
+        return
+
+    if not context.args:
+        await update.message.reply_text("שימוש: /approve <user_id>")
+        return
+
+    try:
+        target_id = int(context.args[0])
+    except ValueError:
+        await update.message.reply_text("user_id לא תקין.")
+        return
+
+    text_user = (
+        "🎉 התשלום שלך אושר!\n\n"
+        "הנה הקישור לקבוצת העסקים הפרטית שלנו:\n"
+        f"{BUSINESS_GROUP_URL}\n\n"
+        "נתראה בפנים  מחכים לך עם כל הבוטים וההטבות. "
+    )
+    try:
+        await context.bot.send_message(chat_id=target_id, text=text_user)
+    except Exception as e:
+        await update.message.reply_text(f"שגיאה בשליחת הודעה למשתמש: {e}")
+        return
+
+    await update.message.reply_text(
+        f"✅ נשלח קישור הצטרפות למשתמש {target_id}."
+    )
+
+
+# רישום handlers
+telegram_app.add_handler(CommandHandler("start", start_cmd))
+telegram_app.add_handler(CommandHandler("help", help_cmd))
+telegram_app.add_handler(CommandHandler("approve", approve_cmd))
+
+telegram_app.add_handler(CallbackQueryHandler(callback_handler))
+
+telegram_app.add_handler(
+    MessageHandler(
+        filters.TEXT & filters.ChatType.PRIVATE,
+        handle_support_message,
+    )
+)
+
+telegram_app.add_handler(
+    MessageHandler(
+        (filters.PHOTO | filters.Document.IMAGE) & filters.ChatType.PRIVATE,
+        handle_payment_proof,
+    )
+)
+
+
+@app.on_event("startup")
+async def on_startup() -> None:
+    logger.info("Starting Telegram application (webhook mode)...")
+    await telegram_app.initialize()
+    await telegram_app.start()
+    if WEBHOOK_URL:
+        try:
+            await telegram_app.bot.set_webhook(WEBHOOK_URL)
+            logger.info("Webhook set to %s", WEBHOOK_URL)
+        except Exception as e:
+            logger.error("Failed to set webhook: %s", e)
+
+
+@app.on_event("shutdown")
+async def on_shutdown() -> None:
+    logger.info("Stopping Telegram application...")
+    await telegram_app.stop()
+    await telegram_app.shutdown()
+
+
+@app.post("/webhook")
+async def telegram_webhook(request: Request):
+    data = await request.json()
+    update = Update.de_json(data, telegram_app.bot)
+    await telegram_app.process_update(update)
+    return JSONResponse({"ok": True})
