@@ -1,6 +1,7 @@
 ﻿import os
 import json
 import logging
+from telegram import InlineKeyboardButton, InlineKeyboardMarkup, InputFile
 from pathlib import Path
 from typing import Optional, Dict, Any
 
@@ -12,6 +13,7 @@ from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel
 
 from telegram import Update, InputFile
+from telegram.ext import CommandHandler, ContextTypes
 from telegram.ext import Application, CommandHandler, ContextTypes
 
 from slh_public_api import router as public_router
@@ -275,3 +277,84 @@ async def landing(request: Request):
             "slh_price": slh_price,
         },
     )
+
+
+async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    chat = update.effective_chat
+
+    title = BOT_TEXTS.get("start_title", "שער הכניסה ל-SLHNET")
+    body = BOT_TEXTS.get("start_body", "")
+
+    banner_path = BASE_DIR / START_IMAGE_PATH
+    if banner_path.exists():
+        try:
+            with banner_path.open("rb") as f:
+                await context.bot.send_photo(
+                    chat_id=chat.id,
+                    photo=InputFile(f),
+                    caption=title,
+                )
+        except Exception as e:
+            log.warning("failed to send start banner: %s", e)
+            await chat.send_message(text=title)
+    else:
+        await chat.send_message(text=title)
+
+    pay_url = PAYBOX_URL or (LANDING_URL + "#join39")
+    more_info_url = LANDING_URL
+    group_url = BUSINESS_GROUP_URL or LANDING_URL
+
+    keyboard = [
+        [InlineKeyboardButton(" תשלום 39  וגישה מלאה", url=pay_url)],
+        [InlineKeyboardButton("ℹ לפרטים נוספים", url=more_info_url)],
+        [InlineKeyboardButton(" הצטרפות לקבוצת העסקים", url=group_url)],
+        [InlineKeyboardButton(" מידע למשקיעים", callback_data="open_investor")],
+    ]
+    reply_markup = InlineKeyboardMarkup(keyboard)
+
+    await chat.send_message(
+        text=body
+        + "\\n\\n"
+        "פקודות נוספות:\\n"
+        " /whoami  פרטי החיבור שלך\\n"
+        " /investor  מידע למשקיעים\\n"
+        " /staking  סטייקינג SLH (פאזה ראשונה)\\n",
+        reply_markup=reply_markup,
+    )
+
+async def investor(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    chat = update.effective_chat
+    body = BOT_TEXTS.get("investor_body", "")
+
+    text = (
+        body
+        + "\\n\\n"
+        "יצירת קשר ישירה עם המייסד:\\n"
+        "טלפון: 058-420-3384\\n"
+        "טלגרם: https://t.me/Osif83\\n\\n"
+        "את כל המבנה האסטרטגי אפשר לראות גם באתר:\\n"
+        f"{LANDING_URL}"
+    )
+
+    keyboard = [
+        [InlineKeyboardButton(" דף נחיתה SLHNET", url=LANDING_URL)],
+        [InlineKeyboardButton(" כניסה לבוט", url="https://t.me/Buy_My_Shop_bot")],
+    ]
+    await chat.send_message(text=text, reply_markup=InlineKeyboardMarkup(keyboard))
+
+async def staking(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    chat = update.effective_chat
+    text = (
+        " סטייקינג SLH  פאזה 1\\n\\n"
+        "אנחנו בונים מנגנון סטייקינג שיתחיל מניקוד על בסיס פעילות וריפרלים,\\n"
+        "ויתחבר בהמשך לסטייקינג ישיר על הטוקן SLH ב-BSC.\\n\\n"
+        "בשלב זה:\\n"
+        " כל הצטרפות דרך הלינק שלך נרשמת ברשת\\n"
+        " המידע יוזן למודל סטייקינג/תגמולים שיפורסם בלוח ייעודי\\n\\n"
+        f"ברגע שיתחיל הסטייקינג בפועל  הלינק וההסבר המלא יופיעו כאן ובאתר:\\n{LANDING_URL}"
+    )
+    await chat.send_message(text=text)
+
+application.add_handler(CommandHandler("investor", investor))
+application.add_handler(CommandHandler("staking", staking))
+
