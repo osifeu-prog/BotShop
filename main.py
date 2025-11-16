@@ -16,7 +16,7 @@ from telegram.ext import Application, CommandHandler, ContextTypes
 
 from slh_public_api import router as public_router
 from social_api import router as social_router
-from slh_core_api import router as core_router  # API הליבה החדש
+from slh_core_api import router as core_router  # API ליבה לרפרלים
 
 # =========================
 # בסיס לוגינג
@@ -29,8 +29,9 @@ logger = logging.getLogger("slhnet")
 # =========================
 app = FastAPI(title="SLHNET Gateway Bot")
 
-# סטטיק וטמפלטס
 BASE_DIR = Path(__file__).resolve().parent
+
+# סטטיק וטמפלטס
 app.mount("/static", StaticFiles(directory=str(BASE_DIR / "static")), name="static")
 templates = Jinja2Templates(directory=str(BASE_DIR / "templates"))
 

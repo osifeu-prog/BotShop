@@ -1,729 +1,653 @@
-﻿<!doctype html>
+﻿<!DOCTYPE html>
 <html lang="he" dir="rtl">
 <head>
-    <!-- SLHNET Open Graph / Social Share -->
-    <meta property="og:title" content="SLHNET  שער הכניסה לאקו-סיסטם של חנויות, טוקן SLH וקהילת עסקים" />
-    <meta property="og:description" content="שער אחד לעולם של חנויות דיגיטליות, טוקני SLH על BSC, קבוצות טלגרם, סטייקינג ותוכנית תגמול חכמה." />
-    <meta property="og:image" content="https://slh-nft.com/static/slh-og.png" />
-    <meta property="og:url" content="https://slh-nft.com/" />
-    <meta property="og:type" content="website" />
-    <meta name="twitter:card" content="summary_large_image" />
-  <meta charset="utf-8" />
-  <title>SLHNET  הרשת העסקית על Binance Smart Chain</title>
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <meta name="description" content="SLHNET היא רשת עסקית חברתית המשלבת איקומרס, Binance Smart Chain, קבוצות טלגרם ושיתופים שמייצרים הכנסה בטוקן SLH." />
-
-  <!-- Canonical -->
-  <link rel="canonical" href="https://slh-nft.com/" />
-
-  <!-- Open Graph -->
+  <meta charset="UTF-8" />
+  <title>SLHNET  שער הכניסה לרשת העסקית</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="description" content="SLHNET  רשת חברתית-עסקית סביב טוקן SLH, חנויות דיגיטליות, שיווק חכם ומערכת ריפרל מדורגת." />
   <meta property="og:title" content="SLHNET  הרשת העסקית החדשה" />
-  <meta property="og:description" content="הצטרפו ל-SLHNET: חנויות דיגיטליות, טוקן SLH על BSC, קבוצות טלגרם ורשת חברתית לעסקים. כל שיתוף יכול להפוך לנכס." />
+  <meta property="og:description" content="קהילת עסקים, טוקן SLH, חנויות דיגיטליות, ריפרל מדורג וסטייקינג." />
+  <meta property="og:image" content="/static/slh-og.svg" />
   <meta property="og:type" content="website" />
-  <meta property="og:url" content="https://slh-nft.com/" />
-  <meta property="og:image" content="https://slh-nft.com/assets/start_banner.jpg" />
-
-  <!-- Twitter / X -->
-  <meta name="twitter:card" content="summary_large_image" />
-  <meta name="twitter:title" content="SLHNET  הרשת העסקית החדשה" />
-  <meta name="twitter:description" content="מערכת איקומרס + BSC + טלגרם + רשת חברתית לעסקים, עם טוקן SLH על Binance Smart Chain." />
-  <meta name="twitter:image" content="https://slh-nft.com/assets/start_banner.jpg" />
-
-  <!-- Basic favicon (אם כבר קיים בקבצי האתר אפשר לעדכן) -->
-  <link rel="icon" href="/assets/start_banner.jpg" />
-
-  <!-- Structured Data (JSON-LD) -->
-  <script type="application/ld+json">
-  {
-    "@context": "https://schema.org",
-    "@type": "WebApplication",
-    "name": "SLHNET Business Network",
-    "url": "https://slh-nft.com/",
-    "applicationCategory": "BusinessApplication",
-    "operatingSystem": "All",
-    "description": "SLHNET  רשת עסקית חברתית המחברת בין חנויות דיגיטליות, Binance Smart Chain, קבוצות טלגרם ושיתופי תוכן מתגמלים.",
-    "creator": {
-      "@type": "Organization",
-      "name": "SLHNET"
-    }
-  }
-  </script>
+  <meta name="theme-color" content="#111827" />
 
   <style>
-    :root {
-      color-scheme: dark;
-    }
     body {
+      margin: 0;
       font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
       background: #020617;
-      color: #f9fafb;
-      margin: 0;
-      padding: 0;
+      color: #e5e7eb;
     }
-    .layout {
-      max-width: 1200px;
-      margin: 0 auto;
-      padding: 16px 16px 64px;
-    }
+    a { color: #38bdf8; text-decoration: none; }
+    a:hover { text-decoration: underline; }
     header {
+      border-bottom: 1px solid #1f2937;
+      background: rgba(15, 23, 42, 0.95);
+      backdrop-filter: blur(12px);
+      position: sticky;
+      top: 0;
+      z-index: 10;
+    }
+    .container {
+      max-width: 1140px;
+      margin: 0 auto;
+      padding: 0 1.25rem;
+    }
+    .nav {
       display: flex;
       align-items: center;
       justify-content: space-between;
-      gap: 16px;
-      padding: 10px 4px 4px;
+      padding: 0.75rem 0;
     }
-    header .brand {
+    .nav-left {
       display: flex;
       align-items: center;
-      gap: 10px;
+      gap: 0.5rem;
     }
-    header img.logo {
-      width: 40px;
-      height: 40px;
-      border-radius: 999px;
-      object-fit: cover;
-      border: 1px solid rgba(148,163,184,0.6);
+    .nav-logo {
+      width: 32px;
+      height: 32px;
     }
-    header h1 {
-      font-size: 1.3rem;
-      margin: 0;
+    .nav-title-main {
+      font-weight: 700;
+      font-size: 1.1rem;
     }
-    header small {
-      display: block;
+    .nav-title-sub {
       font-size: 0.8rem;
-      color: #a5b4fc;
+      color: #9ca3af;
     }
-    nav.user-nav {
+    .nav-links {
       display: flex;
-      gap: 8px;
-      flex-wrap: wrap;
-      justify-content: flex-end;
-    }
-    nav.user-nav button {
-      padding: 6px 10px;
-      border-radius: 999px;
-      border: 1px solid rgba(148,163,184,0.5);
-      background: rgba(15,23,42,0.9);
-      color: #e5e7eb;
-      font-size: 0.82rem;
-      cursor: pointer;
-    }
-    nav.user-nav button.active {
-      background: linear-gradient(135deg, #22c55e, #06b6d4);
-      color: #020617;
-      border-color: transparent;
-      font-weight: 600;
-    }
-
-    main {
-      display: grid;
-      grid-template-columns: 2.1fr 1.4fr;
-      gap: 16px;
-      margin-top: 10px;
-    }
-    @media (max-width: 900px) {
-      main {
-        grid-template-columns: 1fr;
-      }
-    }
-
-    .card {
-      background: radial-gradient(circle at top, rgba(96,165,250,0.15), transparent 55%),
-                  rgba(15,23,42,0.98);
-      border-radius: 18px;
-      padding: 18px;
-      margin-bottom: 12px;
-      border: 1px solid rgba(148,163,184,0.35);
-      box-shadow: 0 18px 40px rgba(15,23,42,0.85);
-    }
-    .card h2 {
-      margin-top: 0;
-      margin-bottom: 8px;
-      font-size: 1.15rem;
-    }
-    .card h3 {
-      margin: 8px 0;
-      font-size: 1rem;
-    }
-    p { margin: 0 0 8px; }
-
-    .btn {
-      display: inline-block;
-      padding: 9px 16px;
-      border-radius: 999px;
-      background: linear-gradient(135deg, #22c55e, #06b6d4);
-      color: #020617;
-      text-decoration: none;
-      font-weight: 600;
-      border: none;
-      cursor: pointer;
-      transition: transform 0.15s ease, box-shadow 0.15s ease;
-      font-size: 0.94rem;
-    }
-    .btn:hover {
-      transform: translateY(-1px);
-      box-shadow: 0 8px 22px rgba(34,197,94,0.4);
-    }
-    .btn-secondary {
-      background: rgba(15,23,42,0.95);
-      color: #e5e7eb;
-      border: 1px solid rgba(148,163,184,0.6);
-      font-weight: 500;
-    }
-    .btn-ghost {
-      background: transparent;
-      border: 1px dashed rgba(148,163,184,0.6);
-      color: #cbd5f5;
-    }
-    .share-row a {
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
-      font-size: 0.85rem;
-      margin-inline-start: 6px;
-      text-decoration: none;
-      color: #cbd5f5;
-    }
-    .share-row span.icon {
-      width: 18px;
-      height: 18px;
-      border-radius: 999px;
-      background: rgba(148,163,184,0.22);
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 0.7rem;
-    }
-    ul {
-      padding-inline-start: 20px;
-      margin: 4px 0 8px;
+      gap: 1rem;
       font-size: 0.9rem;
     }
-    code {
-      background: rgba(15,23,42,0.85);
-      padding: 2px 6px;
-      border-radius: 6px;
-      font-size: 0.82rem;
+    .nav-links a {
+      padding: 0.35rem 0.6rem;
+      border-radius: 999px;
+      border: 1px solid transparent;
     }
-
-    .sales-table, .wallet-table {
-      width: 100%;
-      border-collapse: collapse;
-      font-size: 0.82rem;
+    .nav-links a:hover {
+      border-color: #1f2937;
+      background: #020617;
     }
-    .sales-table th, .sales-table td,
-    .wallet-table th, .wallet-table td {
-      border-bottom: 1px solid rgba(148,163,184,0.25);
-      padding: 6px 4px;
-      text-align: right;
+    main {
+      padding: 1.5rem 0 3rem;
     }
-    .sales-table th, .wallet-table th {
-      font-weight: 600;
-      color: #e5e7eb;
-      font-size: 0.8rem;
+    .hero {
+      display: grid;
+      grid-template-columns: minmax(0, 2.2fr) minmax(260px, 1.2fr);
+      gap: 1.5rem;
+      align-items: stretch;
+      margin-top: 1.5rem;
     }
-    .badge-ok { color: #bbf7d0; }
-    .badge-pending { color: #fde68a; }
-    .badge-bad { color: #fecaca; }
-
-    .pill {
+    .hero-main {
+      border-radius: 1.5rem;
+      padding: 1.75rem;
+      background: radial-gradient(circle at top, #0f172a, #020617);
+      border: 1px solid #1f2937;
+      position: relative;
+      overflow: hidden;
+    }
+    .hero-pill {
       display: inline-flex;
       align-items: center;
-      gap: 6px;
-      padding: 3px 8px;
+      gap: 0.4rem;
+      padding: 0.2rem 0.7rem;
+      border-radius: 999px;
+      border: 1px solid #1f2937;
+      background: rgba(15,23,42,0.9);
+      font-size: 0.75rem;
+      color: #9ca3af;
+      margin-bottom: 0.75rem;
+    }
+    .hero-pill-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 999px;
+      background: #22c55e;
+      box-shadow: 0 0 0 4px rgba(34,197,94,0.18);
+    }
+    .hero-title {
+      font-size: 2rem;
+      font-weight: 800;
+      margin-bottom: 0.4rem;
+    }
+    .hero-sub {
+      font-size: 0.95rem;
+      color: #9ca3af;
+      max-width: 34rem;
+      line-height: 1.6;
+    }
+    .hero-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0,1fr));
+      gap: 0.75rem;
+    }
+    .hero-stat {
+      border-radius: 1rem;
+      padding: 0.75rem;
+      border: 1px solid #1f2937;
+      background: rgba(15,23,42,0.85);
+      font-size: 0.8rem;
+    }
+    .hero-stat-label {
+      color: #9ca3af;
+      margin-bottom: 0.15rem;
+    }
+    .hero-stat-value {
+      font-weight: 700;
+      font-size: 1rem;
+    }
+    .hero-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.75rem;
+      margin-top: 1.4rem;
+    }
+    .btn-primary {
+      border-radius: 999px;
+      padding: 0.6rem 1.2rem;
+      border: none;
+      cursor: pointer;
+      font-size: 0.9rem;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      background: linear-gradient(to right, #22c55e, #84cc16);
+      color: #052e16;
+      font-weight: 700;
+      box-shadow: 0 10px 25px rgba(34,197,94,0.35);
+    }
+    .btn-primary span.badge {
+      font-size: 0.7rem;
+      padding: 0.1rem 0.45rem;
       border-radius: 999px;
       background: rgba(15,23,42,0.9);
-      border: 1px solid rgba(148,163,184,0.5);
+      color: #bbf7d0;
+    }
+    .btn-secondary {
+      border-radius: 999px;
+      padding: 0.6rem 1.1rem;
+      border: 1px solid #1f2937;
+      cursor: pointer;
+      font-size: 0.85rem;
+      background: rgba(15,23,42,0.9);
+      color: #e5e7eb;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.35rem;
+    }
+    .hero-footnote {
+      margin-top: 0.85rem;
       font-size: 0.75rem;
-      color: #cbd5f5;
+      color: #9ca3af;
+    }
+    .hero-side {
+      border-radius: 1.5rem;
+      padding: 1.4rem;
+      background: radial-gradient(circle at top, #0f172a, #020617);
+      border: 1px solid #1f2937;
+      display: flex;
+      flex-direction: column;
+      gap: 0.8rem;
+    }
+    .hero-side-title {
+      font-weight: 700;
+      font-size: 1rem;
+    }
+    .hero-side-sub {
+      font-size: 0.8rem;
+      color: #9ca3af;
+    }
+    .card {
+      border-radius: 1rem;
+      border: 1px solid #1f2937;
+      padding: 0.8rem;
+      background: rgba(15,23,42,0.85);
+      font-size: 0.8rem;
+    }
+    .card h3 {
+      margin: 0 0 0.3rem;
+      font-size: 0.9rem;
+    }
+    .badge-soft {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.3rem;
+      font-size: 0.7rem;
+      padding: 0.15rem 0.5rem;
+      border-radius: 999px;
+      background: rgba(56,189,248,0.1);
+      color: #7dd3fc;
+    }
+    section {
+      margin-top: 2.5rem;
+    }
+    section h2 {
+      font-size: 1.3rem;
+      margin-bottom: 0.6rem;
+    }
+    .grid-2 {
+      display: grid;
+      grid-template-columns: minmax(0,1.3fr) minmax(0,1fr);
+      gap: 1rem;
+    }
+    .list {
+      font-size: 0.9rem;
+      color: #d1d5db;
+    }
+    .list ul {
+      margin: 0.2rem 0 0;
+      padding-right: 1.1rem;
+    }
+    .list li {
+      margin: 0.1rem 0;
+    }
+    .pill {
+      font-size: 0.75rem;
+      padding: 0.1rem 0.5rem;
+      border-radius: 999px;
+      border: 1px solid #1f2937;
+      color: #9ca3af;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.3rem;
+    }
+    .muted {
+      color: #9ca3af;
+      font-size: 0.8rem;
+    }
+    .feed-card {
+      border-radius: 1rem;
+      border: 1px solid #1f2937;
+      background: rgba(15,23,42,0.7);
+      padding: 0.9rem;
+      font-size: 0.8rem;
+      margin-bottom: 0.6rem;
+    }
+    pre {
+      background: #020617;
+      border-radius: 0.75rem;
+      padding: 0.75rem;
+      overflow: auto;
+      font-size: 0.7rem;
+      border: 1px solid #1f2937;
+      direction: ltr;
+      text-align: left;
+      color: #e5e7eb;
+    }
+    footer {
+      margin-top: 2.5rem;
+      padding-top: 1.5rem;
+      border-top: 1px solid #1f2937;
+      font-size: 0.75rem;
+      color: #6b7280;
+      text-align: center;
+    }
+    @media (max-width: 900px) {
+      .hero {
+        grid-template-columns: minmax(0,1fr);
+      }
+      .hero-side {
+        order: -1;
+      }
+      .nav-links {
+        display: none;
+      }
     }
   </style>
 </head>
 <body>
-  <div class="layout">
-    <header>
-      <div class="brand">
-        <img src="/assets/start_banner.jpg" alt="SLHNET logo" class="logo" />
-        <div>
-          <h1>SLHNET  הרשת העסקית החדשה</h1>
-          <small>איקומרס  Binance Smart Chain  טלגרם  רשת חברתית לעסקים</small>
+  <header>
+    <div class="container">
+      <div class="nav">
+        <div class="nav-left">
+          <img src="/static/slh-og.svg" alt="SLHNET" class="nav-logo" />
+          <div>
+            <div class="nav-title-main">SLHNET</div>
+            <div class="nav-title-sub">הרשת העסקית סביב טוקן SLH</div>
+          </div>
         </div>
+        <nav class="nav-links">
+          <a href="#overview">סקירה</a>
+          <a href="#wallet">אזור ארנק</a>
+          <a href="#social">פיד חברתי</a>
+          <a href="#exchange">בורסת SLHNET</a>
+          <a href="#admin">פאנל ניהול</a>
+        </nav>
       </div>
-      <nav class="user-nav">
-        <button type="button" data-tab="overview" class="active">סקירה</button>
-        <button type="button" data-tab="wallet">אזור ארנק</button>
-        <button type="button" data-tab="social">פיד חברתי</button>
-        <button type="button" data-tab="market">בורסת SLHNET</button>
-        <button type="button" data-tab="admin">פאנל ניהול</button>
-      </nav>
-    </header>
+    </div>
+  </header>
 
-    <main>
-      <!-- עמודה ראשית -->
-      <section id="tab-overview" class="tab-panel" data-tab="overview">
-        <div class="card">
-          <h2>שער הכניסה ל-SLHNET</h2>
-          <p>
-            SLHNET מחברת בין <strong>חנויות דיגיטליות</strong>,
-            <strong>טוקן SLH על Binance Smart Chain</strong>,
-            <strong>קבוצות טלגרם</strong> ו<strong>רשת חברתית</strong> לשיתופי תוכן והמלצות.
-          </p>
-          <p>
-            כל שיתוף בפרופיל שלך ובחנות שלך הוא נכס: מהרגע הראשון אתה מרוויח מחשיפה,
-            מחיבור לקהילה ומטוקני <strong>SLH</strong>.
-          </p>
-          <p>
-            אחרי <strong>39 שיתופים איכותיים</strong> או תשלום חדפעמי של
-            <strong><span id="price-amount">39</span> </strong>  מקבלים גישה מלאה
-            לכל שכבות הרשת: קבוצות פרימיום, חנויות, בוטים, הטבות ואיירדרופים.
-            מי שכבר מחזיק בSLH בארנק על BSC  זכאי לגישה חינמית דרך הבוט לאחר אימות.
-          </p>
-          <p style="margin-top:6px;">
-            <span class="pill"> שער יציג SLH: <span id="slh-price-label">444 </span> ל-SLH</span>
-          </p>
-
-          <div style="margin-top:14px; display:flex; flex-wrap:wrap; gap:10px;">
-            <a class="btn" href="https://t.me/Buy_My_Shop_bot" target="_blank" rel="noreferrer">
-               כניסה לבוט SLHNET
-            </a>
-            <a id="btn-join-group" class="btn btn-secondary" href="#" target="_blank" rel="noreferrer">
-               הצטרפות לקבוצת העסקים
-            </a>
-            <a id="btn-pay" class="btn" href="#" target="_blank" rel="noreferrer">
-               תשלום <span id="price-amount-inline">39</span>  וגישה מלאה
-            </a>
-          </div>
-
-          <div style="margin-top:12px;font-size:0.9rem;">
-            בפקודות הבוט:
-            <code>/start</code> להצטרפות  <code>/wallet</code> ניהול ארנק 
-            <code>/sell</code> דיווח מכירה  <code>/post</code> יצירת פוסט.
-          </div>
-
-          <div class="share-row" style="margin-top:14px;">
-            <div style="margin-bottom:4px;">שתף את SLHNET ברשתות:</div>
-            <a id="share-tg" target="_blank" rel="noreferrer">
-              <span class="icon">TG</span> טלגרם
-            </a>
-            <a id="share-wa" target="_blank" rel="noreferrer">
-              <span class="icon">WA</span> ווטסאפ
-            </a>
-            <a id="share-fb" target="_blank" rel="noreferrer">
-              <span class="icon">f</span> פייסבוק
-            </a>
-            <a id="share-x" target="_blank" rel="noreferrer">
-              <span class="icon">X</span> X
-            </a>
-          </div>
-        </div>
-
-        <div class="card">
-          <h2>איך מרוויחים ב-SLHNET?</h2>
-          <ul>
-            <li>יוצרים פרופיל עסקי + חנות דיגיטלית דרך הבוט.</li>
-            <li>מקבלים לינקים ייחודיים לשיתוף החנות והפרופיל.</li>
-            <li>כל שיתוף מייצר תנועה לרשת ואוסף נקודות פעילות.</li>
-            <li>אחרי 39 שיתופים איכותיים או תשלום של <span id="price-amount-inline-2">39</span>   נפתחת גישה מלאה.</li>
-            <li>מחזיקי SLH על BSC מקבלים גישה מלאה חינם, לאחר אימות ארנק דרך הבוט.</li>
-            <li>הבונוסים: טוקני SLH, חשיפה, קבוצות עסקים, ואפשרות לפתוח קניון שלם משלך.</li>
-          </ul>
-        </div>
-
-        <div class="card">
-          <h2>הגדרת רשת BSC + טוקן SLH בארנק</h2>
-          <div style="display:flex; gap:16px; flex-wrap:wrap;">
-            <div style="flex:1 1 220px;">
-              <p><strong>הגדרת רשת ב-MetaMask:</strong></p>
-              <ul>
-                <li>Network Name: <code>Smart Chain</code></li>
-                <li>New RPC URL: <code>https://bsc-dataseed.binance.org/</code></li>
-                <li>ChainID: <code>56</code></li>
-                <li>Symbol: <code>BNB</code></li>
-                <li>Block Explorer URL: <code>https://bscscan.com</code></li>
-              </ul>
-              <p><strong>טוקן SLH (Custom Token):</strong></p>
-              <ul>
-                <li>Token Contract Address: <code>0xACb0A09414CEA1C879c67bB7A877E4e19480f022</code></li>
-                <li>Token Symbol: <code>SLH</code></li>
-                <li>Decimals: <code>15</code></li>
-              </ul>
+  <main>
+    <div class="container">
+      <!-- HERO -->
+      <section id="top">
+        <div class="hero">
+          <div class="hero-main">
+            <div class="hero-pill">
+              <span class="hero-pill-dot"></span>
+              SLHNET  שער הכניסה לאקו-סיסטם
             </div>
-            <div style="flex:1 1 220px;">
-              <p>כפתור מהיר להוספת הטוקן:</p>
-              <button class="btn" id="btn-add-token">הוסף טוקן SLH ל-MetaMask</button>
-              <div id="wallet-status" style="margin-top:10px;font-size:0.9rem;"></div>
-              <p style="margin-top:8px;font-size:0.85rem;">
-                בדיקת יתרה מדויקת, אימות החזקת SLH ופתיחת גישה חינמית
-                מתבצעים דרך הבוט בפקודת <code>/wallet</code>.
+            <h1 class="hero-title">שער הכניסה ל-SLHNET</h1>
+            <p class="hero-sub">
+              SLHNET מחברת בין חנויות דיגיטליות, טוקן SLH על Binance Smart Chain,
+              קבוצות טלגרם ורשת חברתית לשיתופי תוכן והמלצות  הכל סביב מערכת ריפרל
+              מדורגת וצמיחה אורגנית מלמטה למעלה.
+            </p>
+
+            <div class="hero-grid">
+              <div class="hero-stat">
+                <div class="hero-stat-label">שער יציג SLH (לש&quot;ח)</div>
+                <div class="hero-stat-value" id="slh-price">444</div>
+                <div class="muted">נתון לדוגמה  לצרכי תצוגה.</div>
+              </div>
+              <div class="hero-stat">
+                <div class="hero-stat-label">עסקאות אחרונות</div>
+                <div class="hero-stat-value" id="slh-sales-count"></div>
+                <div class="muted">נמשכות מה-API שלך.</div>
+              </div>
+              <div class="hero-stat">
+                <div class="hero-stat-label">פוסטים אחרונים מהקהילה</div>
+                <div class="hero-stat-value" id="social-posts-count"></div>
+                <div class="muted">מתעדכן לפי פעילות בפיד.</div>
+              </div>
+            </div>
+
+            <div class="hero-actions">
+              <button class="btn-primary" onclick="scrollToPayment()">
+                תשלום 39  וגישה מלאה
+                <span class="badge">פותח את כל שכבות הרשת</span>
+              </button>
+              <a class="btn-secondary" href="https://t.me/Buy_My_Shop" target="_blank" rel="noopener">
+                כניסה לבוט SLHNET בטלגרם
+              </a>
+            </div>
+
+            <div class="hero-footnote">
+              אחרי 39 שיתופים איכותיים או תשלום חד-פעמי של 39   נפתחת גישה מלאה:
+              קבוצות פרימיום, חנויות, בוטים, איירדרופים והטבות נוספות.
+            </div>
+          </div>
+
+          <aside class="hero-side">
+            <div>
+              <div class="hero-side-title">כרטיס משקיע  קשר ישיר</div>
+              <div class="hero-side-sub">
+                מחפשים להצטרף כמשקיעים ראשונים באקו-סיסטם? זה הערוץ הישיר.
+              </div>
+            </div>
+
+            <div class="card">
+              <h3>פרטי קשר למייסד</h3>
+              <div>טלפון: <a href="tel:0584203384">058-420-3384</a></div>
+              <div>טלגרם: <a href="https://t.me/Osif83" target="_blank" rel="noopener">@Osif83</a></div>
+            </div>
+
+            <div class="card">
+              <h3>חזון הריפרל המדורג</h3>
+              <p>
+                כל משתמש מקבל לינק אישי, שדרכו נבנית רשת הפניות מדורגת  עם
+                מעקב אחרי "מי הביא את מי" ויכולת לתגמל את השורש והענפים יחד.
               </p>
+              <div class="badge-soft">
+                <span></span>
+                <span>On-chain / Off-chain tracking</span>
+              </div>
             </div>
+
+            <div class="card">
+              <h3>סטייטוס מערכת</h3>
+              <p class="muted" id="health-status">בודק חיבור לשרת...</p>
+            </div>
+          </aside>
+        </div>
+      </section>
+
+      <!-- OVERVIEW -->
+      <section id="overview">
+        <h2>איך מרוויחים ב-SLHNET?</h2>
+        <div class="grid-2">
+          <div class="list">
+            <p>
+              SLHNET נבנית כשרשרת אנושית: כל אחד מקבל חנות דיגיטלית, פרופיל
+              לשיתוף ותמריץ להפיץ את האקו-סיסטם.
+            </p>
+            <ul>
+              <li>יוצרים פרופיל עסקי + חנות דיגיטלית דרך הבוט.</li>
+              <li>מקבלים לינקים ייחודיים לשיתוף החנות והפרופיל.</li>
+              <li>כל שיתוף מייצר תנועה לרשת ואוסף נקודות פעילות.</li>
+              <li>אחרי 39 שיתופים איכותיים או תשלום של 39   נפתחת גישה מלאה.</li>
+              <li>מחזיקי SLH על BSC מקבלים גישה מלאה חינם לאחר אימות ארנק בבוט.</li>
+            </ul>
+          </div>
+          <div class="list">
+            <div class="pill">מודל חברתי-פיננסי</div>
+            <p style="margin-top:0.4rem;">
+              המטרה: לחבר עסק אמיתי, נכס דיגיטלי וטוקן  בתוך רשת שקופה, בה כל
+              אחד יודע מאיפה הגיע הערך ומי תרם לצמיחה.
+            </p>
+            <p class="muted">
+              מנוע הריפרל המדורג ייבנה בשכבות  החל מבוט הגייטוויי ועד למודול
+              DAO בעתיד.
+            </p>
           </div>
         </div>
       </section>
 
-      <!-- עמודה ימנית (או שנייה במובייל)  אזור משתמש / שוק / פיד -->
-      <section>
-        <!-- אזור ארנק אישי -->
-        <div class="card tab-panel" data-tab="wallet" style="display:none;">
-          <h2>אזור ארנק אישי</h2>
-          <p style="font-size:0.9rem;">
-            את הארנק שלך מנהלים דרך הבוט, אבל כאן תוכל לראות תקציר (לפי הנתונים שנשמרים במערכת).
-          </p>
-          <p style="font-size:0.85rem;">
-            בבוט: שלח <code>/wallet</code> עם כתובת BSC שלך (<code>0x...</code>) כדי לקשר את הארנק למערכת.
-          </p>
-          <table class="wallet-table" style="margin-top:10px;">
-            <thead>
-              <tr>
-                <th>משתמש</th>
-                <th>כתובת BSC</th>
-                <th>סטטוס</th>
-                <th>עודכן</th>
-              </tr>
-            </thead>
-            <tbody id="wallets-body">
-              <tr><td colspan="4">תמיכת API לארנק תתווסף בהמשך. כרגע ההגדרה מתבצעת דרך הבוט בלבד.</td></tr>
-            </tbody>
-          </table>
+      <!-- PAYMENT SECTION -->
+      <section id="payment">
+        <h2>תשלום 39  וגישה מלאה</h2>
+        <div class="grid-2">
+          <div class="list">
+            <p>
+              הצעד הראשון הוא הצטרפות לקהילת העסקים הסגורה. ניתן להצטרף באמצעות:
+            </p>
+            <ul>
+              <li>תשלום בנקאי / PayBox / Bit / PayPal / TON  לפי ההוראות בבוט.</li>
+              <li>או פעילות של 39 שיתופים איכותיים, כפי שיוגדרו בבוט בהמשך.</li>
+            </ul>
+            <p class="muted">
+              אחרי אישור התשלום, תקבל קישור לקבוצת העסקים + קבלת מעקב אישי
+              ברשת ההפניות.
+            </p>
+          </div>
+          <div class="card">
+            <h3>איך מתחילים?</h3>
+            <ol style="margin:0; padding-right:1.1rem; font-size:0.8rem;">
+              <li>נכנסים לבוט בטלגרם: <a href="https://t.me/Buy_My_Shop" target="_blank">Buy_My_Shop</a>.</li>
+              <li>שולחים <code>/start</code> ומקבלים את שער הכניסה.</li>
+              <li>מבצעים תשלום דרך אחת האופציות שיופיעו.</li>
+              <li>מקבלים אישור ידני + קישור לקהילה.</li>
+            </ol>
+            <p class="muted" style="margin-top:0.4rem;">
+              בעתיד  מנגנון אישור ותיעוד ישולב ישירות במודולי ה-API ובלוח
+              ניהול המשקיעים.
+            </p>
+          </div>
         </div>
+      </section>
 
-        <!-- פיד חברתי -->
-        <div class="card tab-panel" data-tab="social" style="display:none;">
-          <h2>פוסטים מהקהילה  SLHNET Social</h2>
-          <p style="font-size:0.9rem;">
-            חברי הרשת יכולים ליצור פוסטים דרך הבוט (למשל: <code>/post כותרת | תוכן</code>)
-            והם יוצגו כאן לכולם. כל פוסט ניתן לשיתוף ברשתות החברתיות.
+      <!-- WALLET -->
+      <section id="wallet">
+        <h2>אזור ארנק אישי</h2>
+        <div class="list">
+          <p>
+            את הארנק שלך מנהלים דרך הבוט, אבל כאן אפשר לראות תקציר (בהמשך, דרך
+            ה-API הפומבי).
           </p>
-          <div id="posts-box" style="font-size:0.9rem;">טוען פוסטים...</div>
-        </div>
+          <p class="muted">
+            בבוט: שלח <code>/wallet</code> עם כתובת BSC שלך (0x...) כדי לקשר את
+            הארנק למערכת.
+          </p>
 
-        <!-- בורסת SLHNET -->
-        <div class="card tab-panel" data-tab="market" style="display:none;">
-          <h2 id="sales-title">מכירות SLH האחרונות במערכת</h2>
-          <p style="font-size:0.9rem;">
-            כל מכירה נרשמת אחרי אימות עסקה (העברת SLH ל-Treasury דרך ארנק תואם BSC)
-            ומוצגת כאן בלוח המכירות.
-          </p>
-          <table class="sales-table">
-            <thead>
-              <tr>
-                <th>ID</th>
-                <th>משתמש</th>
-                <th>כתובת</th>
-                <th>כמות</th>
-                <th>מחיר</th>
-                <th>סטטוס</th>
-                <th>עסקה</th>
-              </tr>
-            </thead>
-            <tbody id="sales-body">
-              <tr><td colspan="7">טוען נתונים...</td></tr>
-            </tbody>
-          </table>
-        </div>
-
-        <!-- פאנל ניהול -->
-        <div class="card tab-panel" data-tab="admin" style="display:none;">
-          <h2>פאנל ניהול SLHNET</h2>
-          <p style="font-size:0.9rem;">
-            לבעל המערכת:
-          </p>
-          <ul style="font-size:0.9rem;">
-            <li>דשבורד API (JSON): <code>/admin/stats?token=ADMIN_DASH_TOKEN</code></li>
-            <li>דשבורד HTML: <code>/admin/dashboard?token=ADMIN_DASH_TOKEN</code></li>
-            <li>ניהול מלא דרך הבוט: <code>/admin</code>, <code>/stats</code> ועוד.</li>
+          <h3>הגדרת רשת BSC + טוקן SLH בארנק</h3>
+          <ul>
+            <li><strong>Network Name:</strong> Smart Chain</li>
+            <li><strong>New RPC URL:</strong> https://bsc-dataseed.binance.org/</li>
+            <li><strong>ChainID:</strong> 56</li>
+            <li><strong>Symbol:</strong> BNB</li>
+            <li><strong>Block Explorer URL:</strong> https://bscscan.com</li>
           </ul>
-          <p style="font-size:0.85rem;">
-            מומלץ להגדיר ב-Railway את <code>ADMIN_DASH_TOKEN</code> לערך פשוט לזכירה
-            (למשל <code>Buy_My_Shop_bot</code>) ולא לחשוף את ה-BOT_TOKEN עצמו מחוץ ל-Railway.
+          <p>
+            <strong>טוקן SLH (Custom Token):</strong><br />
+            Contract: <code>0xACb0A09414CEA1C879c67bB7A877E4e19480f022</code><br />
+            Decimals: <code>15</code>
           </p>
-          <p style="font-size:0.85rem;">
-            בוט אדמין נפרד אפשר להרים בשירות רלווי נוסף עם טוקן בוט ייעודי, שמשתמש בו רק מנהל המערכת.
-          </p>
-        </div>
-
-        <!-- ברירת מחדל  אם לא נבחר טאב, נציג את השוק -->
-        <div class="card tab-panel-default">
-          <h2>לוח שערים SLH</h2>
-          <p id="price-box" style="font-size:0.9rem;">
-            טוען שער יציג...
-          </p>
-          <p style="font-size:0.85rem;">
-            השער היציג נקבע על ידי הרשת: <strong>444 </strong> ל-SLH (ברירת מחדל),
-            ומולו יוצגו המחירים שבהם חברי הקהילה מוכרים וקונים בפועל.
+          <p class="muted">
+            בדיקת יתרה מדויקת, אימות החזקת SLH ופתיחת גישה חינמית מתבצעים דרך
+            הבוט בפקודת <code>/wallet</code>.
           </p>
         </div>
       </section>
-    </main>
-  </div>
+
+      <!-- SOCIAL FEED -->
+      <section id="social">
+        <h2>פוסטים מהקהילה  SLHNET Social</h2>
+        <p class="muted">
+          חברי הרשת יכולים ליצור פוסטים דרך הבוט (למשל: <code>/post כותרת | תוכן</code>)
+          והם יוצגו כאן לכולם לשיתוף ברשתות.
+        </p>
+        <div id="posts-container">
+          <div class="muted">טוען פוסטים מהשרת...</div>
+        </div>
+      </section>
+
+      <!-- EXCHANGE & ADMIN (טיוטה) -->
+      <section id="exchange">
+        <h2>בורסת SLHNET (טיוטה ראשונית)</h2>
+        <p class="muted">
+          המטרה: לאפשר מסחר P2P בטוקן SLH, טוקני קהילה ו-NFTים
+          בצורה שקופה ופשוטה, ישירות מתוך הרשת. שכבת ה-API כבר
+          נבנית  ותחובר למסך זה בשלבים הבאים.
+        </p>
+        <pre id="sales-json">נתוני עסקאות יופיעו כאן ברגע שה-API יתחיל לאסוף אותן.</pre>
+      </section>
+
+      <section id="admin">
+        <h2>פאנל ניהול / API למשקיעים</h2>
+        <p class="muted">
+          שכבת ה-API של SLHNET כבר כוללת נקודות קצה לריפרלים, פיד ותצפית על
+          פעילות. פאנל ניהול גרפי למשקיעים ואדמינים יישב מעל ה-API הזה.
+        </p>
+        <pre>
+GET /health
+GET /api/token/price
+GET /api/token/sales?limit=50
+GET /api/posts?limit=20
+GET /api/referral/stats
+GET /api/referral/tree/&lt;user_id&gt;
+POST /api/referral/track_visit</pre>
+      </section>
+
+      <footer>
+        SLHNET  כל הזכויות שמורות  נבנה כפרויקט אקו-סיסטם קהילתי סביב טוקן SLH.
+      </footer>
+    </div>
+  </main>
 
   <script>
     const API_BASE = "https://webwook-production-4861.up.railway.app";
-    const SITE_BASE = window.location.origin;
 
-    function setupTabs() {
-      const buttons = document.querySelectorAll("nav.user-nav button[data-tab]");
-      const panels = document.querySelectorAll(".tab-panel");
-      const defaultPanel = document.querySelector(".tab-panel-default");
-
-      function showTab(tab) {
-        buttons.forEach(btn => {
-          btn.classList.toggle("active", btn.getAttribute("data-tab") === tab);
-        });
-        let tabShown = false;
-        panels.forEach(p => {
-          const match = p.getAttribute("data-tab") === tab;
-          p.style.display = match ? "block" : "none";
-          if (match) tabShown = true;
-        });
-        if (defaultPanel) {
-          defaultPanel.style.display = tabShown ? "none" : "block";
-        }
-      }
-
-      buttons.forEach(btn => {
-        btn.addEventListener("click", () => {
-          const tab = btn.getAttribute("data-tab");
-          showTab(tab);
-        });
-      });
-
-      showTab("overview");
+    function scrollToPayment() {
+      const el = document.getElementById("payment");
+      if (!el) return;
+      el.scrollIntoView({ behavior: "smooth", block: "start" });
     }
 
-    function setupShares() {
-      const url = encodeURIComponent(SITE_BASE);
-      const text = encodeURIComponent("SLHNET  רשת העסקים החדשה. הצטרף דרך הבוט וקבל גישה לטוקני SLH, חנויות וקבוצות עסקים.");
-      const urlWithText = SITE_BASE + "?ref=share";
-
-      const tg = document.getElementById("share-tg");
-      const wa = document.getElementById("share-wa");
-      const fb = document.getElementById("share-fb");
-      const x = document.getElementById("share-x");
-
-      if (tg) tg.href = "https://t.me/share/url?url=" + encodeURIComponent(urlWithText) + "&text=" + text;
-      if (wa) wa.href = "https://api.whatsapp.com/send?text=" + text + "%20" + urlWithText;
-      if (fb) fb.href = "https://www.facebook.com/sharer/sharer.php?u=" + urlWithText;
-      if (x) x.href = "https://x.com/intent/tweet?text=" + text + "&url=" + urlWithText;
-    }
-
-    async function loadConfig() {
+    async function fetchJSON(url) {
       try {
-        const res = await fetch(API_BASE + "/config/public");
-        if (!res.ok) return;
-        const data = await res.json();
-        const price = data.slh_nis || "39";
-
-        const priceEls = [
-          document.getElementById("price-amount"),
-          document.getElementById("price-amount-inline"),
-          document.getElementById("price-amount-inline-2"),
-        ];
-        priceEls.forEach(el => { if (el) el.textContent = price; });
-
-        const joinBtn = document.getElementById("btn-join-group");
-        if (joinBtn && data.business_group_link) {
-          joinBtn.href = data.business_group_link;
-        } else if (joinBtn) {
-          joinBtn.style.display = "none";
-        }
-
-        const payBtn = document.getElementById("btn-pay");
-        if (payBtn) {
-          const payUrl = data.paybox_url || data.paypal_url;
-          if (payUrl) {
-            payBtn.href = payUrl;
-          } else {
-            payBtn.addEventListener("click", (ev) => {
-              ev.preventDefault();
-              alert("התשלום מופעל כיום מתוך הבוט. אנא התחבר דרך הבוט SLHNET לביצוע התשלום.");
-            });
-          }
-        }
-      } catch (err) {
-        console.error("config error", err);
+        const res = await fetch(url);
+        if (!res.ok) throw new Error("HTTP " + res.status);
+        return await res.json();
+      } catch (e) {
+        console.warn("API error:", url, e);
+        return null;
       }
     }
 
-    async function loadPrice() {
-      const box = document.getElementById("price-box");
-      const label = document.getElementById("slh-price-label");
-      try {
-        const res = await fetch(API_BASE + "/api/token/price");
-        if (!res.ok) {
-          if (box) box.textContent = "שער יציג: 444  ל-SLH (ברירת מחדל  API לא זמין).";
-          if (label) label.textContent = "444 ";
-          return;
-        }
-        const data = await res.json();
-        const p = data.official_price_nis || 444;
-        if (box) box.textContent = "שער יציג רשמי: " + p + "  ל-SLH (BSC Mainnet).";
-        if (label) label.textContent = p + " ";
-      } catch (err) {
-        console.error("price error", err);
-        if (box) box.textContent = "שער יציג: 444  ל-SLH (ברירת מחדל).";
-        if (label) label.textContent = "444 ";
+    async function initPage() {
+      // health
+      const health = await fetchJSON(API_BASE + "/health");
+      const healthEl = document.getElementById("health-status");
+      if (health && health.status === "ok") {
+        healthEl.textContent =
+          "שרת פעיל  service=" +
+          (health.service || "unknown") +
+          "  db=" +
+          (health.db || "unknown");
+      } else {
+        healthEl.textContent = "לא הצלחנו לקרוא סטטוס מהשרת (אפשר לבדוק לוגים ב-Railway).";
       }
-    }
 
-    async function loadSales() {
-      const tbody = document.getElementById("sales-body");
-      if (!tbody) return;
-      try {
-        const res = await fetch(API_BASE + "/api/token/sales?limit=50");
-        if (!res.ok) {
-          tbody.innerHTML = "<tr><td colspan='7'>שגיאה בטעינת הנתונים.</td></tr>";
-          return;
-        }
-        const data = await res.json();
-        tbody.innerHTML = "";
-
-        if (!data.items || data.items.length === 0) {
-          tbody.innerHTML = "<tr><td colspan='7'>אין עדיין מכירות רשומות. כשיתבצעו עסקאות דרך הבוט  הן יוצגו כאן.</td></tr>";
-          return;
-        }
-
-        data.items.forEach((s) => {
-          const tr = document.createElement("tr");
-          function td(text) {
-            const el = document.createElement("td");
-            el.textContent = text;
-            return el;
-          }
-
-          tr.appendChild(td(s.id || ""));
-          tr.appendChild(td(s.username || s.tg_user_id || ""));
-          tr.appendChild(td(s.wallet_address || ""));
-          tr.appendChild(td(s.amount_slh ? (Number(s.amount_slh).toFixed(4) + " SLH") : ""));
-          tr.appendChild(td(s.price_nis ? (Number(s.price_nis).toFixed(2) + " ") : ""));
-          const statusTd = td(s.tx_status || "-");
-          if (s.tx_status === "verified") statusTd.className = "badge-ok";
-          else if (s.tx_status === "pending") statusTd.className = "badge-pending";
-          else statusTd.className = "badge-bad";
-          tr.appendChild(statusTd);
-
-          const txTd = document.createElement("td");
-          if (s.tx_hash) {
-            const a = document.createElement("a");
-            a.href = "https://bscscan.com/tx/" + s.tx_hash;
-            a.target = "_blank";
-            a.rel = "noreferrer";
-            a.textContent = "BscScan";
-            txTd.appendChild(a);
-          } else {
-            txTd.textContent = "-";
-          }
-          tr.appendChild(txTd);
-
-          tbody.appendChild(tr);
-        });
-      } catch (err) {
-        console.error("sales error", err);
-        tbody.innerHTML = "<tr><td colspan='7'>שגיאה בטעינת הנתונים.</td></tr>";
+      // token price
+      const price = await fetchJSON(API_BASE + "/api/token/price");
+      const priceEl = document.getElementById("slh-price");
+      if (price && typeof price.nis_price !== "undefined") {
+        priceEl.textContent = price.nis_price;
       }
-    }
 
-    async function loadPosts() {
-      const box = document.getElementById("posts-box");
-      if (!box) return;
-      try {
-        const res = await fetch(API_BASE + "/api/posts?limit=20");
-        if (!res.ok) {
-          box.textContent = "שגיאה בטעינת הפוסטים.";
-          return;
+      // sales
+      const sales = await fetchJSON(API_BASE + "/api/token/sales?limit=50");
+      const salesCountEl = document.getElementById("slh-sales-count");
+      const salesJsonEl = document.getElementById("sales-json");
+      if (sales) {
+        const arr = Array.isArray(sales) ? sales : (sales.items || []);
+        salesCountEl.textContent = arr.length;
+        if (salesJsonEl) {
+          salesJsonEl.textContent = JSON.stringify(sales, null, 2);
         }
-        const data = await res.json();
-        box.innerHTML = "";
-
-        if (!data.items || data.items.length === 0) {
-          box.textContent = "עדיין אין פוסטים. צור פוסט חדש דרך הבוט עם /post.";
-          return;
-        }
-
-        data.items.forEach((p) => {
-          const div = document.createElement("div");
-          div.style.marginBottom = "12px";
-
-          const title = document.createElement("div");
-          title.style.fontWeight = "600";
-          title.textContent = p.title || "(ללא כותרת)";
-
-          const meta = document.createElement("div");
-          meta.style.fontSize = "0.75rem";
-          meta.style.color = "#9ca3af";
-          meta.textContent =
-            "מאת: " + (p.username || p.tg_user_id || "") + "  " +
-            (p.created_at ? new Date(p.created_at).toLocaleString("he-IL") : "");
-
-          const text = document.createElement("div");
-          text.style.marginTop = "4px";
-          text.textContent = p.content || "";
-
-          const links = document.createElement("div");
-          links.style.marginTop = "4px";
-          links.style.fontSize = "0.8rem";
-          if (p.link_url) {
-            const a = document.createElement("a");
-            a.href = p.link_url;
-            a.target = "_blank";
-            a.rel = "noreferrer";
-            a.textContent = "קישור מצורף";
-            links.appendChild(a);
-          }
-
-          div.appendChild(title);
-          div.appendChild(meta);
-          div.appendChild(text);
-          if (p.link_url) div.appendChild(links);
-
-          box.appendChild(div);
-        });
-      } catch (err) {
-        console.error("posts error", err);
-        box.textContent = "שגיאה בטעינת הפוסטים.";
+      } else {
+        salesCountEl.textContent = "";
       }
-    }
 
-    async function addTokenToMetaMask() {
-      const statusEl = document.getElementById("wallet-status");
-      if (!window.ethereum) {
-        statusEl.textContent = "MetaMask לא זוהה בדפדפן. התקן את התוסף ונסה שוב.";
-        return;
-      }
-      try {
-        const wasAdded = await window.ethereum.request({
-          method: "wallet_watchAsset",
-          params: {
-            type: "ERC20",
-            options: {
-              address: "0xACb0A09414CEA1C879c67bB7A877E4e19480f022",
-              symbol: "SLH",
-              decimals: 15
-            }
-          }
-        });
-        if (wasAdded) {
-          statusEl.textContent = "הטוקן SLH נוסף בהצלחה ל-MetaMask.";
+      // posts
+      const posts = await fetchJSON(API_BASE + "/api/posts?limit=20");
+      const postsContainer = document.getElementById("posts-container");
+      const postsCountEl = document.getElementById("social-posts-count");
+      postsContainer.innerHTML = "";
+      if (posts && Array.isArray(posts)) {
+        postsCountEl.textContent = posts.length;
+        if (!posts.length) {
+          postsContainer.innerHTML =
+            '<div class="muted">עדיין אין פוסטים  ברגע שהקהילה תתחיל לשתף, הם יופיעו כאן.</div>';
         } else {
-          statusEl.textContent = "המשתמש ביטל את ההוספה.";
+          posts.forEach((p) => {
+            const div = document.createElement("div");
+            div.className = "feed-card";
+            const title = p.title || "פוסט ללא כותרת";
+            const body = p.body || p.content || "";
+            const user = p.username || ("user_id: " + (p.user_id || "?"));
+            div.innerHTML =
+              "<strong>" +
+              title +
+              "</strong><br/>" +
+              "<span class='muted'>" +
+              user +
+              "</span><br/><br/>" +
+              body;
+            postsContainer.appendChild(div);
+          });
         }
-      } catch (err) {
-        console.error(err);
-        statusEl.textContent = "שגיאה בהוספת הטוקן: " + (err.message || err);
+      } else {
+        postsCountEl.textContent = "";
+        postsContainer.innerHTML =
+          '<div class="muted">שגיאה בטעינת הפוסטים  אפשר לבדוק את /api/posts בלוגים.</div>';
       }
+
+      // track visit (אופציונלי)
+      fetch(API_BASE + "/api/referral/track_visit", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          referrer_id: null,
+          landing_variant: "v1-gh-docs",
+          utm_source: "slh-nft.com",
+        }),
+      }).catch(() => {});
     }
 
-    document.getElementById("btn-add-token").addEventListener("click", addTokenToMetaMask);
-
-    setupTabs();
-    setupShares();
-    loadConfig();
-    loadPrice();
-    loadSales();
-    loadPosts();
-    setInterval(loadSales, 30000);
-    setInterval(loadPosts, 60000);
+    document.addEventListener("DOMContentLoaded", initPage);
   </script>
 </body>
 </html>
-
