@@ -1,459 +1,596 @@
-﻿import os
-import json
+# main.py
+import os
 import logging
-from telegram import InlineKeyboardButton, InlineKeyboardMarkup, InputFile
-from pathlib import Path
-from typing import Optional, Dict, Any
+from datetime import datetime
+from typing import Any, Dict, List, Optional
 
 from fastapi import FastAPI, Request, HTTPException
-from fastapi.responses import JSONResponse, HTMLResponse
-from fastapi.staticfiles import StaticFiles
-from fastapi.templating import Jinja2Templates
+from fastapi.responses import JSONResponse, PlainTextResponse
+from fastapi.middleware.cors import CORSMiddleware
 
-from pydantic import BaseModel
+from telegram import (
+    Update,
+    InlineKeyboardButton,
+    InlineKeyboardMarkup,
+)
+from telegram.ext import (
+    Application,
+    CommandHandler,
+    MessageHandler,
+    ContextTypes,
+    filters,
+)
 
-from telegram import Update, InputFile
-from telegram.ext import CommandHandler, ContextTypes
-from telegram.ext import Application, CommandHandler, ContextTypes
-
-from slh_public_api import router as public_router
-from social_api import router as social_router
-from slh_core_api import router as core_router  # API ליבה לרפרלים
+from db import (
+    ensure_user,
+    get_user,
+    mark_paid,
+    set_bank_details,
+    add_payment,
+    add_staking_position,
+    get_user_staking,
+    all_users,
+)
 
 # =========================
-# בסיס לוגינג
+# Logging & ENV
 # =========================
-logging.basicConfig(level=logging.INFO)
+
+logging.basicConfig(
+    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+    level=logging.INFO,
+)
 logger = logging.getLogger("slhnet")
+
+BOT_TOKEN = os.getenv("BOT_TOKEN", "")
+WEBHOOK_URL = os.getenv("WEBHOOK_URL", "")
+ADMIN_CHAT_ID = int(os.getenv("ADMIN_CHAT_ID", "0") or "0")
+BUSINESS_GROUP_URL = os.getenv(
+    "BUSINESS_GROUP_URL", "https://t.me/+HIzvM8sEgh1kNWY0"
+)
+PAYBOX_URL = os.getenv(
+    "PAYBOX_URL", "https://links.payboxapp.com/1SNfaJ6XcYb"
+)
+BIT_URL = os.getenv("BIT_URL", "")
+PAYPAL_URL = os.getenv("PAYPAL_URL", "https://paypal.me/osifdu")
+LANDING_URL = os.getenv("LANDING_URL", "https://slh-nft.com/")
+START_IMAGE_PATH = os.getenv("START_IMAGE_PATH", "assets/start_banner.jpg")
+
+SLH_PRICE_NIS = float(os.getenv("SLH_PRICE_NIS", "444"))
+SLH_TOKEN_ADDRESS = os.getenv(
+    "SLH_TOKEN_ADDRESS", "0xACb0A09414CEA1C879c67bB7A877E4e19480f022"
+)
+BSC_RPC_URL = os.getenv(
+    "BSC_RPC_URL", "https://bsc-dataseed.binance.org/"
+)
+
+if not BOT_TOKEN:
+    logger.error("BOT_TOKEN is not set! Bot will not work properly.")
 
 # =========================
 # FastAPI app
 # =========================
-app = FastAPI(title="SLHNET Gateway Bot")
 
-BASE_DIR = Path(__file__).resolve().parent
+app = FastAPI(title="SLHNET Bot + Landing API")
 
-# סטטיק וטמפלטס
-app.mount("/static", StaticFiles(directory=str(BASE_DIR / "static")), name="static")
-templates = Jinja2Templates(directory=str(BASE_DIR / "templates"))
-
-# רואטרים של API ציבורי + פיד חברתי + ליבת רפרלים
-app.include_router(public_router)
-app.include_router(social_router)
-app.include_router(core_router)
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 # =========================
-# קובץ referral פשוט (אפשר להעביר ל-DB בהמשך)
-# =========================
-DATA_DIR = BASE_DIR / "data"
-DATA_DIR.mkdir(exist_ok=True)
-REF_FILE = DATA_DIR / "referrals.json"
-
-
-def load_referrals() -> Dict[str, Any]:
-    if not REF_FILE.exists():
-        return {"users": {}}
-    try:
-        return json.loads(REF_FILE.read_text(encoding="utf-8"))
-    except Exception:
-        return {"users": {}}
-
-
-def save_referrals(data: Dict[str, Any]) -> None:
-    REF_FILE.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
-
-
-def register_referral(user_id: int, referrer_id: Optional[int]) -> None:
-    data = load_referrals()
-    suid = str(user_id)
-    if suid in data["users"]:
-        return  # כבר רשום
-    data["users"][suid] = {
-        "referrer": str(referrer_id) if referrer_id else None,
-    }
-    save_referrals(data)
-
-
-# =========================
-# קריאת טקסטים של /start ו-/investor מתוך docs/bot_messages_slhnet.txt
+# Telegram Application
 # =========================
 
-DOCS_MSG_FILE = BASE_DIR / "docs" / "bot_messages_slhnet.txt"
+application = Application.builder().token(BOT_TOKEN).build()
 
 
-class BotTexts(BaseModel):
-    start: str
-    investor: str
+# ===== Helper functions =====
 
-
-def load_bot_texts() -> BotTexts:
-    default_start = (
-        "ברוך הבא לשער הכניסה ל-SLHNET \n"
-        "קהילת עסקים, טוקן SLH, חנויות דיגיטליות ושיווק חכם."
-    )
-    default_investor = (
-        "מידע למשקיעים: SLHNET בונה אקו-סיסטם חברתי-פיננסי שקוף, "
-        "עם מודל הפניות מדורג וצמיחה אורגנית."
-    )
-
-    if not DOCS_MSG_FILE.exists():
-        return BotTexts(start=default_start, investor=default_investor)
-
-    content = DOCS_MSG_FILE.read_text(encoding="utf-8")
-    start_block = []
-    investor_block = []
-    current = None
-
-    for line in content.splitlines():
-        stripped = line.strip()
-        if stripped == "[START]":
-            current = "start"
-            continue
-        if stripped == "[INVESTOR]":
-            current = "investor"
-            continue
-        if current == "start":
-            start_block.append(line)
-        elif current == "investor":
-            investor_block.append(line)
-
-    start_text = "\n".join(start_block).strip() or default_start
-    investor_text = "\n".join(investor_block).strip() or default_investor
-    return BotTexts(start=start_text, investor=investor_text)
-
-
-BOT_TEXTS = load_bot_texts()
-
-# =========================
-# Telegram Application (Webhook mode)
-# =========================
-
-telegram_app: Optional[Application] = None
-
-
-async def start_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    user = update.effective_user
-    chat_id = update.effective_chat.id if update.effective_chat else None
-    if not chat_id or not user:
-        return
-
-    # הפניה (deep-link): /start ref_<user_id>
+def _user_from_update(update: Update) -> Dict[str, Any]:
+    u = update.effective_user
     referrer_id: Optional[int] = None
-    if context.args:
-        arg = context.args[0]
-        if arg.startswith("ref_"):
-            try:
-                referrer_id = int(arg.replace("ref_", "").strip())
-            except ValueError:
-                referrer_id = None
-
-    register_referral(user.id, referrer_id)
-
-    # שליחת תמונת שער
-    banner_path = BASE_DIR / "assets" / "start_banner.jpg"
-    if banner_path.exists():
-        try:
-            with banner_path.open("rb") as f:
-                await context.bot.send_photo(
-                    chat_id=chat_id,
-                    photo=InputFile(f),
-                    caption=" שער הכניסה ל-SLHNET",
-                )
-        except Exception as e:
-            logger.warning("Failed to send start banner: %s", e)
-
-    text = (
-        f"{BOT_TEXTS.start}\n\n"
-        " תשלום 39  וגישה מלאה  דרך כפתור/קישור שתראה בדף הנחיתה\n"
-        " /investor  מידע למשקיעים\n"
-        " /whoami  פרטי החיבור שלך (להרחבה בהמשך)"
+    # אפשר בהמשך להכניס כאן קריאת ref מתוך פרמטר start
+    user_obj = ensure_user(
+        user_id=u.id,
+        username=u.username,
+        first_name=u.first_name,
+        last_name=u.last_name,
+        referrer_id=referrer_id,
     )
-    await context.bot.send_message(chat_id=chat_id, text=text)
+    return user_obj
 
 
-async def investor_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    chat_id = update.effective_chat.id if update.effective_chat else None
-    if not chat_id:
-        return
+def _personal_ref_link(user_id: int) -> str:
+    # לינק הפניה אישי – אפשר לשדרג בהמשך עם start=ref_...
+    return f"{LANDING_URL}?ref={user_id}"
 
-    phone = "058-420-3384"
-    tg_link = "https://t.me/Osif83"
+
+# =========================
+# Telegram Handlers
+# =========================
+
+async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """
+    מסך פתיחה פרסומי חזק עם כל הערכים של 39 ש"ח + כפתורים.
+    """
+    chat = update.effective_chat
+    user = _user_from_update(update)
+
+    keyboard = [
+        [
+            InlineKeyboardButton("תשלום 39 ₪ וגישה מלאה", url=PAYBOX_URL),
+        ],
+        [
+            InlineKeyboardButton("דף נחיתה / פרטים נוספים", url=LANDING_URL),
+        ],
+        [
+            InlineKeyboardButton("הצטרפות לקבוצת העסקים", url=BUSINESS_GROUP_URL),
+        ],
+    ]
+
+    if BIT_URL:
+        keyboard.append(
+            [InlineKeyboardButton("תשלום בביט", url=BIT_URL)]
+        )
+    if PAYPAL_URL:
+        keyboard.append(
+            [InlineKeyboardButton("תשלום ב-PayPal", url=PAYPAL_URL)]
+        )
+
+    reply_markup = InlineKeyboardMarkup(keyboard)
+
     text = (
-        f"{BOT_TEXTS.investor}\n\n"
-        " יצירת קשר ישירה עם המייסד:\n"
-        f"טלפון: {phone}\n"
-        f"טלגרם: {tg_link}\n\n"
-        "כאן בונים יחד מודל ריפרל שקוף, סטייקינג ופתרונות תשואה על בסיס\n"
+        "שער הכניסה ל-SLHNET\n\n"
+        "מכאן הכל מתחיל: קהילה עסקית, טוקן SLH על BSC, חנויות דיגיטליות ושרשרת הפניות "
+        "שיכולה להפוך אותך לשותף במודל הצמיחה.\n\n"
+        "מה מקבלים אחרי תשלום חד־פעמי של 39 ₪?\n"
+        "• קישור אישי לשיתוף והפצה\n"
+        "• נכס דיגיטלי ראשון (חנות / פרופיל עסקי)\n"
+        "• גישה לקבוצת העסקים הסגורה\n"
+        "• בסיס לרשת ריפרל מדורגת שמתחילה ממך\n\n"
+        "איך מתקדמים:\n"
+        "1. מבצעים תשלום (פייבוקס / ביט / PayPal)\n"
+        "2. שולחים לבוט צילום מסך / אישור תשלום\n"
+        "3. אחרי אישור אדמין, תקבל את כל הקישורים האישיים שלך, כולל אפשרות להגדיר פרטי בנק לקבלת תשלומים.\n\n"
+        "פקודות שימושיות:\n"
+        "/whoami – הפרופיל שלך במערכת\n"
+        "/links – כל הקישורים שאפשר לשתף + הבוט + האתר\n"
+        "/staking – הסבר וסטטוס סטייקינג דמו\n"
+        "/investor – מידע למשקיעים\n"
+    )
+
+    # ננסה לשלוח תמונה אם קיימת
+    try:
+        if os.path.exists(START_IMAGE_PATH):
+            await chat.send_photo(
+                photo=open(START_IMAGE_PATH, "rb"),
+                caption=text,
+                reply_markup=reply_markup,
+            )
+        else:
+            await chat.send_message(text=text, reply_markup=reply_markup)
+    except Exception as e:
+        logger.warning(f"Failed to send start image: {e}")
+        await chat.send_message(text=text, reply_markup=reply_markup)
+
+
+async def investor(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    text = (
+        "מידע למשקיעים: SLHNET בונה אקו-סיסטם חברתי-פיננסי שקוף, "
+        "עם מודל הפניות מדורג וצמיחה אורגנית.\n\n"
+        "אנחנו מחברים בין חנויות דיגיטליות, טוקן SLH על Binance Smart Chain, "
+        "ו-NFTים ייעודיים לקהילה.\n\n"
+        "יצירת קשר ישירה עם המייסד:\n"
+        "טלפון: 058-420-3384\n"
+        "טלגרם: https://t.me/Osif83\n\n"
+        "כאן בונים יחד מודל ריפרל שקוף, סטייקינג ופתרונות תשואה על בסיס "
         "אקו-סיסטם אמיתי של עסקים, לא על אוויר."
     )
-    await context.bot.send_message(chat_id=chat_id, text=text)
+    await update.effective_chat.send_message(text=text)
 
 
-async def whoami_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    user = update.effective_user
-    chat_id = update.effective_chat.id if update.effective_chat else None
-    if not chat_id or not user:
-        return
+async def whoami(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    user = _user_from_update(update)
+    ref_link = _personal_ref_link(user["user_id"])
+    status = "✅ משלם מאושר" if user.get("is_paid") else "❗ טרם אושר תשלום"
 
-    data = load_referrals()
-    u = data["users"].get(str(user.id))
-    ref = u["referrer"] if u else None
+    text = (
+        "פרטי המשתמש שלך:\n"
+        f"user_id: {user['user_id']}\n"
+        f"username: @{user.get('username') or 'ללא'}\n"
+        f"סטטוס: {status}\n\n"
+        f"קישור הפניה אישי (לשיתוף):\n{ref_link}\n"
+    )
 
-    msg = [
-        " פרטי המשתמש שלך:",
-        f"user_id: {user.id}",
-        f"username: @{user.username}" if user.username else "username: (ללא)",
+    if user.get("bank_details"):
+        text += f"\nפרטי קבלת תשלומים שהגדרת:\n{user['bank_details']}\n"
+    else:
+        text += (
+            "\nעדיין לא הוגדרו פרטי קבלת תשלומים.\n"
+            "לאחר אישור התשלום תוכל לשלוח /setbank ולצרף את פרטי הבנק/ביט שלך."
+        )
+
+    await update.effective_chat.send_message(text=text)
+
+
+async def links(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    user = _user_from_update(update)
+    ref_link = _personal_ref_link(user["user_id"])
+
+    keyboard = [
+        [InlineKeyboardButton("דף נחיתה SLHNET", url=LANDING_URL)],
+        [InlineKeyboardButton("הצטרפות לבוט החברים", url="https://t.me/Buy_My_Shop_bot")],
+        [InlineKeyboardButton("קבוצת העסקים", url=BUSINESS_GROUP_URL)],
     ]
-    if ref:
-        msg.append(f"הופנית ע\"י משתמש: {ref}")
-    else:
-        msg.append("לא רשום מפנה  ייתכן שאתה השורש או שנכנסת ישירות.")
 
-    await context.bot.send_message(chat_id=chat_id, text="\n".join(msg))
+    text = (
+        "כל הקישורים המרכזיים שלך ב-SLHNET:\n\n"
+        f"🔗 קישור הפניה אישי:\n{ref_link}\n\n"
+        f"🌐 אתר / דף נחיתה:\n{LANDING_URL}\n\n"
+        "שתף את הקישור האישי שלך עם חברים – ברגע שהם נכנסים דרך הקישור הזה, "
+        "אנחנו יכולים לשייך אותם אליך ברשת ההפניות.\n"
+    )
+
+    await update.effective_chat.send_message(
+        text=text, reply_markup=InlineKeyboardMarkup(keyboard)
+    )
 
 
-async def init_telegram_app() -> None:
-    global telegram_app
-    bot_token = os.getenv("BOT_TOKEN")
-    webhook_url = os.getenv("WEBHOOK_URL")
+async def setbank(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    user = _user_from_update(update)
+    args = context.args
 
-    if not bot_token:
-        logger.error("BOT_TOKEN not set  bot will not run")
+    if not user.get("is_paid"):
+        await update.effective_chat.send_message(
+            "כדי להגדיר פרטי קבלת תשלומים צריך קודם אישור תשלום על ה-39 ₪."
+        )
         return
 
-    telegram_app = Application.builder().token(bot_token).build()
-    telegram_app.add_handler(CommandHandler("start", start_slhnet))
-    telegram_app.add_handler(CommandHandler("investor", investor_handler))
-    telegram_app.add_handler(CommandHandler("whoami", whoami_handler))
+    if not args:
+        await update.effective_chat.send_message(
+            "שלח את הפקודה כך:\n/setbank פרטי הבנק/ביט/פייבוקס שלך לקבלת תשלומים."
+        )
+        return
 
-    await telegram_app.initialize()
+    details = " ".join(args)
+    set_bank_details(user["user_id"], details)
+    await update.effective_chat.send_message(
+        "פרטי קבלת התשלומים שלך נשמרו בהצלחה.\n"
+        "תוכל תמיד לעדכן אותם שוב עם /setbank."
+    )
 
-    if webhook_url:
-        try:
-            await telegram_app.bot.set_webhook(webhook_url)
-            logger.info("Webhook set to %s", webhook_url)
-        except Exception as e:
-            logger.error("Failed to set webhook: %s", e)
+
+async def staking(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    user = _user_from_update(update)
+    positions = get_user_staking(user["user_id"])
+
+    if not positions:
+        text = (
+            "סטייקינג ב-SLHNET (דמו):\n\n"
+            "בשלב הזה אנחנו בונים מנגנון סטייקינג שיאפשר לך לנעול טוקני SLH "
+            "בתמורה לתשואה והטבות בקהילה.\n\n"
+            "כרגע זה מוד דמו: ברגע שתאושר ותירשם, נוכל להוסיף לך סטייקינג נסיוני "
+            "ולהציג כאן את התשואות שלך.\n\n"
+            "אם תרצה שנדמה עבורך סטייקינג דמו, שלח לי הודעה אישית או "
+            "ציין את זה מול האדמין אחרי האישור."
+        )
     else:
-        logger.warning("WEBHOOK_URL not set  please configure it on Railway.")
+        total = sum(p["amount"] for p in positions)
+        text = (
+            "סטייקינג – פרופיל אישי:\n\n"
+            f"מספר פוזיציות: {len(positions)}\n"
+            f"סך הכל סכום (דמו): {total:.2f} SLH\n\n"
+            "זהו מנגנון דמו שנועד להציג למשקיעים ולמשתמשים הראשונים איך יראה "
+            "הסטייקינג במערכת.\n"
+        )
+
+    await update.effective_chat.send_message(text=text)
 
 
-@app.on_event("startup")
-async def on_startup() -> None:
-    logger.info("Starting SLHNET gateway service...")
-    await init_telegram_app()
-    logger.info("Startup complete.")
+async def handle_payment_evidence(
+    update: Update, context: ContextTypes.DEFAULT_TYPE
+) -> None:
+    """
+    כל תמונה/קובץ שנשלח בבוט בפרטי – נתייחס אליו כאישור תשלום.
+    נשמור ב-DB ונשלח ללוג באדמין (אם קיים ADMIN_CHAT_ID).
+    """
+    chat = update.effective_chat
+    user = _user_from_update(update)
+    message = update.effective_message
+
+    file_id = None
+    evidence_type = None
+
+    if message.photo:
+        photo = message.photo[-1]
+        file_id = photo.file_id
+        evidence_type = "photo"
+    elif message.document:
+        doc = message.document
+        file_id = doc.file_id
+        evidence_type = "document"
+
+    if not file_id:
+        return
+
+    method = "unknown"
+    add_payment(
+        user_id=user["user_id"],
+        username=user.get("username"),
+        chat_id=chat.id,
+        method=method,
+        evidence_type=evidence_type,
+        file_id=file_id,
+    )
+
+    # שליחת לוג לאדמין
+    if ADMIN_CHAT_ID:
+        text = (
+            "📥 התקבל אישור תשלום חדש.\n\n"
+            f"user_id = {user['user_id']}\n"
+            f"username = @{user.get('username') or 'ללא'}\n"
+            f"from chat_id = {chat.id}\n"
+            f"סוג קובץ: {evidence_type}\n\n"
+            "לאישור (עבור אדמין ראשי):\n"
+            f"/approve {user['user_id']}\n"
+            f"/reject {user['user_id']} <סיבה>\n"
+        )
+        try:
+            if evidence_type == "photo":
+                await context.bot.send_photo(
+                    chat_id=ADMIN_CHAT_ID,
+                    photo=file_id,
+                    caption=text,
+                )
+            else:
+                await context.bot.send_document(
+                    chat_id=ADMIN_CHAT_ID,
+                    document=file_id,
+                    caption=text,
+                )
+        except Exception as e:
+            logger.error(f"Failed to send payment evidence to admin: {e}")
+
+    await chat.send_message(
+        "תודה! קיבלנו את אישור התשלום שלך.\n"
+        "אדמין יעבור עליו ויאשר בהקדם. לאחר האישור תקבל את כל הקישורים האישיים שלך."
+    )
 
 
-@app.get("/health")
-async def health() -> Dict[str, Any]:
-    db_status = os.getenv("DATABASE_URL")
-    return {
-        "status": "ok",
-        "service": "telegram-gateway-community-bot",
-        "db": "enabled" if db_status else "disabled",
-    }
+async def approve(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    if update.effective_chat.id != ADMIN_CHAT_ID:
+        return
 
+    if not context.args:
+        await update.effective_chat.send_message("שימוש: /approve <user_id>")
+        return
+
+    try:
+        target_id = int(context.args[0])
+    except ValueError:
+        await update.effective_chat.send_message("user_id חייב להיות מספר.")
+        return
+
+    mark_paid(target_id)
+    user = get_user(target_id)
+
+    text_admin = f"אושר תשלום למשתמש {target_id}."
+    await update.effective_chat.send_message(text_admin)
+
+    # שליחת הודעה למשתמש – אם נצליח
+    try:
+        ref_link = _personal_ref_link(target_id)
+        msg_user = (
+            "✅ התשלום שלך אושר!\n\n"
+            "קיבלת גישה מלאה ל-SLHNET.\n\n"
+            "מה עכשיו?\n"
+            "1. שלח /setbank עם פרטי קבלת התשלומים שלך (בנק / ביט / פייבוקס).\n"
+            "2. שלח /links כדי לקבל את כל הקישורים לשיתוף.\n"
+            "3. התחל להפיץ את הקישור האישי שלך ולהצטרף לפעילות בקהילה.\n\n"
+            f"קישור הפניה אישי:\n{ref_link}\n"
+        )
+        await context.bot.send_message(chat_id=target_id, text=msg_user)
+    except Exception as e:
+        logger.error(f"Failed to notify user {target_id} after approval: {e}")
+
+
+async def reject(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    if update.effective_chat.id != ADMIN_CHAT_ID:
+        return
+
+    if len(context.args) < 2:
+        await update.effective_chat.send_message(
+            "שימוש: /reject <user_id> <סיבה>"
+        )
+        return
+
+    try:
+        target_id = int(context.args[0])
+    except ValueError:
+        await update.effective_chat.send_message("user_id חייב להיות מספר.")
+        return
+
+    reason = " ".join(context.args[1:])
+    text_admin = f"נדחה תשלום למשתמש {target_id}. סיבה: {reason}"
+    await update.effective_chat.send_message(text_admin)
+
+    try:
+        await context.bot.send_message(
+            chat_id=target_id,
+            text=(
+                "❗ התשלום לא אושר.\n"
+                f"סיבה: {reason}\n"
+                "ניתן לנסות שוב או ליצור קשר לתמיכה."
+            ),
+        )
+    except Exception as e:
+        logger.error(f"Failed to notify user {target_id} after reject: {e}")
+
+
+# =========================
+# PTB registration
+# =========================
+
+application.add_handler(CommandHandler("start", start))
+application.add_handler(CommandHandler("investor", investor))
+application.add_handler(CommandHandler("whoami", whoami))
+application.add_handler(CommandHandler("links", links))
+application.add_handler(CommandHandler("setbank", setbank))
+application.add_handler(CommandHandler("staking", staking))
+application.add_handler(CommandHandler("approve", approve))
+application.add_handler(CommandHandler("reject", reject))
+
+# כל תמונה/דוק בפרטי = אישור תשלום אפשרי
+application.add_handler(
+    MessageHandler(
+        filters.ChatType.PRIVATE & (filters.PHOTO | filters.Document.ALL),
+        handle_payment_evidence,
+    )
+)
+
+
+# =========================
+# FastAPI <-> Telegram Webhook
+# =========================
 
 @app.post("/webhook")
 async def telegram_webhook(request: Request):
-    global telegram_app
-    if telegram_app is None:
-        raise HTTPException(status_code=503, detail="Telegram app not initialized")
+    if not BOT_TOKEN:
+        raise HTTPException(status_code=500, detail="BOT_TOKEN not configured")
 
     data = await request.json()
-    update = Update.de_json(data, telegram_app.bot)
-    await telegram_app.process_update(update)
+    update = Update.de_json(data, application.bot)
+
+    await application.process_update(update)
     return JSONResponse({"ok": True})
 
 
-@app.get("/", response_class=HTMLResponse)
-async def landing(request: Request):
-    slh_price = float(os.getenv("SLH_NIS", "444"))
-    return templates.TemplateResponse(
-        "landing.html",
-        {
-            "request": request,
-            "slh_price": slh_price,
+# =========================
+# Public API for website
+# =========================
+
+@app.get("/health")
+async def health():
+    return {"status": "ok", "ts": datetime.utcnow().isoformat() + "Z"}
+
+
+@app.get("/config/public")
+async def config_public():
+    return {
+        "project": "SLHNET",
+        "network": "BSC Mainnet",
+        "chain_id": 56,
+        "rpc_url": BSC_RPC_URL,
+        "token_address": SLH_TOKEN_ADDRESS,
+        "token_symbol": "SLH",
+        "token_decimals": 15,
+        "slh_price_nis": SLH_PRICE_NIS,
+        "urls": {
+            "bot": "https://t.me/Buy_My_Shop_bot",
+            "business_group": BUSINESS_GROUP_URL,
+            "paybox": PAYBOX_URL,
+            "bit": BIT_URL,
+            "paypal": PAYPAL_URL,
         },
-    )
+    }
 
 
-async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    chat = update.effective_chat
+@app.get("/api/token/price")
+async def token_price():
+    return {
+        "symbol": "SLH",
+        "price_nis": SLH_PRICE_NIS,
+        "updated_at": datetime.utcnow().isoformat() + "Z",
+    }
 
-    title = BOT_TEXTS.get("start_title", "שער הכניסה ל-SLHNET")
-    body = BOT_TEXTS.get("start_body", "")
 
-    banner_path = BASE_DIR / START_IMAGE_PATH
-    if banner_path.exists():
+@app.get("/api/token/sales")
+async def token_sales(limit: int = 50):
+    # דמו: מחזיר רשימה ריקה – אפשר להרחיב מאוחר יותר
+    return []
+
+
+@app.get("/api/posts")
+async def posts(limit: int = 20):
+    # דמו: פוסטים תיאורטיים – אפשר לשלוף בהמשך מה-DB
+    base_posts = [
+        {
+            "id": 1,
+            "title": "ברוכים הבאים ל-SLHNET",
+            "body": "הרשת העסקית החדשה שמחברת בין חנויות דיגיטליות, טוקן SLH וקהילת יזמים.",
+            "created_at": "2025-11-16T00:00:00Z",
+        },
+        {
+            "id": 2,
+            "title": "איך מרוויחים מהפניות?",
+            "body": "שתפו את הקישור האישי שלכם, כל הצטרפות עובדת לטובתכם ולרשת שלכם.",
+            "created_at": "2025-11-16T01:00:00Z",
+        },
+    ]
+    return base_posts[:limit]
+
+
+@app.get("/api/referral/stats")
+async def referral_stats():
+    users = all_users()
+    total_users = len(users)
+    total_with_referrer = sum(1 for u in users if u.get("referrer_id"))
+    roots = [u["user_id"] for u in users if not u.get("referrer_id")]
+
+    # מיפוי גס של גודל רשת פר משתמש – דמו (ניתן לשפר)
+    network_sizes: Dict[str, int] = {}
+    for u in users:
+        uid = u["user_id"]
+        network_sizes[str(uid)] = sum(
+            1 for x in users if x.get("referrer_id") == uid
+        )
+
+    return {
+        "total_users": total_users,
+        "total_with_referrer": total_with_referrer,
+        "total_roots": len(roots),
+        "roots": roots,
+        "network_sizes": network_sizes,
+    }
+
+
+@app.get("/api/referral/tree/{user_id}")
+async def referral_tree(user_id: int):
+    users = all_users()
+    ids = {u["user_id"] for u in users}
+    if user_id not in ids:
+        raise HTTPException(status_code=404, detail="user not found in referral map")
+
+    # דמו: עץ חד-רמה – רק מי שמופיע עם referrer_id=user_id
+    children = [u for u in users if u.get("referrer_id") == user_id]
+    return {
+        "user_id": user_id,
+        "children": children,
+    }
+
+
+# =========================
+# Startup
+# =========================
+
+@app.on_event("startup")
+async def on_startup():
+    logger.info("Starting SLHNET gateway service...")
+    if BOT_TOKEN and WEBHOOK_URL:
         try:
-            with banner_path.open("rb") as f:
-                await context.bot.send_photo(
-                    chat_id=chat.id,
-                    photo=InputFile(f),
-                    caption=title,
-                )
+            await application.bot.set_webhook(WEBHOOK_URL)
+            logger.info(f"Webhook set to {WEBHOOK_URL}")
         except Exception as e:
-            log.warning("failed to send start banner: %s", e)
-            await chat.send_message(text=title)
+            logger.error(f"Failed to set webhook: {e}")
     else:
-        await chat.send_message(text=title)
-
-    pay_url = PAYBOX_URL or (LANDING_URL + "#join39")
-    more_info_url = LANDING_URL
-    group_url = BUSINESS_GROUP_URL or LANDING_URL
-
-    keyboard = [
-        [InlineKeyboardButton(" תשלום 39  וגישה מלאה", url=pay_url)],
-        [InlineKeyboardButton("ℹ לפרטים נוספים", url=more_info_url)],
-        [InlineKeyboardButton(" הצטרפות לקבוצת העסקים", url=group_url)],
-        [InlineKeyboardButton(" מידע למשקיעים", callback_data="open_investor")],
-    ]
-    reply_markup = InlineKeyboardMarkup(keyboard)
-
-    await chat.send_message(
-        text=body
-        + "\\n\\n"
-        "פקודות נוספות:\\n"
-        " /whoami  פרטי החיבור שלך\\n"
-        " /investor  מידע למשקיעים\\n"
-        " /staking  סטייקינג SLH (פאזה ראשונה)\\n",
-        reply_markup=reply_markup,
-    )
-
-async def investor(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    chat = update.effective_chat
-    body = BOT_TEXTS.get("investor_body", "")
-
-    text = (
-        body
-        + "\\n\\n"
-        "יצירת קשר ישירה עם המייסד:\\n"
-        "טלפון: 058-420-3384\\n"
-        "טלגרם: https://t.me/Osif83\\n\\n"
-        "את כל המבנה האסטרטגי אפשר לראות גם באתר:\\n"
-        f"{LANDING_URL}"
-    )
-
-    keyboard = [
-        [InlineKeyboardButton(" דף נחיתה SLHNET", url=LANDING_URL)],
-        [InlineKeyboardButton(" כניסה לבוט", url="https://t.me/Buy_My_Shop_bot")],
-    ]
-    await chat.send_message(text=text, reply_markup=InlineKeyboardMarkup(keyboard))
-
-async def staking(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    chat = update.effective_chat
-    text = (
-        " סטייקינג SLH  פאזה 1\\n\\n"
-        "אנחנו בונים מנגנון סטייקינג שיתחיל מניקוד על בסיס פעילות וריפרלים,\\n"
-        "ויתחבר בהמשך לסטייקינג ישיר על הטוקן SLH ב-BSC.\\n\\n"
-        "בשלב זה:\\n"
-        " כל הצטרפות דרך הלינק שלך נרשמת ברשת\\n"
-        " המידע יוזן למודל סטייקינג/תגמולים שיפורסם בלוח ייעודי\\n\\n"
-        f"ברגע שיתחיל הסטייקינג בפועל  הלינק וההסבר המלא יופיעו כאן ובאתר:\\n{LANDING_URL}"
-    )
-    await chat.send_message(text=text)
-
-application.add_handler(CommandHandler("investor", investor))
-application.add_handler(CommandHandler("staking", staking))
+        logger.error("BOT_TOKEN or WEBHOOK_URL not set – webhook not configured.")
+    logger.info("Startup complete.")
 
 
-
-async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """
-    שער הכניסה ל-SLHNET – מסך פתיחה שיווקי + כפתורי פעולה.
-    לא נוגעים בשאר הלוגיקות של הבוט, רק בכניסה.
-    """
-    from telegram import InlineKeyboardButton, InlineKeyboardMarkup
-    import os
-
-    chat = update.effective_chat
-
-    landing_url = os.getenv("LANDING_URL", "https://slh-nft.com/")
-    paybox_url = os.getenv(
-        "PAYBOX_URL",
-        "https://links.payboxapp.com/1SNfaJ6XcYb"  # אפשר לעדכן ב-Railway
-    )
-    business_group_url = os.getenv(
-        "BUSINESS_GROUP_URL",
-        "https://t.me/+HIzvM8sEgh1kNWY0"
-    )
-    bot_url = "https://t.me/Buy_My_Shop_bot"
-
-    text = (
-        "שער הכניסה ל-SLHNET\\n\\n"
-        "ברוך הבא לשער הכניסה ל-SLHNET 🌐\\n"
-        "קהילת עסקים, חנויות דיגיטליות וטוקן SLH על Binance Smart Chain.\\n\\n"
-        "💎 מה מקבלים בתשלום חד-פעמי של 39 ₪?\\n"
-        "• גישה לקבוצת העסקים הסגורה\\n"
-        "• נכס דיגיטלי ראשוני (חנות / שער אישי שיורחב בהמשך)\\n"
-        "• לינק הפצה אישי שתוכל להרוויח ממנו\\n"
-        "• קדימות להטבות, איירדרופים ומודלי סטייקינג עתידיים\\n\\n"
-        "🧭 איך מצטרפים?\\n"
-        "1. לוחצים על הכפתור 'תשלום 39 ₪ וגישה מלאה'\\n"
-        "2. מבצעים תשלום באחד הערוצים הנתמכים (פייבוקס/בנק וכו')\\n"
-        "3. שולחים צילום מסך או אישור תשלום לבוט (בהמשך נוסיף אוטומציה מלאה)\\n"
-        "4. לאחר אישור – מקבלים קישורים לחנות ולחומרי ההפצה האישיים שלך.\\n\\n"
-        "פקודות שימושיות:\\n"
-        "• /whoami – פרטי החיבור שלך והאם יש לך מפנה\\n"
-        "• /investor – מידע למשקיעים ולשותפים אסטרטגיים\\n"
-        "• /staking – מידע על מודל הסטייקינג שנבנה סביב SLHNET\\n"
-    )
-
-    keyboard = [
-        [InlineKeyboardButton("🔑 תשלום 39 ₪ וגישה מלאה", url=paybox_url)],
-        [InlineKeyboardButton("ℹ️ לפרטים נוספים באתר", url=landing_url)],
-        [InlineKeyboardButton("💬 הצטרפות לקבוצת העסקים", url=business_group_url)],
-        [InlineKeyboardButton("🤖 פתיחת הבוט SLHNET", url=bot_url)],
-    ]
-    reply_markup = InlineKeyboardMarkup(keyboard)
-
-    await chat.send_message(text=text, reply_markup=reply_markup)
-
-async def start_slhnet(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """
-    Rich /start entry point for SLHNET:
-    - Explains the 39 offer
-    - Shows main CTA buttons
-    - Serves as the main marketing entry for new users.
-    """
-    from telegram import InlineKeyboardButton, InlineKeyboardMarkup
-    import os
-
-    chat = update.effective_chat
-
-    landing_url = os.getenv("LANDING_URL", "https://slh-nft.com/")
-    paybox_url = os.getenv("PAYBOX_URL", "https://links.payboxapp.com/1SNfaJ6XcYb")
-    business_group_url = os.getenv("BUSINESS_GROUP_URL", "https://t.me/+HIzvM8sEgh1kNWY0")
-    bot_url = "https://t.me/Buy_My_Shop_bot"
-
-    text = (
-        "שער הכניסה ל-SLHNET\\n\\n"
-        "מכאן מתחילים: רשת עסקים, טוקן SLH על BSC, חנות דיגיטלית משלך ומודל ריפרל מדורג.\\n\\n"
-        "מה מקבלים אחרי תשלום חדפעמי של 39 ?\\n"
-        "• קישור אישי לשיתוף והפצה\\n"
-        "• פתיחת נכס דיגיטלי ראשון (חנות / פרופיל עסקי)\\n"
-        "• גישה לקבוצת העסקים הסגורה\\n"
-        "• בסיס לרשת הפניות שמתחילה ממך\\n\\n"
-        "איך ממשיכים?\\n"
-        "1. לוחצים על 'תשלום 39  וגישה מלאה'\\n"
-        "2. מבצעים תשלום באחד הערוצים הזמינים\\n"
-        "3. שולחים צילום מסך/אישור תשלום לבוט\\n"
-        "4. מקבלים גישה + קישורים אישיים + הוראות הפעלה.\\n\\n"
-        "פקודות חשובות:\\n"
-        "/whoami  פרטי החיבור שלך\\n"
-        "/investor  מידע למשקיעים\\n"
-        "/staking  סטטוס סטייקינג ונתוני תשואה (בפיתוח)\\n"
-    )
-
-    keyboard = [
-        [InlineKeyboardButton("תשלום 39  וגישה מלאה", url=paybox_url)],
-        [InlineKeyboardButton("דף נחיתה / פרטים נוספים", url=landing_url)],
-        [InlineKeyboardButton("הצטרפות לקבוצת העסקים", url=business_group_url)],
-        [InlineKeyboardButton("פתיחת הבוט מחדש", url=bot_url)],
-    ]
-    reply_markup = InlineKeyboardMarkup(keyboard)
-
-    await chat.send_message(text=text, reply_markup=reply_markup)
-
+@app.get("/")
+async def root_landing():
+    # redirect-like text for debugging; האתר עצמו רץ מ-GitHub Pages
+    return PlainTextResponse("SLHNET Bot/API backend is running.")
