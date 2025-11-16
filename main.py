@@ -6,7 +6,7 @@ from contextlib import asynccontextmanager
 from datetime import datetime
 from http import HTTPStatus
 from typing import Deque, Set, Literal, Optional, Dict, Any, List
-
+from fastapi.responses import FileResponse, HTMLResponse
 from fastapi import FastAPI, Request, Response, HTTPException
 from telegram import (
     Update,
