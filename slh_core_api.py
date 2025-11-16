@@ -1,240 +1,134 @@
-﻿from __future__ import annotations
-
-import os
-import time
+﻿import os
+import json
+import logging
+import uuid
 from datetime import datetime
-from typing import Dict, List, Optional, Set
+from typing import Dict, Any, Optional, List
 
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 
-# ============================================================
-# SLHNET Core API  public config + referral MVP
-# ============================================================
+from db import get_conn
 
-core_router = APIRouter(tags=["slh_core"])
+logger = logging.getLogger("slhnet.core")
 
-# --- Token / project config ---
-
-SLH_SYMBOL = "SLH"
-SLH_CONTRACT = "0xACb0A09414CEA1C879c67bB7A877E4e19480f022"
-SLH_DECIMALS = 15
-
-# מאפשר לשלוט במחיר דרך משתנה סביבה SLH_PRICE_ILS, ברירת מחדל: 444
-try:
-    SLH_PRICE_ILS = float(os.getenv("SLH_PRICE_ILS", "444"))
-except ValueError:
-    SLH_PRICE_ILS = 444.0
+router = APIRouter()
 
 
-class PublicConfig(BaseModel):
-    project: str = "SLHNET"
-    landing_url: str = "https://slh-nft.com/"
-    token_symbol: str = SLH_SYMBOL
-    token_contract: str = SLH_CONTRACT
-    token_decimals: int = SLH_DECIMALS
-    token_price_ils: float = Field(..., description="Demo price of SLH in ILS")
-    links: Dict[str, str]
-    meta: Dict[str, str]
-
-
-@core_router.get("/config/public", response_model=PublicConfig)
-def get_public_config() -> PublicConfig:
-    """
-    קונפיג ציבורי  מיועד לאתר / קליינט.
-    כרגע מחזיר נתונים סטטיים + קישורים מרכזיים.
-    ניתן להרחבה בהמשך.
-    """
-    links = {
-        "landing": "https://slh-nft.com/",
-        "bot": "https://t.me/Buy_My_Shop_bot",
-        "investor_telegram": "https://t.me/Osif83",
-    }
-    meta = {
-        "description": "SLHNET  רשת עסקית סביב טוקן SLH, ריפרל מדורג ואקו-סיסטם של חנויות דיגיטליות.",
-        "stage": "mvp-core-api",
-    }
-    return PublicConfig(
-        token_price_ils=SLH_PRICE_ILS,
-        links=links,
-        meta=meta,
-    )
-
-
-@core_router.get("/api/token/price")
-def get_token_price():
-    """
-    נקודת קצה פשוטה שמחזירה את מחיר ה-SLH בשקלים.
-    כרגע: קונפיג ידני דרך SLH_PRICE_ILS או ברירת מחדל 444.
-    בעתיד ניתן לחבר ל-Oracle / בורסה חיצונית.
-    """
-    return {
-        "symbol": SLH_SYMBOL,
-        "contract": SLH_CONTRACT,
-        "decimals": SLH_DECIMALS,
-        "price_ils": SLH_PRICE_ILS,
-        "source": "manual_config",
-        "updated_at": datetime.utcnow().isoformat() + "Z",
-    }
-
-
-# ============================================================
-# Referral MVP  עץ הפניות בסיסי בזיכרון
-# ============================================================
-
-class ReferralNode(BaseModel):
-    user_id: int
+class UserCreate(BaseModel):
+    telegram_id: int
     username: Optional[str] = None
-    children: List["ReferralNode"] = []
+    display_name: Optional[str] = None
+    referral_code: Optional[str] = None
 
 
-ReferralNode.update_forward_refs()
+class Shop(BaseModel):
+    id: str
+    owner_user_id: str
+    title: str
+    description: Optional[str] = None
+    slug: str
+    shop_type: str
+    status: str
+    referral_code: str
+    created_at: str
+    updated_at: str
 
 
-class ReferralStats(BaseModel):
-    total_users: int
-    total_relations: int
-    total_visits: int
-    roots: List[int]
+def ensure_uuid() -> str:
+    return str(uuid.uuid4())
 
 
-class TrackVisitRequest(BaseModel):
+@router.post("/core/users/telegram-sync")
+async def telegram_sync_user(payload: UserCreate) -> Dict[str, Any]:
     """
-    בקשה לרישום ביקור / כניסה דרך לינק ריפרל.
-    זה לא מחליף לוגיקת הרשמה בבוט, אלא שכבת טלמטריה / גרף חברתי.
+    מוודא שהמשתמש קיים בטבלת users, יוצר אם צריך.
     """
-    referrer_id: int = Field(..., description="telegram user_id של המפנה")
-    visitor_id: Optional[int] = Field(
-        None,
-        description="telegram user_id של המבקר, אם ידוע (אחרי /start בבוט)",
-    )
-    source: Optional[str] = Field(
-        None,
-        description="מקור / תיוג: למשל 'landing', 'whatsapp', 'telegram_share' וכו'",
-    )
-    ts: Optional[float] = Field(
-        None,
-        description="timestamp שנשלח מהלקוח (אם יש). אם לא  נשתמש ב-time.time().",
-    )
+    conn = get_conn()
+    with conn:
+        cur = conn.cursor()
+        cur.execute(
+            """
+            SELECT id, telegram_id, telegram_username, display_name, bnb_address, ton_address, referrer_id, created_at, updated_at
+            FROM public.users
+            WHERE telegram_id = %s
+            """,
+            (payload.telegram_id,),
+        )
+        row = cur.fetchone()
+        if row:
+            user = {
+                "id": row[0],
+                "telegram_id": row[1],
+                "telegram_username": row[2],
+                "display_name": row[3],
+                "bnb_address": row[4],
+                "ton_address": row[5],
+                "referrer_id": row[6],
+                "created_at": row[7].isoformat() if row[7] else None,
+                "updated_at": row[8].isoformat() if row[8] else None,
+            }
+            return user
 
-
-# "Fake DB" בזיכרון  MVP בלבד.
-# בהמשך אפשר להחליף למשהו מבוסס Postgres דרך db.py
-_REFERRAL_GRAPH: Dict[int, List[int]] = {}
-_USER_ALIASES: Dict[int, str] = {}
-_VISITS: List[Dict[str, object]] = []
-
-
-def _add_relation(referrer_id: int, visitor_id: int) -> None:
-    """
-    רישום קשר ריפרל בסיסי: referrer -> visitor.
-    אם כבר קיים, לא נוסיף שוב.
-    """
-    if referrer_id == visitor_id:
-        return
-
-    children = _REFERRAL_GRAPH.setdefault(referrer_id, [])
-    if visitor_id not in children:
-        children.append(visitor_id)
-
-
-def _collect_all_users() -> Set[int]:
-    users: Set[int] = set()
-    for src, dsts in _REFERRAL_GRAPH.items():
-        users.add(src)
-        users.update(dsts)
-    return users
-
-
-def _find_roots() -> List[int]:
-    """
-    משתמשים שאין להם 'מפנה מעליהם'  נחשבים שורשים בגרף.
-    """
-    all_users = _collect_all_users()
-    all_children: Set[int] = set()
-    for dsts in _REFERRAL_GRAPH.values():
-        all_children.update(dsts)
-    roots = sorted(all_users - all_children)
-    return roots
-
-
-def _build_tree(user_id: int, depth: int = 0, max_depth: int = 6) -> ReferralNode:
-    """
-    בניית עץ ריפרל רקורסיבי עד עומק מוגבל (כדי להימנע ממעגלים אינסופיים).
-    """
-    if depth > max_depth:
-        return ReferralNode(user_id=user_id, username=_USER_ALIASES.get(user_id), children=[])
-
-    children_ids = _REFERRAL_GRAPH.get(user_id, [])
-    children_nodes = [
-        _build_tree(child_id, depth=depth + 1, max_depth=max_depth)
-        for child_id in children_ids
-    ]
-    return ReferralNode(
-        user_id=user_id,
-        username=_USER_ALIASES.get(user_id),
-        children=children_nodes,
-    )
-
-
-@core_router.post("/api/referral/track_visit")
-def track_visit(req: TrackVisitRequest):
-    """
-    רושם ביקור דרך לינק ריפרל.
-    * אם יש visitor_id  מוסיף קשת בגרף referrer -> visitor.
-    * שומר אירוע ב-LOG בזיכרון (MVP).
-    """
-    ts = req.ts or time.time()
-    event = {
-        "referrer_id": req.referrer_id,
-        "visitor_id": req.visitor_id,
-        "source": req.source or "unknown",
-        "ts": ts,
-    }
-    _VISITS.append(event)
-
-    if req.visitor_id:
-        _add_relation(req.referrer_id, req.visitor_id)
-
-    return {
-        "status": "ok",
-        "stored": True,
-        "event": event,
-    }
-
-
-@core_router.get("/api/referral/stats", response_model=ReferralStats)
-def get_referral_stats() -> ReferralStats:
-    """
-    סטטיסטיקות עיקריות על גרף ההפניות.
-    כרגע על בסיס הזיכרון בתהליך.
-    """
-    all_users = _collect_all_users()
-    roots = _find_roots()
-    total_relations = sum(len(v) for v in _REFERRAL_GRAPH.values())
-
-    return ReferralStats(
-        total_users=len(all_users),
-        total_relations=total_relations,
-        total_visits=len(_VISITS),
-        roots=roots,
-    )
-
-
-@core_router.get("/api/referral/tree/{user_id}", response_model=ReferralNode)
-def get_referral_tree(user_id: int) -> ReferralNode:
-    """
-    מחזיר עץ ריפרל למשתמש נתון (כולל הילדים שלו ברמות הבאות).
-    אם אין נתונים  מחזירים צומת ריק (ילדים = []) כדי לא לשבור קליינט.
-    """
-    all_users = _collect_all_users()
-    if user_id not in all_users and user_id not in _REFERRAL_GRAPH:
-        # אין עץ רשום עבור המשתמש  מחזירים צומת בסיסי.
-        return ReferralNode(
-            user_id=user_id,
-            username=_USER_ALIASES.get(user_id),
-            children=[],
+        user_id = ensure_uuid()
+        now = datetime.utcnow()
+        cur.execute(
+            """
+            INSERT INTO public.users (id, telegram_id, telegram_username, display_name, created_at, updated_at)
+            VALUES (%s, %s, %s, %s, %s, %s)
+            """,
+            (
+                user_id,
+                payload.telegram_id,
+                payload.username,
+                payload.display_name,
+                now,
+                now,
+            ),
         )
 
-    return _build_tree(user_id)
+        return {
+            "id": user_id,
+            "telegram_id": payload.telegram_id,
+            "telegram_username": payload.username,
+            "display_name": payload.display_name,
+            "bnb_address": None,
+            "ton_address": None,
+            "referrer_id": None,
+            "created_at": now.isoformat(),
+            "updated_at": now.isoformat(),
+        }
+
+
+@router.get("/core/users/{user_id}/shops", response_model=List[Shop])
+async def get_user_shops(user_id: str):
+    conn = get_conn()
+    with conn:
+        cur = conn.cursor()
+        cur.execute(
+            """
+            SELECT id, owner_user_id, title, description, slug, shop_type, status, referral_code, created_at, updated_at
+            FROM public.shops
+            WHERE owner_user_id = %s
+            """,
+            (user_id,),
+        )
+        rows = cur.fetchall()
+        result: List[Shop] = []
+        for row in rows:
+            result.append(
+                Shop(
+                    id=row[0],
+                    owner_user_id=row[1],
+                    title=row[2],
+                    description=row[3],
+                    slug=row[4],
+                    shop_type=row[5],
+                    status=row[6],
+                    referral_code=row[7],
+                    created_at=row[8].isoformat() if row[8] else None,
+                    updated_at=row[9].isoformat() if row[9] else None,
+                )
+            )
+        return result
 

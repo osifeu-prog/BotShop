@@ -22,3 +22,4 @@ async def list_posts(limit: int = Query(20, ge=1, le=100)) -> Dict[str, Any]:
         "items": example_posts[:limit],
         "total": len(example_posts),
     }
+
