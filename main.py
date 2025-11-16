@@ -216,7 +216,7 @@ async def whoami_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
 async def init_telegram_app() -> None:
     global telegram_app
     bot_token = os.getenv("BOT_TOKEN")
-ADMIN_ALERT_CHAT_ID = int(os.getenv("ADMIN_ALERT_CHAT_ID", "0") or "0")
+    ADMIN_ALERT_CHAT_ID = int(os.getenv("ADMIN_ALERT_CHAT_ID", "0") or "0")
     webhook_url = os.getenv("WEBHOOK_URL")
 
     if not bot_token:
@@ -225,9 +225,14 @@ ADMIN_ALERT_CHAT_ID = int(os.getenv("ADMIN_ALERT_CHAT_ID", "0") or "0")
 
     telegram_app = Application.builder().token(bot_token).build()
     telegram_app.add_handler(CommandHandler("start", start_slhnet))
-telegram_app.add_handler(CommandHandler("chatid", chatid_handler))
-telegram_app.add_handler(CommandHandler("chatinfo", chatid_handler))
-telegram_app.add_handler(MessageHandler(filters.COMMAND & filters.Regex(r"^/start(\s|$)"), notify_admin_new_user_on_start))
+    telegram_app.add_handler(CommandHandler("chatid", chatid_handler))
+    telegram_app.add_handler(CommandHandler("chatinfo", chatid_handler))
+    telegram_app.add_handler(
+        MessageHandler(
+            filters.COMMAND & filters.Regex(r"^/start(\s|$)"),
+            notify_admin_new_user_on_start,
+        )
+    )
     telegram_app.add_handler(CommandHandler("investor", investor_handler))
     telegram_app.add_handler(CommandHandler("whoami", whoami_handler))
 
@@ -525,4 +530,5 @@ app.include_router(public_api_router)
 app.include_router(social_router)
 app.include_router(slhnet_extra_router)
 app.include_router(slh_core_router)
+
 
