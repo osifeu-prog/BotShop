@@ -125,8 +125,10 @@ BANK_DETAILS = (
 
 PAYBOX_DETAILS = (
     "📲 *תשלום בביט / פייבוקס / PayPal*\n\n"
-    "אפשר לשלם דרך האפליקציות שלך בביט או פייבוקס.\n"
-    "קישורי התשלום המעודכנים מופיעים בכפתורים למטה.\n\n"
+    "אפשר לשלם באחד מהאמצעים הבאים:\n\n"
+    f"• פייבוקס: {PAYBOX_URL}\n"
+    f"• PayPal: {PAYPAL_URL}\n"
+    f"• ביט: {BIT_URL}\n\n"
     "סכום: *39 ש\"ח*\n"
 )
 
@@ -233,13 +235,21 @@ def payment_methods_keyboard() -> InlineKeyboardMarkup:
     ])
 
 def payment_links_keyboard() -> InlineKeyboardMarkup:
-    """כפתורי לינקים אמיתיים לתשלום"""
-    buttons = [
-        [InlineKeyboardButton("📲 תשלום בפייבוקס", url=PAYBOX_URL)],
-        [InlineKeyboardButton("📲 תשלום בביט", url=BIT_URL)],
-        [InlineKeyboardButton("💳 תשלום ב-PayPal", url=PAYPAL_URL)],
-        [InlineKeyboardButton("⬅ חזרה לתפריט ראשי", callback_data="back_main")],
-    ]
+    """כפתורי לינקים אמיתיים לתשלום (רק אם יש URL תקין)"""
+    buttons: List[List[InlineKeyboardButton]] = []
+
+    if PAYBOX_URL:
+        buttons.append([InlineKeyboardButton("📲 תשלום בפייבוקס", url=PAYBOX_URL)])
+
+    # כפתור ביט יוצג רק אם BIT_URL נראה כמו URL (ולא רק מספר טלפון)
+    if BIT_URL and BIT_URL.startswith("http"):
+        buttons.append([InlineKeyboardButton("📲 תשלום בביט", url=BIT_URL)])
+
+    if PAYPAL_URL:
+        buttons.append([InlineKeyboardButton("💳 תשלום ב-PayPal", url=PAYPAL_URL)])
+
+    buttons.append([InlineKeyboardButton("⬅ חזרה לתפריט ראשי", callback_data="back_main")])
+
     return InlineKeyboardMarkup(buttons)
 
 def support_keyboard() -> InlineKeyboardMarkup:
@@ -380,23 +390,6 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         "לאחר אישור התשלום *תקבל קישור לקהילת העסקים*.\n\n"
         "כדי להתחיל – בחר באפשרות הרצויה:"
     )
-
-    # לוג לקבוצת התשלומים על כל /start
-    try:
-        if user:
-            username = f"@{user.username}" if user.username else "(ללא username)"
-            log_text = (
-                "📢 Start חדש בבוט Botshop\n\n"
-                f"user_id = {user.id}\n"
-                f"username = {username}\n"
-                f"from chat_id = {message.chat.id}\n"
-            )
-            await context.bot.send_message(
-                chat_id=PAYMENTS_LOG_CHAT_ID,
-                text=log_text,
-            )
-    except Exception as e:
-        logger.error("Failed to send /start log to payments group: %s", e)
 
     await message.reply_text(
         text,
