@@ -358,3 +358,55 @@ async def staking(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 application.add_handler(CommandHandler("investor", investor))
 application.add_handler(CommandHandler("staking", staking))
 
+
+
+async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """
+    שער הכניסה ל-SLHNET – מסך פתיחה שיווקי + כפתורי פעולה.
+    לא נוגעים בשאר הלוגיקות של הבוט, רק בכניסה.
+    """
+    from telegram import InlineKeyboardButton, InlineKeyboardMarkup
+    import os
+
+    chat = update.effective_chat
+
+    landing_url = os.getenv("LANDING_URL", "https://slh-nft.com/")
+    paybox_url = os.getenv(
+        "PAYBOX_URL",
+        "https://links.payboxapp.com/1SNfaJ6XcYb"  # אפשר לעדכן ב-Railway
+    )
+    business_group_url = os.getenv(
+        "BUSINESS_GROUP_URL",
+        "https://t.me/+HIzvM8sEgh1kNWY0"
+    )
+    bot_url = "https://t.me/Buy_My_Shop_bot"
+
+    text = (
+        "שער הכניסה ל-SLHNET\\n\\n"
+        "ברוך הבא לשער הכניסה ל-SLHNET 🌐\\n"
+        "קהילת עסקים, חנויות דיגיטליות וטוקן SLH על Binance Smart Chain.\\n\\n"
+        "💎 מה מקבלים בתשלום חד-פעמי של 39 ₪?\\n"
+        "• גישה לקבוצת העסקים הסגורה\\n"
+        "• נכס דיגיטלי ראשוני (חנות / שער אישי שיורחב בהמשך)\\n"
+        "• לינק הפצה אישי שתוכל להרוויח ממנו\\n"
+        "• קדימות להטבות, איירדרופים ומודלי סטייקינג עתידיים\\n\\n"
+        "🧭 איך מצטרפים?\\n"
+        "1. לוחצים על הכפתור 'תשלום 39 ₪ וגישה מלאה'\\n"
+        "2. מבצעים תשלום באחד הערוצים הנתמכים (פייבוקס/בנק וכו')\\n"
+        "3. שולחים צילום מסך או אישור תשלום לבוט (בהמשך נוסיף אוטומציה מלאה)\\n"
+        "4. לאחר אישור – מקבלים קישורים לחנות ולחומרי ההפצה האישיים שלך.\\n\\n"
+        "פקודות שימושיות:\\n"
+        "• /whoami – פרטי החיבור שלך והאם יש לך מפנה\\n"
+        "• /investor – מידע למשקיעים ולשותפים אסטרטגיים\\n"
+        "• /staking – מידע על מודל הסטייקינג שנבנה סביב SLHNET\\n"
+    )
+
+    keyboard = [
+        [InlineKeyboardButton("🔑 תשלום 39 ₪ וגישה מלאה", url=paybox_url)],
+        [InlineKeyboardButton("ℹ️ לפרטים נוספים באתר", url=landing_url)],
+        [InlineKeyboardButton("💬 הצטרפות לקבוצת העסקים", url=business_group_url)],
+        [InlineKeyboardButton("🤖 פתיחת הבוט SLHNET", url=bot_url)],
+    ]
+    reply_markup = InlineKeyboardMarkup(keyboard)
+
+    await chat.send_message(text=text, reply_markup=reply_markup)
