@@ -7,12 +7,32 @@ import logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+def check_bot_token(token):
+    """בודק אם הטוקן תקין"""
+    try:
+        url = f"https://api.telegram.org/bot{token}/getMe"
+        response = requests.get(url, timeout=10)
+        if response.status_code == 200:
+            print("✅ Bot token is valid")
+            return True
+        else:
+            print(f"❌ Bot token invalid: {response.status_code} - {response.text}")
+            return False
+    except Exception as e:
+        print(f"❌ Error checking bot token: {e}")
+        return False
+
 def nuclear_reset():
     print("🚀 Starting NUCLEAR RESET...")
     
     DATABASE_URL = os.environ.get("DATABASE_URL")
     BOT_TOKEN = os.environ.get("BOT_TOKEN")
     WEBHOOK_URL = os.environ.get("WEBHOOK_URL")
+    
+    # בדוק את הטוקן קודם
+    if not check_bot_token(BOT_TOKEN):
+        print("❌ Cannot proceed - invalid bot token")
+        return
     
     try:
         # 1. אפס webhook קודם
