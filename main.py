@@ -22,7 +22,35 @@ from telegram.ext import (
     ContextTypes,
     filters,
 )
+# =========================
+# בדיקת BOT_TOKEN
+# =========================
+import asyncio
+import aiohttp
 
+async def validate_bot_token(token: str) -> bool:
+    """בודק אם הטוקן תקין"""
+    try:
+        url = f"https://api.telegram.org/bot{token}/getMe"
+        async with aiohttp.ClientSession() as session:
+            async with session.get(url) as response:
+                return response.status == 200
+    except Exception:
+        return False
+
+# בדיקת הטוקן לפני ההרצה
+if BOT_TOKEN:
+    import warnings
+    try:
+        # הרצת בדיקה סינכרונית
+        import requests
+        test_url = f"https://api.telegram.org/bot{BOT_TOKEN}/getMe"
+        response = requests.get(test_url, timeout=10)
+        if response.status_code != 200:
+            warnings.warn(f"⚠️ BOT_TOKEN may be invalid. Telegram API returned: {response.status_code}")
+            print(f"🔍 Response: {response.text}")
+    except Exception as e:
+        warnings.warn(f"⚠️ Failed to validate BOT_TOKEN: {e}")
 # =========================
 # לוגינג בסיסי
 # =========================
