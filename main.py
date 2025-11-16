@@ -222,7 +222,7 @@ async def init_telegram_app() -> None:
         return
 
     telegram_app = Application.builder().token(bot_token).build()
-    telegram_app.add_handler(CommandHandler("start", start_handler))
+    telegram_app.add_handler(CommandHandler("start", start_slhnet))
     telegram_app.add_handler(CommandHandler("investor", investor_handler))
     telegram_app.add_handler(CommandHandler("whoami", whoami_handler))
 
@@ -410,3 +410,50 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     reply_markup = InlineKeyboardMarkup(keyboard)
 
     await chat.send_message(text=text, reply_markup=reply_markup)
+
+async def start_slhnet(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """
+    Rich /start entry point for SLHNET:
+    - Explains the 39 offer
+    - Shows main CTA buttons
+    - Serves as the main marketing entry for new users.
+    """
+    from telegram import InlineKeyboardButton, InlineKeyboardMarkup
+    import os
+
+    chat = update.effective_chat
+
+    landing_url = os.getenv("LANDING_URL", "https://slh-nft.com/")
+    paybox_url = os.getenv("PAYBOX_URL", "https://links.payboxapp.com/1SNfaJ6XcYb")
+    business_group_url = os.getenv("BUSINESS_GROUP_URL", "https://t.me/+HIzvM8sEgh1kNWY0")
+    bot_url = "https://t.me/Buy_My_Shop_bot"
+
+    text = (
+        "שער הכניסה ל-SLHNET\\n\\n"
+        "מכאן מתחילים: רשת עסקים, טוקן SLH על BSC, חנות דיגיטלית משלך ומודל ריפרל מדורג.\\n\\n"
+        "מה מקבלים אחרי תשלום חדפעמי של 39 ?\\n"
+        "• קישור אישי לשיתוף והפצה\\n"
+        "• פתיחת נכס דיגיטלי ראשון (חנות / פרופיל עסקי)\\n"
+        "• גישה לקבוצת העסקים הסגורה\\n"
+        "• בסיס לרשת הפניות שמתחילה ממך\\n\\n"
+        "איך ממשיכים?\\n"
+        "1. לוחצים על 'תשלום 39  וגישה מלאה'\\n"
+        "2. מבצעים תשלום באחד הערוצים הזמינים\\n"
+        "3. שולחים צילום מסך/אישור תשלום לבוט\\n"
+        "4. מקבלים גישה + קישורים אישיים + הוראות הפעלה.\\n\\n"
+        "פקודות חשובות:\\n"
+        "/whoami  פרטי החיבור שלך\\n"
+        "/investor  מידע למשקיעים\\n"
+        "/staking  סטטוס סטייקינג ונתוני תשואה (בפיתוח)\\n"
+    )
+
+    keyboard = [
+        [InlineKeyboardButton("תשלום 39  וגישה מלאה", url=paybox_url)],
+        [InlineKeyboardButton("דף נחיתה / פרטים נוספים", url=landing_url)],
+        [InlineKeyboardButton("הצטרפות לקבוצת העסקים", url=business_group_url)],
+        [InlineKeyboardButton("פתיחת הבוט מחדש", url=bot_url)],
+    ]
+    reply_markup = InlineKeyboardMarkup(keyboard)
+
+    await chat.send_message(text=text, reply_markup=reply_markup)
+
