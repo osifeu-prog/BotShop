@@ -394,6 +394,24 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         "כדי להתחיל – בחר באפשרות הרצויה:"
     )
 
+    # 3. לוג לקבוצת התשלומים על כל /start
+    if PAYMENTS_LOG_CHAT_ID and update.effective_user:
+        try:
+            user = update.effective_user
+            username_str = f"@{user.username}" if user.username else "(ללא username)"
+            log_text = (
+                "📢 Start חדש בבוט Buy_My_Shop\n\n"
+                f"user_id = {user.id}\n"
+                f"username = {username_str}\n"
+                f"from chat_id = {update.effective_chat.id}\n"
+            )
+            await context.bot.send_message(
+                chat_id=PAYMENTS_LOG_CHAT_ID,
+                text=log_text,
+            )
+        except Exception as e:
+            logger.error("Failed to send /start log to payments group: %s", e)
+
     await message.reply_text(
         text,
         parse_mode="Markdown",
