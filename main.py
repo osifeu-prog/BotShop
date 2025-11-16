@@ -1,4 +1,5 @@
-﻿import os
+﻿from telegram.ext import MessageHandler, filters
+import os
 import json
 import logging
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, InputFile
@@ -215,6 +216,7 @@ async def whoami_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
 async def init_telegram_app() -> None:
     global telegram_app
     bot_token = os.getenv("BOT_TOKEN")
+ADMIN_ALERT_CHAT_ID = int(os.getenv("ADMIN_ALERT_CHAT_ID", "0") or "0")
     webhook_url = os.getenv("WEBHOOK_URL")
 
     if not bot_token:
@@ -223,6 +225,9 @@ async def init_telegram_app() -> None:
 
     telegram_app = Application.builder().token(bot_token).build()
     telegram_app.add_handler(CommandHandler("start", start_slhnet))
+telegram_app.add_handler(CommandHandler("chatid", chatid_handler))
+telegram_app.add_handler(CommandHandler("chatinfo", chatid_handler))
+telegram_app.add_handler(MessageHandler(filters.COMMAND & filters.Regex(r"^/start(\s|$)"), notify_admin_new_user_on_start))
     telegram_app.add_handler(CommandHandler("investor", investor_handler))
     telegram_app.add_handler(CommandHandler("whoami", whoami_handler))
 
@@ -456,4 +461,68 @@ async def start_slhnet(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
     reply_markup = InlineKeyboardMarkup(keyboard)
 
     await chat.send_message(text=text, reply_markup=reply_markup)
+
+async def chatid_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """
+    מחזיר פרטי צ'אט  עובד גם בפרטי וגם בקבוצה.
+    """
+    chat = update.effective_chat
+    user = update.effective_user
+
+    text = (
+        "📡 פרטי הצ'אט הזה:\n"
+        f"chat_id: {chat.id}\n"
+        f"type: {chat.type}\n"
+        f"title: {chat.title or '-'}\n"
+        f"username: @{chat.username or '-'}\n\n"
+        f"👤 user_id שלך: {user.id}"
+    )
+
+    await update.effective_message.reply_text(text)
+
+
+async def notify_admin_new_user(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """
+    שליחת התראה לקבוצת אדמינים על משתמש חדש שנכנס לבוט.
+    דורש ADMIN_ALERT_CHAT_ID (int) כמשתנה סביבה.
+    """
+    if not ADMIN_ALERT_CHAT_ID:
+        return
+
+    user = update.effective_user
+    chat = update.effective_chat
+
+    lines = [
+        "👤 משתמש חדש נכנס לבוט Buy_My_Shop",
+        "",
+        f"user_id: {user.id}",
+        f"username: @{user.username}" if user.username else "username: —",
+        f"name: {user.full_name}",
+        f"from chat_id: {chat.id} ({chat.type})",
+    ]
+
+    text = "\n".join(lines)
+
+    try:
+        await context.bot.send_message(
+            chat_id=ADMIN_ALERT_CHAT_ID,
+            text=text,
+        )
+    except Exception:
+        # לא מפילים את הבוט על שגיאה בלוג התראות
+        pass
+
+
+async def notify_admin_new_user_on_start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """
+    עוטף את notify_admin_new_user כך שנוכל לחבר אותו ל-MessageHandler של /start
+    בלי להפריע ל-CommandHandler("start") הקיים.
+    """
+    await notify_admin_new_user(update, context)
+
+# === Routers registration (added by PowerShell script) ===
+app.include_router(public_api_router)
+app.include_router(social_router)
+app.include_router(slhnet_extra_router)
+app.include_router(slh_core_router)
 
