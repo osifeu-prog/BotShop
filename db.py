@@ -1,8 +1,8 @@
-# db.py - גרסה מתוקנת ומלאה
+# db.py - גרסה מתוקנת ומורחבת
 import os
 import logging
 from contextlib import contextmanager
-from typing import Optional, Any, List, Dict
+from typing import Optional, Any, List, Dict, Tuple
 from datetime import datetime
 
 import psycopg2
@@ -45,17 +45,16 @@ def db_cursor():
 
 def init_schema() -> None:
     """
-    יוצר את כל הטבלאות הדרושות
+    יוצר את כל הטבלאות הדרושות כולל שכבת חברתית מורחבת
     """
     with db_cursor() as (conn, cur):
         if cur is None:
             logger.warning("init_schema called without DB.")
             return
 
-        # users – משתמשי טלגרם (מתוקן)
+        # users – משתמשי טלגרם
         cur.execute(
             """
-            
             CREATE TABLE IF NOT EXISTS users (
                 user_id      BIGINT PRIMARY KEY,
                 username     TEXT,
@@ -66,7 +65,6 @@ def init_schema() -> None:
                 created_at   TIMESTAMPTZ NOT NULL DEFAULT NOW(),
                 updated_at   TIMESTAMPTZ NOT NULL DEFAULT NOW()
             );
-            -- ensure new columns exist on older schemas
             ALTER TABLE users ADD COLUMN IF NOT EXISTS username   TEXT;
             ALTER TABLE users ADD COLUMN IF NOT EXISTS first_name TEXT;
             ALTER TABLE users ADD COLUMN IF NOT EXISTS last_name  TEXT;
@@ -74,7 +72,7 @@ def init_schema() -> None:
             ALTER TABLE users ADD COLUMN IF NOT EXISTS email      TEXT;
             ALTER TABLE users ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
             ALTER TABLE users ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
-                        """
+            """
         )
 
         # referrals – מי הפנה את מי
@@ -86,6 +84,23 @@ def init_schema() -> None:
                 referred_user_id BIGINT NOT NULL,
                 source           TEXT,
                 created_at       TIMESTAMPTZ NOT NULL DEFAULT NOW()
+            );
+            """
+        )
+
+        # payments – אם הטבלה לא קיימת, יוצרים (למקרה של פרויקט חדש)
+        cur.execute(
+            """
+            CREATE TABLE IF NOT EXISTS payments (
+                id          SERIAL PRIMARY KEY,
+                user_id     BIGINT NOT NULL,
+                username    TEXT,
+                pay_method  TEXT,
+                amount      NUMERIC NOT NULL DEFAULT 0,
+                status      TEXT NOT NULL DEFAULT 'pending',
+                reason      TEXT,
+                created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                updated_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
             );
             """
         )
@@ -102,6 +117,7 @@ def init_schema() -> None:
                 webhook_url  TEXT,
                 price        NUMERIC NOT NULL DEFAULT 39.00,
                 status       TEXT NOT NULL DEFAULT 'active',
+                description  TEXT,
                 created_at   TIMESTAMPTZ NOT NULL DEFAULT NOW(),
                 updated_at   TIMESTAMPTZ NOT NULL DEFAULT NOW(),
                 UNIQUE(bot_token),
@@ -109,31 +125,6 @@ def init_schema() -> None:
             );
             """
         )
-        # התאמת טבלת payments לסכימה החדשה
-        cur.execute(
-            """
-            ALTER TABLE payments ADD COLUMN IF NOT EXISTS username   TEXT;
-            ALTER TABLE payments ADD COLUMN IF NOT EXISTS pay_method TEXT;
-            ALTER TABLE payments ADD COLUMN IF NOT EXISTS amount     NUMERIC NOT NULL DEFAULT 0;
-            ALTER TABLE payments ADD COLUMN IF NOT EXISTS status     TEXT    NOT NULL DEFAULT 'pending';
-            ALTER TABLE payments ADD COLUMN IF NOT EXISTS reason     TEXT;
-            ALTER TABLE payments ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
-            ALTER TABLE payments ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
-            """
-        )
-
-        # התאמת טבלת user_bots לסכימה החדשה
-        cur.execute(
-            """
-            ALTER TABLE user_bots ADD COLUMN IF NOT EXISTS bot_name    TEXT;
-            ALTER TABLE user_bots ADD COLUMN IF NOT EXISTS webhook_url TEXT;
-            ALTER TABLE user_bots ADD COLUMN IF NOT EXISTS price       NUMERIC NOT NULL DEFAULT 39.00;
-            ALTER TABLE user_bots ADD COLUMN IF NOT EXISTS status      TEXT    NOT NULL DEFAULT 'active';
-            ALTER TABLE user_bots ADD COLUMN IF NOT EXISTS created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW();
-            ALTER TABLE user_bots ADD COLUMN IF NOT EXISTS updated_at  TIMESTAMPTZ NOT NULL DEFAULT NOW();
-            """
-        )
-
 
         # bot_sales - מכירות בוטים בין משתמשים
         cur.execute(
@@ -175,19 +166,6 @@ def init_schema() -> None:
             );
             """
         )
-
-        # הוספת נתוני מחירים התחלתיים
-        cur.execute(
-            """
-            INSERT INTO pricing (item_type, base_price, commission) 
-            VALUES 
-                ('personal_bot', 39.00, 5.00),
-                ('premium_bot', 99.00, 10.00),
-                ('business_bot', 199.00, 15.00)
-            ON CONFLICT (item_type) DO NOTHING;
-            """
-        )
-
 
         # promoters – הגדרות מקדמים (owners)
         cur.execute(
@@ -232,10 +210,73 @@ def init_schema() -> None:
             """
         )
 
+        # שכבת חברתית – טבלאות עתידיות
+        cur.execute(
+            """
+            CREATE TABLE IF NOT EXISTS social_profiles (
+                id          SERIAL PRIMARY KEY,
+                user_id     BIGINT NOT NULL UNIQUE,
+                site_profile TEXT,         -- מזהה או שם משתמש באתר
+                bio         TEXT,
+                avatar_url  TEXT,
+                created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                updated_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
+            );
+            """
+        )
+        cur.execute(
+            """
+            CREATE TABLE IF NOT EXISTS social_wallets (
+                id          SERIAL PRIMARY KEY,
+                user_id     BIGINT NOT NULL,
+                chain       TEXT NOT NULL,    -- BNB / TON / Polygon...
+                address     TEXT NOT NULL,
+                is_verified BOOLEAN NOT NULL DEFAULT FALSE,
+                created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                UNIQUE(user_id, chain, address)
+            );
+            """
+        )
+        cur.execute(
+            """
+            CREATE TABLE IF NOT EXISTS social_activity (
+                id          SERIAL PRIMARY KEY,
+                user_id     BIGINT NOT NULL,
+                kind        TEXT NOT NULL,   -- post / like / share / sale
+                data        JSONB,           -- פרטי פעולה
+                created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
+            );
+            """
+        )
+        cur.execute(
+            """
+            CREATE TABLE IF NOT EXISTS social_access (
+                id          SERIAL PRIMARY KEY,
+                buyer_id    BIGINT NOT NULL,
+                seller_id   BIGINT NOT NULL,
+                price       NUMERIC NOT NULL DEFAULT 0,
+                status      TEXT NOT NULL DEFAULT 'active',
+                created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
+            );
+            """
+        )
+
+        # נתוני מחירים התחלתיים
+        cur.execute(
+            """
+            INSERT INTO pricing (item_type, base_price, commission) 
+            VALUES 
+                ('personal_bot', 39.00, 5.00),
+                ('premium_bot', 99.00, 10.00),
+                ('business_bot', 199.00, 15.00)
+            ON CONFLICT (item_type) DO NOTHING;
+            """
+        )
+
         logger.info("DB schema initialized successfully")
 
 # =========================
-# פונקציות משתמשים מתוקנות
+# פונקציות משתמשים
 # =========================
 
 def store_user(user_id: int, username: Optional[str] = None, 
@@ -361,6 +402,56 @@ def update_bot_price(bot_id: int, new_price: float) -> bool:
         )
         return cur.rowcount > 0
 
+def update_user_bot_status(bot_id: int, status: str) -> None:
+    """
+    עדכון סטטוס של בוט משתמש
+    """
+    with db_cursor() as (conn, cur):
+        if cur is None:
+            return
+        cur.execute(
+            """
+            UPDATE user_bots
+            SET status = %s, updated_at = NOW()
+            WHERE id = %s;
+            """,
+            (status, bot_id),
+        )
+
+def get_all_active_bots() -> List[Dict[str, Any]]:
+    """
+    מחזיר את כל הבוטים הפעילים
+    """
+    with db_cursor() as (conn, cur):
+        if cur is None:
+            return []
+        cur.execute(
+            """
+            SELECT * FROM user_bots
+            WHERE status = 'active';
+            """
+        )
+        rows = cur.fetchall() or []
+        return [dict(r) for r in rows]
+
+def update_bot_webhook(bot_id: int, new_webhook_url: str) -> None:
+    """
+    עדכון כתובת webhook של בוט משתמש
+    """
+    with db_cursor() as (conn, cur):
+        if cur is None:
+            return
+        cur.execute(
+            """
+            UPDATE user_bots
+            SET webhook_url = %s,
+                description = CONCAT(COALESCE(description, ''), '\nWebhook: ', %s),
+                updated_at = NOW()
+            WHERE id = %s;
+            """,
+            (new_webhook_url, new_webhook_url, bot_id),
+        )
+
 # =========================
 # פונקציות מכירות ומחירים
 # =========================
@@ -393,14 +484,12 @@ def get_bot_sales_stats(user_id: int) -> Dict[str, Any]:
         if cur is None:
             return {}
         
-        # סך מכירות
         cur.execute(
             "SELECT COUNT(*) as total_sales, COALESCE(SUM(sale_price), 0) as total_revenue FROM bot_sales WHERE seller_id = %s;",
             (user_id,)
         )
         sales_stats = cur.fetchone()
         
-        # סך עמלות
         cur.execute(
             "SELECT COALESCE(SUM(commission), 0) as total_commissions FROM bot_sales WHERE seller_id = %s;",
             (user_id,)
@@ -441,7 +530,8 @@ def update_pricing(item_type: str, base_price: float, commission: float) -> bool
             INSERT INTO pricing (item_type, base_price, commission)
             VALUES (%s, %s, %s)
             ON CONFLICT (item_type)
-            DO UPDATE SET base_price = EXCLUDED.base_price, commission = EXCLUDED.commission;
+            DO UPDATE SET base_price = EXCLUDED.base_price,
+                          commission = EXCLUDED.commission;
             """,
             (item_type, base_price, commission),
         )
@@ -461,8 +551,8 @@ def log_payment(user_id: int, username: Optional[str], pay_method: str, amount: 
         
         cur.execute(
             """
-            INSERT INTO payments (user_id, username, pay_method, amount)
-            VALUES (%s, %s, %s, %s)
+            INSERT INTO payments (user_id, username, pay_method, amount, status)
+            VALUES (%s, %s, %s, %s, 'pending')
             RETURNING id;
             """,
             (user_id, username, pay_method, amount),
@@ -472,7 +562,7 @@ def log_payment(user_id: int, username: Optional[str], pay_method: str, amount: 
 
 def update_payment_status(payment_id: int, status: str, reason: Optional[str] = None) -> bool:
     """
-    מעדכן סטטוס תשלום
+    מעדכן סטטוס תשלום לפי מזהה תשלום
     """
     with db_cursor() as (conn, cur):
         if cur is None:
@@ -483,6 +573,55 @@ def update_payment_status(payment_id: int, status: str, reason: Optional[str] = 
             (status, reason, payment_id)
         )
         return cur.rowcount > 0
+
+def update_latest_payment_status_for_user(user_id: int, status: str, reason: Optional[str] = None) -> Optional[int]:
+    """
+    מעדכן את התשלום האחרון במצב 'pending' עבור user_id ומחזיר את מזהה התשלום שאושר/נדחה.
+    """
+    with db_cursor() as (conn, cur):
+        if cur is None:
+            return None
+
+        cur.execute(
+            """
+            SELECT id
+            FROM payments
+            WHERE user_id = %s AND status = 'pending'
+            ORDER BY created_at DESC
+            LIMIT 1;
+            """,
+            (user_id,)
+        )
+        row = cur.fetchone()
+        if not row:
+            return None
+
+        payment_id = row["id"]
+        cur.execute(
+            "UPDATE payments SET status = %s, reason = %s, updated_at = NOW() WHERE id = %s;",
+            (status, reason, payment_id)
+        )
+        return payment_id
+
+def get_last_payment_for_user(user_id: int) -> Optional[Dict[str, Any]]:
+    """
+    מחזיר את התשלום האחרון של המשתמש (לפי created_at)
+    """
+    with db_cursor() as (conn, cur):
+        if cur is None:
+            return None
+        cur.execute(
+            """
+            SELECT *
+            FROM payments
+            WHERE user_id = %s
+            ORDER BY created_at DESC
+            LIMIT 1;
+            """,
+            (user_id,)
+        )
+        row = cur.fetchone()
+        return dict(row) if row else None
 
 # =========================
 # פונקציות מטריקות
@@ -518,9 +657,8 @@ def get_metric(key: str) -> int:
         row = cur.fetchone()
         return row["value"] if row else 0
 
-
 # =========================
-# פונקציות רפרל/מקדמים/דוחות/תמיכה
+# פונקציות רפרל/דוחות/תמיכה/מקדמים
 # =========================
 
 def add_referral(referrer_id: int, referred_user_id: int, source: Optional[str] = None) -> None:
@@ -540,14 +678,14 @@ def add_referral(referrer_id: int, referred_user_id: int, source: Optional[str] 
 
 def get_top_referrers(limit: int = 10) -> List[Dict[str, Any]]:
     """
-    מחזיר טבלת מובילים לפי כמות הפניות שאושרו
+    מובילים לפי כמות הפניות
     """
     with db_cursor() as (conn, cur):
         if cur is None:
             return []
         cur.execute(
             """
-            SELECT r.referrer_id AS user_id,
+            SELECT r.referrer_id AS referrer_id,
                    u.username,
                    COUNT(*) AS total_referrals
             FROM referrals r
@@ -563,7 +701,7 @@ def get_top_referrers(limit: int = 10) -> List[Dict[str, Any]]:
 
 def get_monthly_payments(months_back: int = 6) -> List[Dict[str, Any]]:
     """
-    מחזיר סכומי תשלומים לפי חודשים אחרונים
+    סכומי תשלומים לפי חודשים (אחרונים)
     """
     with db_cursor() as (conn, cur):
         if cur is None:
@@ -585,11 +723,11 @@ def get_monthly_payments(months_back: int = 6) -> List[Dict[str, Any]]:
 
 def get_approval_stats() -> Dict[str, Any]:
     """
-    מחזיר סטטוס אישורים (approved / rejected / pending)
+    סטטוס אישורים (approved / rejected / pending) + סה"כ
     """
     with db_cursor() as (conn, cur):
         if cur is None:
-            return {"approved": 0, "rejected": 0, "pending": 0}
+            return {"approved": 0, "rejected": 0, "pending": 0, "total": 0}
         cur.execute(
             """
             SELECT status, COUNT(*) AS c
@@ -598,14 +736,18 @@ def get_approval_stats() -> Dict[str, Any]:
             """
         )
         rows = cur.fetchall() or []
-        stats = {"approved": 0, "rejected": 0, "pending": 0}
+        stats = {"approved": 0, "rejected": 0, "pending": 0, "total": 0}
+        total = 0
         for r in rows:
-            stats[r["status"]] = r["c"]
+            count = int(r["c"])
+            total += count
+            stats[r["status"]] = count
+        stats["total"] = total
         return stats
 
 def create_reward(user_id: int, reward_type: str, amount: float = 0, details: Optional[str] = None) -> int:
     """
-    רושם תגמול חדש למשתמש (למשל בונוס על הפניות)
+    תגמול חדש
     """
     with db_cursor() as (conn, cur):
         if cur is None:
@@ -620,8 +762,6 @@ def create_reward(user_id: int, reward_type: str, amount: float = 0, details: Op
         )
         row = cur.fetchone()
         return row["id"] if row else -1
-
-# ===== מקדמים =====
 
 def ensure_promoter(user_id: int) -> None:
     """
@@ -679,24 +819,25 @@ def update_promoter_settings(
 
 def get_promoter_summary(user_id: int) -> Optional[Dict[str, Any]]:
     """
-    מחזיר סיכום למקדם – כולל הגדרות בסיסיות ומספר הפניות
+    סיכום למקדם – הגדרות בסיסיות ומספר הפניות
     """
     with db_cursor() as (conn, cur):
         if cur is None:
             return None
         cur.execute(
             """
+            WITH ref AS (
+                SELECT referrer_id, COUNT(*) AS cnt
+                FROM referrals
+                GROUP BY referrer_id
+            )
             SELECT p.user_id,
                    p.bank_details,
                    p.personal_group_link,
                    p.global_group_link,
                    COALESCE(ref.cnt, 0) AS total_referrals
             FROM promoters p
-            LEFT JOIN (
-                SELECT referrer_id, COUNT(*) AS cnt
-                FROM referrals
-                GROUP BY referrer_id
-            ) ref ON ref.referrer_id = p.user_id
+            LEFT JOIN ref ON ref.referrer_id = p.user_id
             WHERE p.user_id = %s;
             """,
             (user_id,),
@@ -726,7 +867,7 @@ def create_support_ticket(user_id: int, subject: str, message: str) -> int:
 
 def get_support_tickets(status: Optional[str] = None, limit: int = 50) -> List[Dict[str, Any]]:
     """
-    מחזיר רשימת טיקטים, לפי סטטוס (ברירת מחדל: כולם)
+    מחזיר רשימת טיקטים
     """
     with db_cursor() as (conn, cur):
         if cur is None:
@@ -769,54 +910,73 @@ def update_ticket_status(ticket_id: int, status: str) -> None:
             (status, ticket_id),
         )
 
-# ===== עדכוני בוטים =====
+# =========================
+# "Personal area" helpers
+# =========================
 
-def update_user_bot_status(bot_id: int, status: str) -> None:
+def get_user_summary(user_id: int) -> Dict[str, Any]:
     """
-    עדכון סטטוס של בוט משתמש
+    מחזיר סיכום למשתמש ל'אזור אישי':
+    - פרטי משתמש
+    - סיכום תשלומים אחרון
+    - סיכום הפניות
+    - בוט אישי (אם קיים)
+    - ארנקים (אם קיימים)
     """
     with db_cursor() as (conn, cur):
         if cur is None:
-            return
+            return {}
+
+        # User
+        cur.execute("SELECT * FROM users WHERE user_id = %s;", (user_id,))
+        user_row = cur.fetchone()
+        user = dict(user_row) if user_row else {}
+
+        # Promoter summary
+        promoter = get_promoter_summary(user_id)
+
+        # Last payment
         cur.execute(
             """
-            UPDATE user_bots
-            SET status = %s
-            WHERE id = %s;
+            SELECT *
+            FROM payments
+            WHERE user_id = %s
+            ORDER BY created_at DESC
+            LIMIT 1;
             """,
-            (status, bot_id),
+            (user_id,)
         )
+        last_payment_row = cur.fetchone()
+        last_payment = dict(last_payment_row) if last_payment_row else None
 
-def get_all_active_bots() -> List[Dict[str, Any]]:
-    """
-    מחזיר את כל הבוטים הפעילים
-    """
-    with db_cursor() as (conn, cur):
-        if cur is None:
-            return []
+        # User bot
         cur.execute(
-            """
-            SELECT * FROM user_bots
-            WHERE status = 'active';
-            """
+            "SELECT * FROM user_bots WHERE user_id = %s AND status = 'active' LIMIT 1;",
+            (user_id,)
         )
-        rows = cur.fetchall() or []
-        return [dict(r) for r in rows]
+        bot_row = cur.fetchone()
+        user_bot = dict(bot_row) if bot_row else None
 
-def update_bot_webhook(bot_id: int, new_webhook_url: str) -> None:
-    """
-    עדכון כתובת webhook של בוט משתמש
-    (כרגע נשמרת בעמודת description / הרחבה בעתיד)
-    """
-    with db_cursor() as (conn, cur):
-        if cur is None:
-            return
-        # לפשט – נשמור את ה-webhook כתיאור בבוט
+        # Wallets
         cur.execute(
-            """
-            UPDATE user_bots
-            SET description = CONCAT(COALESCE(description, ''), '\nWebhook: ', %s)
-            WHERE id = %s;
-            """,
-            (new_webhook_url, bot_id),
+            "SELECT chain, address, is_verified FROM social_wallets WHERE user_id = %s;",
+            (user_id,)
         )
+        wallets = [dict(r) for r in cur.fetchall() or []]
+
+        # Activity count
+        cur.execute(
+            "SELECT COUNT(*) AS total_activity FROM social_activity WHERE user_id = %s;",
+            (user_id,)
+        )
+        activity_row = cur.fetchone()
+        total_activity = int(activity_row["total_activity"]) if activity_row else 0
+
+        return {
+            "user": user,
+            "promoter": promoter,
+            "last_payment": last_payment,
+            "user_bot": user_bot,
+            "wallets": wallets,
+            "total_activity": total_activity
+        }
