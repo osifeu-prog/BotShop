@@ -194,62 +194,58 @@ class UserBotHandler:
     def __init__(self):
         self.base_url = "https://api.telegram.org/bot"
     
-    async def send_welcome_message(self, bot_token: str, chat_id: int, user_id: int):
+    def send_welcome_message(self, bot_token: str, chat_id: int, user_id: int):
         """
-        שולח הודעת ברוך הבא בבוט האישי
+        שולח הודעת ברוך הבא בבוט האישי (טקסט פשוט, בלי Markdown כדי למנוע שגיאות פירסינג)
         """
         try:
+            personal_link = f"https://t.me/Buy_My_Shop_bot?start=ref_{user_id}"
             welcome_text = (
-                "🎉 *התשלום אושר! ברוך הבא לבעלי הנכסים!*\n\n"
-                
-                "💎 *הנכס הדיגיטלי שלך מוכן:*\n"
-                f"🔗 *לינק אישי:* `https://t.me/Buy_My_Shop_bot?start=ref_{user_id}`\n\n"
-                
-                "🚀 *מה עכשיו?*\n"
+                "🎉 התשלום אושר! ברוך הבא לבעלי הנכסים!\n\n"
+                "💎 הנכס הדיגיטלי שלך מוכן.\n"
+                f"🔗 הלינק האישי שלך: {personal_link}\n\n"
+                "🚀 מה עכשיו?\n"
                 "1. שתף את הלינק עם אחרים\n"
-                "2. השתמש בבוט האישי שלך למכירות\n"
+                "2. השתמש בבוט למכירות\n"
                 "3. כל רכישה דרך הלינק שלך מתועדת\n"
                 "4. תוכל למכור נכסים נוספים\n"
                 "5. צבור הכנסה מהפצות\n\n"
-                
-                "👥 *גישה לקהילה:*\n"
+                "👥 גישה לקהילה:\n"
                 "https://t.me/+HIzvM8sEgh1kNWY0\n\n"
-                
-                "💼 *ניהול הנכס:*\n"
-                "השתמש בכפתור '👤 האזור האישי שלי'\n"
-                "כדי לגשת לבוט שלך ולנהל את הנכס"
+                "💼 ניהול הנכס:\n"
+                "השתמש בכפתור '👤 האזור האישי שלי' בבוט הראשי כדי לנהל את הנכס שלך."
             )
-            
+
             keyboard = {
                 "inline_keyboard": [
                     [
                         {"text": "💎 מכור נכסים", "callback_data": "sell_digital_asset"},
-                        {"text": "🔗 שתף לינק", "callback_data": "share_link"}
+                        {"text": "🔗 שתף לינק", "callback_data": "share_link"},
                     ],
                     [
                         {"text": "📊 סטטיסטיקות", "callback_data": "stats"},
-                        {"text": "👥 קבוצת קהילה", "url": "https://t.me/+HIzvM8sEgh1kNWY0"}
+                        {"text": "👥 קבוצת קהילה", "url": "https://t.me/+HIzvM8sEgh1kNWY0"},
                     ],
                     [
-                        {"text": "🆘 תמיכה", "url": "https://t.me/Buy_My_Shop_bot"}
-                    ]
+                        {"text": "🆘 תמיכה", "url": "https://t.me/Buy_My_Shop_bot"},
+                    ],
                 ]
             }
-            
+
             url = f"{self.base_url}{bot_token}/sendMessage"
             payload = {
                 "chat_id": chat_id,
                 "text": welcome_text,
-                "parse_mode": "Markdown",
-                "reply_markup": keyboard
+                "reply_markup": keyboard,
             }
-            
+
             response = requests.post(url, json=payload, timeout=10)
             return response.status_code == 200
-            
+
         except Exception as e:
-            logger.error(f"Failed to send welcome message: {e}")
+            logger.error(f"Failed to send welcome message to personal bot: {e}")
             return False
+
 
 # instance גלובלי
 user_bot_handler = UserBotHandler()
@@ -1131,42 +1127,26 @@ async def do_approve(target_id: int, context: ContextTypes.DEFAULT_TYPE, source_
         bot_data = await create_new_bot_for_user(target_id, username)
         personal_link = bot_data.get("personal_link") or build_personal_share_link(target_id)
 
+        
         # הודעת אישור למשתמש – בלי להבטיח בוט נפרד, אלא נכס + לינק אישי
         approval_text = (
-            "🎉 *התשלום אושר! ברוך הבא לבעלי הנכסים!*
-
-"
-            "💎 *הנכס הדיגיטלי שלך מוכן!*
-
-"
-            "🔗 *הלינק האישי שלך להפצה:*
-"
-            f"{personal_link}
-
-"
-            "📲 *איך משתמשים בלינק?*
-"
-            "• שלח את הלינק לחברים, לקוחות ועוקבים
-"
-            "• כל מי שייכנס דרך הלינק יירשם תחתיך
-"
-            "• כל מכירה תיזקף לזכותך במערכת
-
-"
-            "👥 *גישה לקהילה:*
-"
-            f"{COMMUNITY_GROUP_LINK}
-
-"
-            "💼 *לאזור האישי שלך:*
-"
-            f"פתח את @{BOT_USERNAME or 'Buy_My_Shop_bot'} ושלח /start – המערכת תזהה אותך כבעל נכס.
-
-"
-            "🚀 *מכאן מתחילים לעבוד – שתף את הלינק והתחל למכור!*"
+            "🎉 התשלום אושר! ברוך הבא לבעלי הנכסים!\n\n"
+            "💎 הנכס הדיגיטלי שלך מוכן!\n\n"
+            "🔗 הלינק האישי שלך להפצה:\n"
+            f"{personal_link}\n\n"
+            "מה תקבל מעכשיו:\n"
+            "• זכאות לנכס דיגיטלי מקורי\n"
+            "• מעקב אחרי הפניות דרך הלינק האישי שלך\n"
+            "• כל מכירה תיזקף לזכותך במערכת\n\n"
+            "👥 גישה לקהילה:\n"
+            f"{COMMUNITY_GROUP_LINK}\n\n"
+            "💼 לאזור האישי שלך:\n"
+            f"פתח את @{BOT_USERNAME or 'Buy_My_Shop_bot'} ושלח /start – המערכת תזהה אותך כבעל נכס.\n\n"
+            "🚀 מכאן מתחילים לעבוד – שתף את הלינק והתחל למכור!"
         )
 
-        await context.bot.send_message(chat_id=target_id, text=approval_text, parse_mode="Markdown")
+        await context.bot.send_message(chat_id=target_id, text=approval_text)
+
 
         # עדכון DB
         if DB_AVAILABLE:
@@ -1577,6 +1557,7 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
 
 
 
+
 async def chatid_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """
     מחזיר את ה-chat_id של כל צ'אט (פרטי / קבוצה / סופר-קבוצה) שבו הבוט נמצא.
@@ -1598,8 +1579,9 @@ async def chatid_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     if title:
         text_lines.append(f"🏷 title: {title}")
 
-    await message.reply_text("
-".join(text_lines))
+    await message.reply_text("\n".join(text_lines))
+
+
 async def admin_menu_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """פקודת /admin – תפריט אדמין"""
     if update.effective_user is None or update.effective_user.id not in ADMIN_IDS:
