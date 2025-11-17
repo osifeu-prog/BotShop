@@ -289,6 +289,56 @@
     .tab-content.active {
       display: block;
     }
+
+    /* Vision Page Styles */
+    .vision-hero {
+      background: linear-gradient(135deg, #1e3a8a 0%, #3730a3 100%);
+      color: white;
+      padding: 60px 20px;
+      border-radius: 20px;
+      margin-bottom: 40px;
+      text-align: center;
+    }
+
+    .vision-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+      gap: 25px;
+      margin: 40px 0;
+    }
+
+    .vision-card {
+      background: white;
+      padding: 30px;
+      border-radius: 15px;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+      border-left: 5px solid var(--primary);
+    }
+
+    .vision-card h3 {
+      color: var(--primary);
+      margin-bottom: 15px;
+      font-size: 1.3rem;
+    }
+
+    .ecosystem-layer {
+      background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);
+      border-radius: 15px;
+      padding: 25px;
+      margin: 20px 0;
+      border: 2px solid var(--primary);
+    }
+
+    .protocol-badge {
+      background: var(--secondary);
+      color: white;
+      padding: 8px 16px;
+      border-radius: 20px;
+      font-size: 0.9rem;
+      font-weight: bold;
+      display: inline-block;
+      margin: 10px 5px;
+    }
   </style>
 </head>
 <body>
@@ -305,6 +355,7 @@
     <div class="tabs">
       <button class="tab-btn active" onclick="showTab('home')">🏠 בית</button>
       <button class="tab-btn" onclick="showTab('asset')">💎 הנכס הדיגיטלי</button>
+      <button class="tab-btn" onclick="showTab('vision')">🚀 החזון</button>
       <button class="tab-btn" onclick="showTab('login')">🔐 התחברות</button>
       <button class="tab-btn" onclick="showTab('community')">👥 קהילה</button>
     </div>
@@ -441,6 +492,88 @@
             💼 רכוש נכס דיגיטלי עכשיו
           </a>
         </div>
+      </div>
+    </div>
+
+    <!-- Vision Tab -->
+    <div id="vision-tab" class="tab-content">
+      <div class="vision-hero">
+        <h1>🚀 Human Capital Protocol</h1>
+        <p class="subtitle" style="color: white; font-size: 1.4rem;">הפרוטוקול שהופך אנשים להון אמיתי</p>
+      </div>
+
+      <div class="card">
+        <h2>💫 מה זה SLH במשפט אחד?</h2>
+        <p style="font-size: 1.2rem; line-height: 1.8;">
+          <strong>SLH הוא פרוטוקול הון אנושי שמחבר בין משפחות, קהילות ומומחים לרשת כלכלית אחת</strong> – עם בוטים, חנויות, טוקן SLH, אקדמיה, משחק, ו־Exchange – כך שכל אדם יכול להפוך לעסק, למומחה ולצומת כלכלי, מתוך הטלפון שלו.
+        </p>
+      </div>
+
+      <div class="vision-grid">
+        <div class="vision-card">
+          <h3>🎯 החזון ארוך-טווח</h3>
+          <ul style="margin: 15px 0; padding-right: 20px;">
+            <li>להפוך כל אדם ומשפחה ליחידת כלכלה עצמאית</li>
+            <li>לבנות רשת מסחר גלובלית מבוזרת</li>
+            <li>ליצור Meta-Economy: שכבת-על טכנולוגית</li>
+            <li>להפוך את SLH לסטנדרט עולמי למדידת מומחיות</li>
+          </ul>
+        </div>
+
+        <div class="vision-card">
+          <h3>🏗 האקו-סיסטם המלא</h3>
+          <ul style="margin: 15px 0; padding-right: 20px;">
+            <li>Bots Layer - בוטי טלגרם</li>
+            <li>Commerce Layer - חנויות ומרקטפלייס</li>
+            <li>Blockchain Layer - BSC + TON</li>
+            <li>Expertise Layer - Pi Index</li>
+            <li>Academy Layer - למידה ומשחק</li>
+            <li>Exchange Layer - מסחר ונזילות</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="ecosystem-layer">
+        <h2>🔄 שכבות המערכת</h2>
+        
+        <div class="vision-card">
+          <h3>🤖 Bots Layer (Telegram First)</h3>
+          <p>בוטי הרשמה, תשלום, חנויות, משחק NIFTII, SLHTON, Gateway Onboarding. כל משתמש מקבל בוט אישי שמתפקד כדף נחיתה, חנות, שירות לקוחות וסוכן עסקי.</p>
+        </div>
+
+        <div class="vision-card">
+          <h3>🛒 Commerce Layer – SLH Shops & Marketplace</h3>
+          <p>חנויות דיגיטליות לכל משתמש/משפחה/קהילה (No-Code). מכירת שירותים, מוצרים, NFT, כרטיסים ופתיחת "קניון אישי".</p>
+        </div>
+
+        <div class="vision-card">
+          <h3>⛓️ Blockchain Layer – BSC + TON</h3>
+          <p>טוקן SLH חי על BNB Smart Chain (ERC20/BEP20). אינטגרציה ל־TON (ארנקים מהירים, חיבור טבעי לטלגרם). בעתיד: Multi-Chain (Polygon, Base וכו').</p>
+        </div>
+
+        <div class="vision-card">
+          <h3>🎓 Expertise Layer – Pi Index</h3>
+          <p>מנגנון דירוג מומחיות: פעילות, מכירות, תרומה לקהילה, למידה, המלצות, ביצועים. Pi Index מחובר ישירות ל־SLH ומגדיר את "שווי המומחה" ברשת.</p>
+        </div>
+      </div>
+
+      <div class="card" style="background: linear-gradient(135deg, #f0fdf4, #dcfce7);">
+        <h2>🌟 Human Capital Protocol</h2>
+        <p style="font-size: 1.1rem; line-height: 1.8;">
+          <strong>SLH אינו עוד "אפליקציה" אלא Meta-Protocol:</strong> כמו HTTP / Email לכלכלת משפחה וקהילה. אנשים הם האלגוריתם, המערכת רק מודדת ומתגמלת.
+        </p>
+        <div style="text-align: center; margin-top: 20px;">
+          <span class="protocol-badge">ידע = הון</span>
+          <span class="protocol-badge">משפחות = נכסים</span>
+          <span class="protocol-badge">קהילות = רשתות</span>
+          <span class="protocol-badge">אנשים = פרוטוקול</span>
+        </div>
+      </div>
+
+      <div style="text-align: center; margin-top: 40px;">
+        <a href="https://t.me/Buy_My_Shop_bot" class="btn" target="_blank" style="background: var(--primary);">
+          🚀 הצטרף למהפכה הכלכלית
+        </a>
       </div>
     </div>
 
