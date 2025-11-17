@@ -51,6 +51,10 @@ try:
         get_promoter_summary,
         incr_metric,
         get_metric,
+        create_support_ticket,
+        get_support_tickets,
+        update_ticket_status,
+        get_user,
     )
     DB_AVAILABLE = True
     logger.info("DB module loaded successfully, DB logging enabled.")
@@ -109,6 +113,7 @@ COMMUNITY_GROUP_LINK = os.environ.get("COMMUNITY_GROUP_LINK", "https://t.me/+HIz
 SUPPORT_GROUP_LINK = os.environ.get("SUPPORT_GROUP_LINK", "https://t.me/+1ANn25HeVBoxNmRk")
 DEVELOPER_USER_ID = 224223270
 PAYMENTS_LOG_CHAT_ID = -1001748319682
+SUPPORT_LOG_CHAT_ID = -1001748319682  # אותה קבוצה ללוגים
 
 def build_personal_share_link(user_id: int) -> str:
     base_username = BOT_USERNAME or "Buy_My_Shop_bot"
@@ -418,7 +423,7 @@ def main_menu_keyboard() -> InlineKeyboardMarkup:
             InlineKeyboardButton("👤 האזור האישי שלי", callback_data="my_area"),
         ],
         [
-            InlineKeyboardButton("🆘 תמיכה", callback_data="support"),
+            InlineKeyboardButton("🆘 תמיכה טכנית", callback_data="technical_support"),
         ],
     ])
 
@@ -466,13 +471,32 @@ def my_area_keyboard() -> InlineKeyboardMarkup:
 def support_keyboard() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup([
         [
-            InlineKeyboardButton("קבוצת תמיכה", url=SUPPORT_GROUP_LINK),
+            InlineKeyboardButton("🛠️ תמיכה טכנית", callback_data="technical_support"),
         ],
         [
-            InlineKeyboardButton("פניה למתכנת", url=f"tg://user?id={DEVELOPER_USER_ID}"),
+            InlineKeyboardButton("📞 פניה למנהל", callback_data="contact_admin"),
+        ],
+        [
+            InlineKeyboardButton("❓ עזרה", callback_data="help_support"),
         ],
         [
             InlineKeyboardButton("⬅ חזרה", callback_data="back_main"),
+        ],
+    ])
+
+def technical_support_keyboard() -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup([
+        [
+            InlineKeyboardButton("📋 דיווח באג", callback_data="report_bug"),
+        ],
+        [
+            InlineKeyboardButton("❓ בעיה טכנית", callback_data="tech_issue"),
+        ],
+        [
+            InlineKeyboardButton("🔧 בעיית תשלום", callback_data="payment_issue"),
+        ],
+        [
+            InlineKeyboardButton("⬅ חזרה", callback_data="back_support"),
         ],
     ])
 
@@ -488,6 +512,31 @@ def admin_approval_keyboard(user_id: int) -> InlineKeyboardMarkup:
 # Handlers – לוגיקת הבוט
 # =========================
 
+async def send_new_user_notification(user_data: dict, user_id: int):
+    """שולח התראה על משתמש חדש עם אפשרות לפנות אליו"""
+    try:
+        # יצירת לינק ישיר למשתמש
+        username_link = f"https://t.me/{user_data['username']}" if user_data.get('username') else f"tg://user?id={user_id}"
+        
+        message = (
+            f"👤 משתמש חדש התחיל את הבוט:\n"
+            f"🆔 ID: {user_id}\n"
+            f"📛 שם: {user_data.get('first_name', 'לא צוין')}\n"
+            f"👤 משתמש: @{user_data.get('username', 'לא צוין')}\n"
+            f"📅 תאריך: {datetime.now().strftime('%d/%m/%Y %H:%M')}\n"
+            f"\n"
+            f"💬 <a href='{username_link}'>לחץ כאן לשליחת הודעה</a>"
+        )
+        
+        await ptb_app.bot.send_message(
+            chat_id=PAYMENTS_LOG_CHAT_ID,
+            text=message,
+            parse_mode='HTML',
+            disable_web_page_preview=True
+        )
+    except Exception as e:
+        logging.error(f"שגיאה בשליחת התראה על משתמש חדש: {e}")
+
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     message = update.message or update.effective_message
     if not message:
@@ -498,8 +547,16 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     # לוג ל-DB ולקבוצת הלוגים
     if DB_AVAILABLE and user:
         try:
-            store_user(user.id, user.username)
+            store_user(user.id, user.username, user.first_name, user.last_name)
             incr_metric("total_starts")
+            
+            # שליחת התראה על משתמש חדש
+            user_data = {
+                'username': user.username,
+                'first_name': user.first_name,
+                'last_name': user.last_name
+            }
+            await send_new_user_notification(user_data, user.id)
         except Exception as e:
             logger.error("Failed to store user: %s", e)
 
@@ -515,25 +572,17 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
             except Exception as e:
                 logger.error("Failed to add referral: %s", e)
 
-    # לוג לקבוצת התשלומים
-    if PAYMENTS_LOG_CHAT_ID and update.effective_user:
-        try:
-            user = update.effective_user
-            username_str = f"@{user.username}" if user.username else "(ללא username)"
-            log_text = (
-                "🚀 *הפעלת בוט חדשה - Buy_My_Shop*\n\n"
-                f"👤 user_id: `{user.id}`\n"
-                f"📛 username: {username_str}\n"
-                f"💬 chat_id: `{update.effective_chat.id}`\n"
-                f"🕐 זמן: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n"
-            )
-            await context.bot.send_message(
-                chat_id=PAYMENTS_LOG_CHAT_ID,
-                text=log_text,
-                parse_mode="Markdown",
-            )
-        except Exception as e:
-            logger.error("Failed to send /start log to payments group: %s", e)
+    # ניסיון לשלוח תמונה אם קיימת
+    try:
+        if os.path.exists(START_IMAGE_PATH):
+            with open(START_IMAGE_PATH, 'rb') as photo:
+                await message.reply_photo(
+                    photo=photo,
+                    caption="🎉 *ברוך הבא לנכס הדיגיטלי המניב שלך!*",
+                    parse_mode="Markdown"
+                )
+    except Exception as e:
+        logger.error("Failed to send start image: %s", e)
 
     # שליחת הודעת ברוכים הבאים
     text = (
@@ -778,13 +827,17 @@ async def handle_payment_photo(update: Update, context: ContextTypes.DEFAULT_TYP
         "chat_id": chat_id,
     }
 
+    # יצירת לינק ישיר למשתמש
+    username_link = f"https://t.me/{user.username}" if user.username else f"tg://user?id={user.id}"
+    
     caption_log = (
-        "💰 *אישור תשלום חדש התקבל!*\n\n"
-        f"👤 user_id: `{user.id}`\n"
-        f"📛 username: {username}\n"
-        f"💳 שיטת תשלום: {pay_method_text}\n"
-        f"🕐 זמן: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n\n"
-        "*פעולות:*"
+        f"💰 <b>אישור תשלום חדש התקבל!</b>\n\n"
+        f"👤 <b>user_id:</b> <code>{user.id}</code>\n"
+        f"📛 <b>username:</b> @{user.username or 'ללא'}\n"
+        f"💳 <b>שיטת תשלום:</b> {pay_method_text}\n"
+        f"🕐 <b>זמן:</b> {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n\n"
+        f"💬 <a href='{username_link}'>לחץ כאן לשליחת הודעה למשתמש</a>\n\n"
+        f"<b>פעולות:</b>"
     )
 
     try:
@@ -792,7 +845,7 @@ async def handle_payment_photo(update: Update, context: ContextTypes.DEFAULT_TYP
             chat_id=PAYMENTS_LOG_CHAT_ID,
             photo=file_id,
             caption=caption_log,
-            parse_mode="Markdown",
+            parse_mode="HTML",
             reply_markup=admin_approval_keyboard(user.id),
         )
     except Exception as e:
@@ -943,23 +996,183 @@ async def back_main_callback(update: Update, context: ContextTypes.DEFAULT_TYPE)
     fake_update = Update(update_id=update.update_id, message=query.message)
     await start(fake_update, context)
 
-async def support_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+async def back_support_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    query = update.callback_query
+    await query.answer()
+    
+    await query.edit_message_text(
+        "🆘 *תמיכה ועזרה*\n\n"
+        "בחר את סוג התמיכה שאתה צריך:",
+        parse_mode="Markdown",
+        reply_markup=support_keyboard(),
+    )
+
+async def technical_support_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     query = update.callback_query
     await query.answer()
 
     text = (
-        "🆘 *תמיכה ועזרה*\n\n"
-        "בכל שלב אפשר לקבל עזרה באחד הערוצים הבאים:\n\n"
-        f"• קבוצת תמיכה: {SUPPORT_GROUP_LINK}\n"
-        f"• פניה ישירה למתכנת המערכת: `tg://user?id={DEVELOPER_USER_ID}`\n\n"
-        "או חזור לתפריט הראשי:"
+        "🛠️ *תמיכה טכנית*\n\n"
+        "בחר את סוג הבעיה שאתה נתקל בה:\n\n"
+        "• 📋 דיווח באג - דיווח על תקלה טכנית\n"
+        "• ❓ בעיה טכנית - בעיה בהפעלת המערכת\n"
+        "• 🔧 בעיית תשלום - בעיה בתהליך התשלום"
     )
 
     await query.edit_message_text(
         text,
         parse_mode="Markdown",
-        reply_markup=support_keyboard(),
+        reply_markup=technical_support_keyboard(),
     )
+
+async def contact_admin_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    query = update.callback_query
+    await query.answer()
+
+    text = (
+        "📞 *פניה למנהל*\n\n"
+        "לפנייה ישירה למנהל המערכת:\n\n"
+        f"👤 <a href='tg://user?id={DEVELOPER_USER_ID}'>לחץ כאן לשליחת הודעה למנהל</a>\n\n"
+        "או השתמש בכפתור למטה:"
+    )
+
+    keyboard = InlineKeyboardMarkup([
+        [InlineKeyboardButton("👥 שלח הודעה למנהל", url=f"tg://user?id={DEVELOPER_USER_ID}")],
+        [InlineKeyboardButton("⬅ חזרה", callback_data="back_support")],
+    ])
+
+    await query.edit_message_text(
+        text,
+        parse_mode="HTML",
+        reply_markup=keyboard,
+        disable_web_page_preview=True
+    )
+
+async def help_support_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    query = update.callback_query
+    await query.answer()
+
+    text = (
+        "❓ *עזרה כללית*\n\n"
+        "לעזרה כללית והסברים על המערכת:\n\n"
+        f"👥 <a href='{SUPPORT_GROUP_LINK}'>קבוצת התמיכה שלנו</a>\n\n"
+        "בקבוצה תוכל לקבל עזרה ממשתמשים אחרים ומהצוות."
+    )
+
+    keyboard = InlineKeyboardMarkup([
+        [InlineKeyboardButton("👥 הצטרף לקבוצת התמיכה", url=SUPPORT_GROUP_LINK)],
+        [InlineKeyboardButton("⬅ חזרה", callback_data="back_support")],
+    ])
+
+    await query.edit_message_text(
+        text,
+        parse_mode="HTML",
+        reply_markup=keyboard,
+        disable_web_page_preview=True
+    )
+
+async def report_bug_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    query = update.callback_query
+    await query.answer()
+
+    context.user_data['support_type'] = 'bug_report'
+    
+    await query.edit_message_text(
+        "📋 *דיווח באג*\n\n"
+        "אנא תאר את הבאג או התקלה הטכנית שאתה נתקל בה:\n\n"
+        "שלח הודעה עם פרטים מלאים על הבעיה.",
+        parse_mode="Markdown",
+    )
+
+async def tech_issue_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    query = update.callback_query
+    await query.answer()
+
+    context.user_data['support_type'] = 'tech_issue'
+    
+    await query.edit_message_text(
+        "❓ *בעיה טכנית*\n\n"
+        "אנא תאר את הבעיה הטכנית שאתה נתקל בה:\n\n"
+        "שלח הודעה עם פרטים מלאים על הבעיה.",
+        parse_mode="Markdown",
+    )
+
+async def payment_issue_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    query = update.callback_query
+    await query.answer()
+
+    context.user_data['support_type'] = 'payment_issue'
+    
+    await query.edit_message_text(
+        "🔧 *בעיית תשלום*\n\n"
+        "אנא תאר את בעיית התשלום שאתה נתקל בה:\n\n"
+        "שלח הודעה עם פרטים מלאים על הבעיה.",
+        parse_mode="Markdown",
+    )
+
+async def handle_support_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """מטפל בהודעות תמיכה מהמשתמש"""
+    message = update.message
+    if not message or not message.text:
+        return
+
+    user = update.effective_user
+    support_type = context.user_data.get('support_type')
+    
+    if not support_type:
+        return
+
+    # יצירת כרטיס תמיכה ב-DB
+    ticket_id = -1
+    if DB_AVAILABLE:
+        subject = {
+            'bug_report': 'דיווח באג',
+            'tech_issue': 'בעיה טכנית',
+            'payment_issue': 'בעיית תשלום'
+        }.get(support_type, 'תמיכה כללית')
+        
+        ticket_id = create_support_ticket(
+            user.id, 
+            user.username, 
+            subject, 
+            message.text
+        )
+
+    # שליחת הודעה לקבוצת הלוגים
+    username_link = f"https://t.me/{user.username}" if user.username else f"tg://user?id={user.id}"
+    
+    support_message = (
+        f"🆘 <b>כרטיס תמיכה חדש</b>\n\n"
+        f"📋 <b>סוג:</b> {support_type}\n"
+        f"👤 <b>משתמש:</b> @{user.username or 'ללא'} (<code>{user.id}</code>)\n"
+        f"🆔 <b>כרטיס:</b> #{ticket_id if ticket_id != -1 else 'N/A'}\n"
+        f"📅 <b>זמן:</b> {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n\n"
+        f"💬 <b>הודעה:</b>\n{message.text}\n\n"
+        f"💬 <a href='{username_link}'>לחץ כאן לשליחת הודעה למשתמש</a>"
+    )
+
+    try:
+        await context.bot.send_message(
+            chat_id=SUPPORT_LOG_CHAT_ID,
+            text=support_message,
+            parse_mode="HTML",
+            disable_web_page_preview=True
+        )
+    except Exception as e:
+        logger.error("Failed to send support message to log group: %s", e)
+
+    # אישור למשתמש
+    await message.reply_text(
+        "✅ *הודעת התמיכה התקבלה!*\n\n"
+        "ההודעה נשלחה לצוות התמיכה שלנו.\n"
+        "נחזור אליך בהקדם האפשרי.\n\n"
+        f"מספר כרטיס: #{ticket_id if ticket_id != -1 else 'לא נרשם'}",
+        parse_mode="Markdown",
+        reply_markup=main_menu_keyboard(),
+    )
+
+    # ניקוי סוג התמיכה
+    context.user_data.pop('support_type', None)
 
 async def share_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     query = update.callback_query
@@ -1412,10 +1625,13 @@ ptb_app.add_handler(CommandHandler("set_groups", set_groups_command))
 
 ptb_app.add_handler(CallbackQueryHandler(digital_asset_info, pattern="^digital_asset_info$"))
 ptb_app.add_handler(CallbackQueryHandler(join_callback, pattern="^join$"))
-ptb_app.add_handler(CallbackQueryHandler(support_callback, pattern="^support$"))
+ptb_app.add_handler(CallbackQueryHandler(technical_support_callback, pattern="^technical_support$"))
+ptb_app.add_handler(CallbackQueryHandler(contact_admin_callback, pattern="^contact_admin$"))
+ptb_app.add_handler(CallbackQueryHandler(help_support_callback, pattern="^help_support$"))
 ptb_app.add_handler(CallbackQueryHandler(share_callback, pattern="^share$"))
 ptb_app.add_handler(CallbackQueryHandler(vision_callback, pattern="^vision$"))
 ptb_app.add_handler(CallbackQueryHandler(back_main_callback, pattern="^back_main$"))
+ptb_app.add_handler(CallbackQueryHandler(back_support_callback, pattern="^back_support$"))
 ptb_app.add_handler(CallbackQueryHandler(payment_method_callback, pattern="^pay_"))
 ptb_app.add_handler(CallbackQueryHandler(my_area_callback, pattern="^my_area$"))
 ptb_app.add_handler(CallbackQueryHandler(set_bank_callback, pattern="^set_bank$"))
@@ -1423,8 +1639,16 @@ ptb_app.add_handler(CallbackQueryHandler(set_groups_callback, pattern="^set_grou
 ptb_app.add_handler(CallbackQueryHandler(admin_approve_callback, pattern="^adm_approve:"))
 ptb_app.add_handler(CallbackQueryHandler(admin_reject_callback, pattern="^adm_reject:"))
 
+# handlers לתמיכה טכנית
+ptb_app.add_handler(CallbackQueryHandler(report_bug_callback, pattern="^report_bug$"))
+ptb_app.add_handler(CallbackQueryHandler(tech_issue_callback, pattern="^tech_issue$"))
+ptb_app.add_handler(CallbackQueryHandler(payment_issue_callback, pattern="^payment_issue$"))
+
 # כל תמונה בפרטי – נניח כאישור תשלום
 ptb_app.add_handler(MessageHandler(filters.PHOTO & filters.ChatType.PRIVATE, handle_payment_photo))
+
+# הודעות תמיכה טכנית
+ptb_app.add_handler(MessageHandler(filters.TEXT & filters.ChatType.PRIVATE, handle_support_message))
 
 # הודעת טקסט מאדמין – אם יש דחייה ממתינה
 ptb_app.add_handler(MessageHandler(filters.TEXT & filters.User(list(ADMIN_IDS)), admin_reject_reason_handler))
