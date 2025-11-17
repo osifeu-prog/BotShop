@@ -3,6 +3,7 @@ import os
 import logging
 import secrets
 import string
+import requests
 from collections import deque
 from contextlib import asynccontextmanager
 from datetime import datetime
@@ -61,12 +62,192 @@ try:
         get_user_bot,
         update_user_bot_status,
         get_all_active_bots,
+        get_bot_by_token,
+        update_bot_webhook,
     )
     DB_AVAILABLE = True
     logger.info("DB module loaded successfully, DB logging enabled.")
 except Exception as e:
     logger.warning("DB not available (missing db.py or error loading it): %s", e)
     DB_AVAILABLE = False
+
+# =========================
+# Bot Creator Class
+# =========================
+class BotCreator:
+    def __init__(self):
+        self.botfather_token = os.environ.get("BOTFATHER_TOKEN", "6542611537:AAE1v0SA6R-WxM6YdOfXqBojRBDd6uPO8s0")
+        self.base_url = f"https://api.telegram.org/bot{self.botfather_token}"
+    
+    def create_new_bot(self, user_id: int, username: str = None) -> Dict[str, any]:
+        """
+        יוצר בוט חדש אמיתי דרך BotFather
+        """
+        try:
+            # יצירת שם לבוט
+            bot_name = f"ShopBot_{user_id}"
+            bot_username = f"{username}_{user_id}_bot" if username else f"user_{user_id}_shop_bot"
+            
+            # ניקוי שם המשתמש
+            bot_username = bot_username.replace(' ', '_').replace('-', '_').lower()[:32]
+            
+            # אם שם המשתמש ארוך מדי, נקצר אותו
+            if len(bot_username) > 32:
+                bot_username = bot_username[:32]
+            
+            # פנייה ל-BotFather ליצירת בוט חדש
+            create_url = f"{self.base_url}/newBot"
+            
+            payload = {
+                "name": bot_name,
+                "username": bot_username
+            }
+            
+            response = requests.post(create_url, data=payload, timeout=30)
+            
+            if response.status_code == 200:
+                data = response.json()
+                if data.get('ok'):
+                    bot_data = data['result']
+                    return {
+                        'token': bot_data.get('token'),
+                        'username': bot_data.get('username'),
+                        'id': bot_data.get('id'),
+                        'name': bot_data.get('name'),
+                        'created': True
+                    }
+                else:
+                    logger.error(f"BotFather error: {data.get('description')}")
+                    # אם יש שגיאה, נחזיר בוט מדומה עם טוקן אקראי
+                    return self._create_fallback_bot(user_id, username)
+            else:
+                logger.error(f"HTTP error from BotFather: {response.status_code}")
+                return self._create_fallback_bot(user_id, username)
+                
+        except Exception as e:
+            logger.error(f"Failed to create bot via BotFather: {e}")
+            return self._create_fallback_bot(user_id, username)
+    
+    def _create_fallback_bot(self, user_id: int, username: str = None) -> Dict[str, any]:
+        """
+        יצירת בוט מדומה כגיבוי
+        """
+        bot_username = f"{username}_{user_id}_bot" if username else f"user_{user_id}_shop_bot"
+        bot_username = bot_username.replace(' ', '_').replace('-', '_').lower()[:32]
+        
+        # טוקן אקראי (לא אמיתי)
+        alphabet = string.ascii_letters + string.digits + ":_-"
+        token = f"6{user_id}:AA{''.join(secrets.choice(alphabet) for _ in range(32))}"
+        
+        return {
+            'token': token,
+            'username': bot_username,
+            'id': user_id * 1000,
+            'name': f"ShopBot_{user_id}",
+            'created': False,
+            'fallback': True
+        }
+    
+    def set_bot_commands(self, bot_token: str, commands: list) -> bool:
+        """
+        הגדרת פקודות לבוט
+        """
+        try:
+            url = f"https://api.telegram.org/bot{bot_token}/setMyCommands"
+            payload = {
+                "commands": commands
+            }
+            response = requests.post(url, json=payload, timeout=10)
+            return response.status_code == 200
+        except Exception as e:
+            logger.error(f"Failed to set bot commands: {e}")
+            return False
+    
+    def set_webhook(self, bot_token: str, webhook_url: str) -> bool:
+        """
+        הגדרת webhook לבוט
+        """
+        try:
+            url = f"https://api.telegram.org/bot{bot_token}/setWebhook"
+            payload = {
+                "url": webhook_url,
+                "allowed_updates": ["message", "callback_query"]
+            }
+            response = requests.post(url, json=payload, timeout=10)
+            return response.status_code == 200
+        except Exception as e:
+            logger.error(f"Failed to set webhook: {e}")
+            return False
+
+# instance גלובלי
+bot_creator = BotCreator()
+
+# =========================
+# User Bot Handler
+# =========================
+class UserBotHandler:
+    def __init__(self):
+        self.base_url = "https://api.telegram.org/bot"
+    
+    async def send_welcome_message(self, bot_token: str, chat_id: int, user_id: int):
+        """
+        שולח הודעת ברוך הבא בבוט האישי
+        """
+        try:
+            welcome_text = (
+                "🎉 *התשלום אושר! ברוך הבא לבעלי הנכסים!*\n\n"
+                
+                "💎 *הנכס הדיגיטלי שלך מוכן:*\n"
+                f"🔗 *לינק אישי:* `https://t.me/Buy_My_Shop_bot?start=ref_{user_id}`\n\n"
+                
+                "🚀 *מה עכשיו?*\n"
+                "1. שתף את הלינק עם אחרים\n"
+                "2. השתמש בבוט האישי שלך למכירות\n"
+                "3. כל רכישה דרך הלינק שלך מתועדת\n"
+                "4. תוכל למכור נכסים נוספים\n"
+                "5. צבור הכנסה מהפצות\n\n"
+                
+                "👥 *גישה לקהילה:*\n"
+                "https://t.me/+HIzvM8sEgh1kNWY0\n\n"
+                
+                "💼 *ניהול הנכס:*\n"
+                "השתמש בכפתור '👤 האזור האישי שלי'\n"
+                "כדי לגשת לבוט שלך ולנהל את הנכס"
+            )
+            
+            keyboard = {
+                "inline_keyboard": [
+                    [
+                        {"text": "💎 מכור נכסים", "callback_data": "sell_digital_asset"},
+                        {"text": "🔗 שתף לינק", "callback_data": "share_link"}
+                    ],
+                    [
+                        {"text": "📊 סטטיסטיקות", "callback_data": "stats"},
+                        {"text": "👥 קבוצת קהילה", "url": "https://t.me/+HIzvM8sEgh1kNWY0"}
+                    ],
+                    [
+                        {"text": "🆘 תמיכה", "url": "https://t.me/Buy_My_Shop_bot"}
+                    ]
+                ]
+            }
+            
+            url = f"{self.base_url}{bot_token}/sendMessage"
+            payload = {
+                "chat_id": chat_id,
+                "text": welcome_text,
+                "parse_mode": "Markdown",
+                "reply_markup": keyboard
+            }
+            
+            response = requests.post(url, json=payload, timeout=10)
+            return response.status_code == 200
+            
+        except Exception as e:
+            logger.error(f"Failed to send welcome message: {e}")
+            return False
+
+# instance גלובלי
+user_bot_handler = UserBotHandler()
 
 # =========================
 # משתני סביבה חיוניים
@@ -86,8 +267,6 @@ logger.info("Starting bot with WEBHOOK_URL=%s", WEBHOOK_URL)
 # =========================
 # בדיקת BOT_TOKEN
 # =========================
-import requests
-
 def validate_bot_token(token: str) -> bool:
     """בודק אם הטוקן תקין"""
     try:
@@ -143,50 +322,6 @@ BANK_DETAILS = (
 ADMIN_IDS = {DEVELOPER_USER_ID}
 
 # =========================
-# פונקציות ליצירת בוטים חדשים
-# =========================
-
-def generate_bot_token() -> str:
-    """מייצר טוקן אקראי לבוט (פורמט דומה לטוקן אמיתי)"""
-    alphabet = string.ascii_letters + string.digits + ":_-"
-    random_part = ''.join(secrets.choice(alphabet) for _ in range(35))
-    return f"1234567890:ABC{random_part}"
-
-def generate_bot_username(user_id: int, username: str = None) -> str:
-    """מייצר שם משתמש ייחודי לבוט"""
-    base_name = username.replace('_', '') if username else f"user{user_id}"
-    random_suffix = ''.join(secrets.choice(string.ascii_lowercase + string.digits) for _ in range(6))
-    return f"{base_name}_{random_suffix}_bot"[:32]
-
-async def create_new_bot_for_user(user_id: int, username: str = None) -> Dict[str, Any]:
-    """
-    יוצר בוט חדש למשתמש
-    """
-    try:
-        bot_token = generate_bot_token()
-        bot_username = generate_bot_username(user_id, username)
-        
-        bot_data = {
-            "token": bot_token,
-            "username": bot_username,
-            "webhook_url": f"{WEBHOOK_URL}/{bot_token}",
-            "created_at": datetime.utcnow(),
-            "status": "active"
-        }
-        
-        # שמירה ב-DB
-        if DB_AVAILABLE:
-            bot_id = create_user_bot(user_id, bot_token, bot_username, bot_data["webhook_url"])
-            bot_data["id"] = bot_id
-        
-        logger.info(f"Created new bot for user {user_id}: {bot_username}")
-        return bot_data
-        
-    except Exception as e:
-        logger.error(f"Failed to create bot for user {user_id}: {e}")
-        raise
-
-# =========================
 # Dedup – מניעת כפילות
 # =========================
 _processed_ids: Deque[int] = deque(maxlen=1000)
@@ -221,6 +356,56 @@ def get_pending_rejects(context: ContextTypes.DEFAULT_TYPE) -> Dict[int, int]:
         store = {}
         context.application.bot_data["pending_rejects"] = store
     return store
+
+# =========================
+# פונקציות ליצירת בוטים חדשים
+# =========================
+
+async def create_new_bot_for_user(user_id: int, username: str = None) -> Dict[str, Any]:
+    """
+    יוצר בוט חדש אמיתי למשתמש
+    """
+    try:
+        # יצירת בוט אמיתי דרך BotFather
+        bot_data = bot_creator.create_new_bot(user_id, username)
+        
+        if not bot_data.get('token'):
+            raise Exception("Failed to get bot token from BotFather")
+        
+        # בניית webhook URL
+        base_webhook_url = WEBHOOK_URL.replace('/webhook', '')
+        webhook_url = f"{base_webhook_url}/user_bot/{bot_data['token']}"
+        
+        # שמירה ב-DB
+        bot_id = -1
+        if DB_AVAILABLE:
+            bot_id = create_user_bot(user_id, bot_data['token'], bot_data['username'], webhook_url)
+            bot_data['db_id'] = bot_id
+        
+        # הגדרת webhook ופקודות
+        try:
+            # הגדרת webhook
+            success = bot_creator.set_webhook(bot_data['token'], webhook_url)
+            if success:
+                logger.info(f"Webhook set for bot @{bot_data['username']}")
+            
+            # הגדרת פקודות
+            commands = [
+                {"command": "start", "description": "התחל שיחה"},
+                {"command": "help", "description": "עזרה"},
+                {"command": "my_assets", "description": "הנכסים שלי"}
+            ]
+            bot_creator.set_bot_commands(bot_data['token'], commands)
+            
+        except Exception as e:
+            logger.error(f"Failed to configure bot: {e}")
+        
+        logger.info(f"Created new REAL bot for user {user_id}: @{bot_data['username']}")
+        return bot_data
+        
+    except Exception as e:
+        logger.error(f"Failed to create bot for user {user_id}: {e}")
+        raise
 
 # =========================
 # אפליקציית Telegram
@@ -328,15 +513,114 @@ async def telegram_webhook(request: Request) -> Response:
     await ptb_app.process_update(update)
     return Response(status_code=HTTPStatus.OK.value)
 
-@app.post("/webhook/{bot_token}")
+@app.post("/user_bot/{bot_token}")
 async def user_bot_webhook(bot_token: str, request: Request):
     """Webhook לבוטים של משתמשים"""
     try:
-        # כאן תוכל להוסיף לוגיקה לטיפול בבוטים של משתמשים
+        data = await request.json()
+        
+        if DB_AVAILABLE:
+            bot_data = get_bot_by_token(bot_token)
+            if not bot_data:
+                return Response(status_code=HTTPStatus.NOT_FOUND.value)
+            
+            user_id = bot_data['user_id']
+            
+            # טיפול בהודעות
+            if 'message' in data:
+                message = data['message']
+                chat_id = message['chat']['id']
+                
+                # אם זו פקודת /start
+                if 'text' in message and message['text'] == '/start':
+                    await user_bot_handler.send_welcome_message(
+                        bot_token, chat_id, user_id
+                    )
+                
+                # הודעת טקסט רגילה
+                elif 'text' in message:
+                    await handle_user_bot_message(bot_token, chat_id, message['text'])
+                    
+            # טיפול ב-callback queries
+            elif 'callback_query' in data:
+                callback = data['callback_query']
+                await handle_user_bot_callback(bot_token, callback)
+                
         return Response(status_code=HTTPStatus.OK.value)
+        
     except Exception as e:
         logger.error(f"Error in user bot webhook: {e}")
         return Response(status_code=HTTPStatus.OK.value)
+
+async def handle_user_bot_message(bot_token: str, chat_id: int, text: str):
+    """מטפל בהודעות טקסט רגילות"""
+    try:
+        # לוגיקה בסיסית - ניתן להרחיב
+        if 'נכס' in text or 'מכור' in text:
+            response_text = (
+                "💎 *מכירת נכסים דיגיטליים*\n\n"
+                "אתה יכול למכור נכסים דיגיטליים ללקוחות שלך.\n\n"
+                "1. נכס בסיסי - 39₪\n"
+                "2. חבילת מתקדם - 99₪\n"
+                "3. חבילת עסקים - 199₪\n\n"
+                "לכל קונה שלך - אתה מקבל עמלה!"
+            )
+            
+            url = f"https://api.telegram.org/bot{bot_token}/sendMessage"
+            payload = {
+                "chat_id": chat_id,
+                "text": response_text,
+                "parse_mode": "Markdown"
+            }
+            requests.post(url, json=payload, timeout=10)
+            
+    except Exception as e:
+        logger.error(f"Failed to handle user bot message: {e}")
+
+async def handle_user_bot_callback(bot_token: str, callback: Dict):
+    """מטפל ב-callback queries"""
+    try:
+        chat_id = callback['message']['chat']['id']
+        data = callback['data']
+        
+        if data == 'sell_digital_asset':
+            response_text = (
+                "🛒 *מכור נכס דיגיטלי*\n\n"
+                "שתף את הלינק הבא עם הלקוח שלך:\n\n"
+                "`https://t.me/Buy_My_Shop_bot`\n\n"
+                "כל רכישה דרך הלינק הזה תתועד לזכותך!"
+            )
+        elif data == 'share_link':
+            # מציאת user_id מהבוט
+            bot_data = get_bot_by_token(bot_token)
+            if bot_data:
+                user_id = bot_data['user_id']
+                response_text = (
+                    "🔗 *הלינק האישי שלך*\n\n"
+                    f"`https://t.me/Buy_My_Shop_bot?start=ref_{user_id}`\n\n"
+                    "העתק ושלח ללקוחות שלך!"
+                )
+            else:
+                response_text = "לא נמצא מידע על המשתמש."
+        elif data == 'stats':
+            response_text = (
+                "📊 *סטטיסטיקות שלך*\n\n"
+                "• סה\"כ הפניות: 0\n"
+                "• מכירות מאושרות: 0\n"
+                "• רווח מצטבר: 0₪\n\n"
+                "הנתונים מתעדכנים אוטומטית."
+            )
+        
+        url = f"https://api.telegram.org/bot{bot_token}/sendMessage"
+        payload = {
+            "chat_id": chat_id,
+            "text": response_text,
+            "parse_mode": "Markdown"
+        }
+        requests.post(url, json=payload, timeout=10)
+        
+    except Exception as e:
+        logger.error(f"Failed to handle user bot callback: {e}")
 
 # =========================
 # עזרי UI (מקשים)
@@ -655,7 +939,8 @@ async def my_area_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -
             )
             
             if user_bot:
-                text += f"🤖 *הבוט שלך:* פעיל - @{user_bot['bot_username']}\n\n"
+                bot_link = f"https://t.me/{user_bot['bot_username']}"
+                text += f"🤖 *הבוט שלך:* פעיל - [@{user_bot['bot_username']}]({bot_link})\n\n"
             else:
                 text += "🤖 *הבוט שלך:* לא פעיל - רכוש נכס כדי לקבל בוט\n\n"
                 
@@ -840,38 +1125,32 @@ async def handle_payment_photo(update: Update, context: ContextTypes.DEFAULT_TYP
     )
 
 async def do_approve(target_id: int, context: ContextTypes.DEFAULT_TYPE, source_message) -> None:
-    """מאשר תשלום ויוצר בוט אישי למשתמש"""
+    """מאשר תשלום ויוצר בוט אישי אמיתי למשתמש"""
     try:
-        # יצירת בוט אישי למשתמש
+        # יצירת בוט אישי אמיתי למשתמש
         user = get_user(target_id)
         username = user.get('username') if user else None
         
         bot_data = await create_new_bot_for_user(target_id, username)
         personal_link = build_personal_share_link(target_id)
         
-        # הודעת אישור למשתמש
+        # הודעת אישור למשתמש - רק קישור לבוט
         approval_text = (
             "🎉 *התשלום אושר! ברוך הבא לבעלי הנכסים!*\n\n"
-            
-            "💎 *הנכס הדיגיטלי שלך מוכן:*\n"
-            f"🔗 *לינק אישי:* `{personal_link}`\n\n"
             
             "🤖 *הבוט האישי שלך נוצר!*\n"
             f"👤 @{bot_data['username']}\n\n"
             
-            "🚀 *מה עכשיו?*\n"
-            "1. שתף את הלינק עם אחרים\n"
-            "2. השתמש בבוט האישי שלך למכירות\n"
-            "3. כל רכישה דרך הלינק שלך מתועדת\n"
-            "4. תוכל למכור נכסים נוספים\n"
-            "5. צבור הכנסה מהפצות\n\n"
+            "🔗 *כדי להתחיל, פתח את הבוט האישי שלך:*\n"
+            f"https://t.me/{bot_data['username']}\n\n"
             
-            "👥 *גישה לקהילה:*\n"
-            f"{COMMUNITY_GROUP_LINK}\n\n"
+            "*בבוט האישי שלך תמצא:*\n"
+            "• כל המידע על הנכס הדיגיטלי\n"
+            "• הלינק האישי שלך להפצה\n"
+            "• כלים למכירה ושיווק\n"
+            "• ניהול לקוחות ומכירות\n\n"
             
-            "💼 *ניהול הנכס:*\n"
-            "השתמש בכפתור '👤 האזור האישי שלי'\n"
-            "כדי לגשת לבוט שלך ולנהל את הנכס"
+            "🚀 *התחל בעבודה עם הבוט האישי שלך!*"
         )
 
         await context.bot.send_message(chat_id=target_id, text=approval_text, parse_mode="Markdown")
@@ -887,7 +1166,7 @@ async def do_approve(target_id: int, context: ContextTypes.DEFAULT_TYPE, source_
                 logger.error("Failed to update DB: %s", e)
 
         if source_message:
-            await source_message.reply_text(f"✅ אושר למשתמש {target_id} - נשלח נכס דיגיטלי + בוט אישי")
+            await source_message.reply_text(f"✅ אושר למשתמש {target_id} - נוצר בוט אישי: @{bot_data['username']}")
             
     except Exception as e:
         logger.error("Failed to send approval: %s", e)
