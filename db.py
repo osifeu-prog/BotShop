@@ -700,3 +700,38 @@ def get_all_active_bots() -> List[Dict[str, Any]]:
             """,
         )
         return [dict(row) for row in cur.fetchall()]
+
+# הוסף ל-db.py אחרי הפונקציות הקיימות של user_bots
+
+def get_bot_by_token(bot_token: str) -> Optional[Dict[str, Any]]:
+    """
+    מחזיר בוט לפי טוקן
+    """
+    with db_cursor() as (conn, cur):
+        if cur is None:
+            return None
+        
+        cur.execute(
+            "SELECT * FROM user_bots WHERE bot_token = %s;",
+            (bot_token,)
+        )
+        row = cur.fetchone()
+        return dict(row) if row else None
+
+def update_bot_webhook(bot_id: int, webhook_url: str) -> None:
+    """
+    מעדכן את ה-webhook של הבוט
+    """
+    with db_cursor() as (conn, cur):
+        if cur is None:
+            logger.warning("update_bot_webhook called without DB.")
+            return
+        
+        cur.execute(
+            """
+            UPDATE user_bots 
+            SET webhook_url = %s, updated_at = NOW()
+            WHERE id = %s;
+            """,
+            (webhook_url, bot_id),
+        )
