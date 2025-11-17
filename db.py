@@ -1,8 +1,8 @@
-# db.py
 import os
 import logging
 from contextlib import contextmanager
 from typing import Optional, Any, List, Dict
+from datetime import datetime, timedelta
 
 import psycopg2
 import psycopg2.extras
@@ -65,6 +65,7 @@ def init_schema() -> None:
             CREATE TABLE IF NOT EXISTS users (
                 user_id      BIGINT PRIMARY KEY,
                 username     TEXT,
+                language     TEXT DEFAULT 'he',
                 created_at   TIMESTAMPTZ NOT NULL DEFAULT NOW()
             );
             """
@@ -172,6 +173,46 @@ def store_user(user_id: int, username: Optional[str]) -> None:
             (user_id, username),
         )
 
+def get_user(user_id: int) -> Optional[Dict[str, Any]]:
+    """
+    מחזיר משתמש לפי ID.
+    """
+    with db_cursor() as (conn, cur):
+        if cur is None:
+            return None
+        cur.execute("SELECT * FROM users WHERE user_id = %s;", (user_id,))
+        row = cur.fetchone()
+        return dict(row) if row else None
+
+def get_user_language(user_id: int) -> Optional[str]:
+    """
+    מחזיר את שפת המשתמש.
+    """
+    with db_cursor() as (conn, cur):
+        if cur is None:
+            return 'he'
+        cur.execute("SELECT language FROM users WHERE user_id = %s;", (user_id,))
+        row = cur.fetchone()
+        return row['language'] if row else 'he'
+
+def update_user_language(user_id: int, language: str) -> None:
+    """
+    מעדכן את שפת המשתמש.
+    """
+    with db_cursor() as (conn, cur):
+        if cur is None:
+            logger.warning("update_user_language called without DB.")
+            return
+        cur.execute(
+            """
+            INSERT INTO users (user_id, language)
+            VALUES (%s, %s)
+            ON CONFLICT (user_id)
+            DO UPDATE SET language = EXCLUDED.language;
+            """,
+            (user_id, language),
+        )
+
 
 # =========================
 # payments
@@ -217,6 +258,40 @@ def update_payment_status(user_id: int, status: str, reason: Optional[str]) -> N
             """,
             (status, reason, user_id),
         )
+
+def get_pending_payments_count(user_id: int) -> int:
+    """
+    מחזיר מספר תשלומים ממתינים למשתמש.
+    """
+    with db_cursor() as (conn, cur):
+        if cur is None:
+            return 0
+        cur.execute(
+            "SELECT COUNT(*) AS count FROM payments WHERE user_id = %s AND status = 'pending';",
+            (user_id,)
+        )
+        row = cur.fetchone()
+        return int(row['count']) if row else 0
+
+def get_pending_payment_older_than(user_id: int, hours: int) -> Optional[Dict[str, Any]]:
+    """
+    מחזיר תשלום ממתין ישן יותר ממספר שעות נתון.
+    """
+    with db_cursor() as (conn, cur):
+        if cur is None:
+            return None
+        cur.execute(
+            """
+            SELECT * FROM payments
+            WHERE user_id = %s AND status = 'pending'
+            AND created_at < NOW() - INTERVAL '%s HOURS'
+            ORDER BY created_at ASC
+            LIMIT 1;
+            """,
+            (user_id, hours)
+        )
+        row = cur.fetchone()
+        return dict(row) if row else None
 
 
 def get_monthly_payments(year: int, month: int) -> List[Dict[str, Any]]:
