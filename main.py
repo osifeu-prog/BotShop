@@ -13,6 +13,8 @@ from telegram import (
     Update,
     InlineKeyboardMarkup,
     InlineKeyboardButton,
+    ReplyKeyboardMarkup,
+    ReplyKeyboardRemove,
 )
 from telegram.ext import (
     Application,
@@ -51,6 +53,8 @@ try:
         get_promoter_summary,
         incr_metric,
         get_metric,
+        set_user_language,
+        get_user_language,
     )
     DB_AVAILABLE = True
     logger.info("DB module loaded successfully, DB logging enabled.")
@@ -132,8 +136,172 @@ BANK_DETAILS = (
     "סכום: *39 ש\"ח*\n"
 )
 
+
+
+TON_WALLET_ADDRESS = os.environ.get(
+    "TON_WALLET_ADDRESS",
+    "UQCr743gEr_nqV_0SBkSp3CtYS_15R3LDLBvLmKeEv7XdGvp",
+)
+
+TON_DETAILS = (
+    "💎 *תשלום ב-TON (טלגרם)*\n\n"
+    "כתובת הארנק לתשלום:\n"
+    f"`{TON_WALLET_ADDRESS}`\n\n"
+    "לאחר השליחה – שלח צילום מסך של העסקה לבוט לצורך אימות.\n"
+)
+
 ADMIN_IDS = {DEVELOPER_USER_ID}
 PayMethod = Literal["bank", "paybox", "ton"]
+
+SUPPORTED_LANGS = ("he", "en", "ar", "ru")
+DEFAULT_LANG = "he"
+
+I18N_MESSAGES = {
+    "start_message": {
+        "he": (
+            "🎉 *ברוך הבא לנכס הדיגיטלי המניב שלך!*\n\n"
+            "💎 *מה זה הנכס הדיגיטלי?*\n"
+            "זהו שער כניסה אישי לקהילת עסקים פעילה. לאחר רכישה תקבל:\n"
+            "• לינק אישי להפצה\n"
+            "• אפשרות למכור את הנכס הלאה\n"
+            "• גישה לקבוצת משחק כללית\n"
+            "• מערכת הפניות מתגמלת\n\n"
+            "🔄 *איך זה עובד?*\n"
+            "1. רוכשים נכס ב-39₪\n"
+            "2. מקבלים לינק אישי\n"
+            "3. מפיצים - כל רכישה דרך הלינק שלך מתועדת\n"
+            "4. מרוויחים מהפצות נוספות\n\n"
+            "💎 *תשלום ב-TON (טלגרם)*\n"
+            "כתובת הארנק לתשלום:\n"
+            "{ton_address}\n\n"
+            "לאחר השליחה – שלח צילום מסך של העסקה לבוט.\n\n"
+            "💼 *הנכס שלך - העסק שלך!*"
+        ),
+        "en": (
+            "🎉 *Welcome to your income-generating digital asset!*\n\n"
+            "💎 *What is this digital asset?*\n"
+            "It is your personal gateway into an active business community. After purchasing you get:\n"
+            "• A personal referral link\n"
+            "• The option to resell the asset\n"
+            "• Access to a general community/game group\n"
+            "• A transparent referral reward system\n\n"
+            "🔄 *How it works:*\n"
+            "1. Purchase the asset for 39₪ (or equivalent)\n"
+            "2. Receive your personal link\n"
+            "3. Share it – every purchase through your link is recorded\n"
+            "4. Earn from additional sales in your network\n\n"
+            "💎 *Payment in TON (Telegram)*\n"
+            "Wallet address:\n"
+            "{ton_address}\n\n"
+            "After sending – please send a screenshot of the transaction to the bot.\n\n"
+            "💼 *Your asset – your business!*"
+        ),
+        "ar": (
+            "🎉 *مرحبًا بك في الأصل الرقمي المربح الخاص بك!*\n\n"
+            "💎 *ما هو هذا الأصل الرقمي؟*\n"
+            "إنه بوابة دخول شخصية إلى مجتمع أعمال نشط. بعد الشراء ستحصل على:\n"
+            "• رابط إحالة شخصي\n"
+            "• إمكانية بيع الأصل من جديد\n"
+            "• دخول إلى مجموعة مجتمع/لعبة عامة\n"
+            "• نظام إحالات شفاف ومكافآت\n\n"
+            "🔄 *كيف يعمل النظام؟*\n"
+            "1. تشتري الأصل مقابل 39 شيكل (أو ما يعادله)\n"
+            "2. تحصل على رابط شخصي\n"
+            "3. تشارك الرابط – كل عملية شراء عبر رابطك تُسجل\n"
+            "4. تربح من مبيعات إضافية داخل الشبكة\n\n"
+            "💎 *الدفع بواسطة TON (تلغرام)*\n"
+            "عنوان المحفظة:\n"
+            "{ton_address}\n\n"
+            "بعد الإرسال – أرسل صورة لعملية الدفع إلى البوت.\n\n"
+            "💼 *الأصل الخاص بك – هو مشروعك!*"
+        ),
+        "ru": (
+            "🎉 *Добро пожаловать в ваш доходный цифровой актив!*\n\n"
+            "💎 *Что это за цифровой актив?*\n"
+            "Это ваша личная точка входа в активное бизнес-сообщество. После покупки вы получаете:\n"
+            "• Личную реферальную ссылку\n"
+            "• Возможность перепродажи актива\n"
+            "• Доступ в общий игровое/комьюнити-сообщество\n"
+            "• Прозрачную систему реферальных вознаграждений\n\n"
+            "🔄 *Как это работает:*\n"
+            "1. Вы покупаете актив за 39₪ (или эквивалент)\n"
+            "2. Получаете личную ссылку\n"
+            "3. Делитесь ссылкой – каждая покупка по ней фиксируется\n"
+            "4. Зарабатываете на последующих продажах в сети\n\n"
+            "💎 *Оплата в TON (Telegram)*\n"
+            "Адрес кошелька:\n"
+            "{ton_address}\n\n"
+            "После отправки перевода пришлите скриншот операции боту.\n\n"
+            "💼 *Ваш актив – ваш бизнес!*"
+        ),
+    },
+    "language_prompt": {
+        "he": "בחר שפה לתצוגת ההודעות בבוט:",
+        "en": "Choose your preferred language for the bot messages:",
+        "ar": "اختر اللغة المفضلة لرسائل البوت:",
+        "ru": "Выберите предпочтительный язык для сообщений бота:",
+    },
+    "language_saved": {
+        "he": "✅ השפה עודכנה ל-{lang_name}.",
+        "en": "✅ Language has been set to {lang_name}.",
+        "ar": "✅ تم تعيين اللغة إلى {lang_name}.",
+        "ru": "✅ Язык изменён на {lang_name}.",
+    },
+}
+
+LANG_LABEL_TO_CODE = {
+    "עברית": "he",
+    "English": "en",
+    "عربي": "ar",
+    "Русский": "ru",
+}
+
+LANG_CODE_TO_NAME = {
+    "he": "עברית",
+    "en": "English",
+    "ar": "العربية",
+    "ru": "Русский",
+}
+
+def normalize_lang(code: Optional[str]) -> str:
+    if not code:
+        return DEFAULT_LANG
+    code = code.split("-")[0].lower()
+    if code not in SUPPORTED_LANGS:
+        return DEFAULT_LANG
+    return code
+
+def get_lang_for_update(update: Update) -> str:
+    user = update.effective_user
+    lang: Optional[str] = None
+    if user and DB_AVAILABLE:
+        try:
+            lang = get_user_language(user.id)
+        except Exception as e:
+            logger.debug("get_user_language failed: %s", e)
+    if not lang and user and getattr(user, "language_code", None):
+        lang = user.language_code
+    return normalize_lang(lang)
+
+def t(key: str, lang: str, **kwargs) -> str:
+    base = I18N_MESSAGES.get(key, {}).get(lang) or I18N_MESSAGES.get(key, {}).get(DEFAULT_LANG, "")
+    if kwargs:
+        try:
+            base = base.format(**kwargs)
+        except Exception as e:
+            logger.debug("Failed formatting i18n text for key %s: %s", key, e)
+    return base
+
+def build_language_keyboard() -> ReplyKeyboardMarkup:
+    return ReplyKeyboardMarkup(
+        [
+            ["עברית", "English"],
+            ["عربي", "Русский"],
+        ],
+        resize_keyboard=True,
+        one_time_keyboard=True,
+    )
+
 
 # =========================
 # Dedup – מניעת כפילות
@@ -535,38 +703,29 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         except Exception as e:
             logger.error("Failed to send /start log to payments group: %s", e)
 
-    # שליחת הודעת ברוכים הבאים
-    text = (
-        "🎉 *ברוך הבא לנכס הדיגיטלי המניב שלך!*\n\n"
-        
-        "💎 *מה זה הנכס הדיגיטלי?*\n"
-        "זהו שער כניסה אישי לקהילת עסקים פעילה. לאחר רכישה תקבל:\n"
-        "• לינק אישי להפצה\n"
-        "• אפשרות למכור את הנכס הלאה\n"
-        "• גישה לקבוצת משחק כללית\n"
-        "• מערכת הפניות מתגמלת\n\n"
-        
-        "🔄 *איך זה עובד?*\n"
-        "1. רוכשים נכס ב-39₪\n"
-        "2. מקבלים לינק אישי\n"
-        "3. מפיצים - כל רכישה דרך הלינק שלך מתועדת\n"
-        "4. מרוויחים מהפצות נוספות\n\n"
-        
-        "🚀 *מה תקבל?*\n"
-        "✅ גישה לקהילת עסקים\n"
-        "✅ נכס דיגיטלי אישי\n"
-        "✅ לינק הפצה ייחודי\n"
-        "✅ אפשרות מכירה חוזרת\n"
-        "✅ מערכת הפניות שקופה\n\n"
-        
-        "💼 *הנכס שלך - העסק שלך!*"
-    )
+    
+# שליחת הודעת ברוכים הבאים
+lang = get_lang_for_update(update)
 
-    await message.reply_text(
-        text,
-        parse_mode="Markdown",
-        reply_markup=main_menu_keyboard(),
-    )
+# נסה לשלוח תמונת פתיחה אם קיימת
+try:
+    if START_IMAGE_PATH and os.path.exists(START_IMAGE_PATH):
+        with open(START_IMAGE_PATH, "rb") as img:
+            await context.bot.send_photo(
+                chat_id=message.chat_id,
+                photo=img,
+            )
+except Exception as e:
+    logger.warning("Failed to send start image: %s", e)
+
+text = t("start_message", lang, ton_address=TON_WALLET_ADDRESS)
+
+await message.reply_text(
+    text,
+    parse_mode="Markdown",
+    reply_markup=main_menu_keyboard(),
+)
+
 
 async def digital_asset_info(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     query = update.callback_query
@@ -724,7 +883,7 @@ async def payment_method_callback(update: Update, context: ContextTypes.DEFAULT_
     elif data == "pay_paybox":
         method_text = "📲 *תשלום בביט / פייבוקס / PayPal*"
     elif data == "pay_ton":
-        method_text = "💎 *תשלום ב-TON*"
+        method_text = TON_DETAILS
 
     text = (
         f"{method_text}\n\n"
@@ -1055,6 +1214,49 @@ async def vision_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
 # =========================
 
 async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+
+
+async def language_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """בחירת שפה למשתמש."""
+    message = update.message or update.effective_message
+    if not message:
+        return
+
+    lang = get_lang_for_update(update)
+    prompt = t("language_prompt", lang)
+    await message.reply_text(
+        prompt,
+        reply_markup=build_language_keyboard(),
+    )
+
+async def language_selection_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """טיפול בבחירת שפה מתוך המקלדת."""
+    message = update.message
+    if not message or not message.text:
+        return
+
+    user = update.effective_user
+    label = message.text.strip()
+    lang_code = LANG_LABEL_TO_CODE.get(label)
+    if not lang_code:
+        return
+
+    if DB_AVAILABLE and user:
+        try:
+            set_user_language(user.id, lang_code)
+        except Exception as e:
+            logger.error("Failed to set user language from handler: %s", e)
+
+    lang = normalize_lang(lang_code)
+    lang_name = LANG_CODE_TO_NAME.get(lang, lang)
+    confirm = t("language_saved", lang, lang_name=lang_name)
+
+    await message.reply_text(
+        confirm,
+        reply_markup=ReplyKeyboardRemove(),
+    )
+
+
     """עזרה בסיסית"""
     message = update.message or update.effective_message
     if not message:
@@ -1400,6 +1602,7 @@ async def set_groups_command(update: Update, context: ContextTypes.DEFAULT_TYPE)
 
 ptb_app.add_handler(CommandHandler("start", start))
 ptb_app.add_handler(CommandHandler("help", help_command))
+ptb_app.add_handler(CommandHandler("language", language_command))
 ptb_app.add_handler(CommandHandler("admin", admin_menu_command))
 ptb_app.add_handler(CommandHandler("approve", approve_command))
 ptb_app.add_handler(CommandHandler("reject", reject_command))
@@ -1424,6 +1627,11 @@ ptb_app.add_handler(CallbackQueryHandler(admin_approve_callback, pattern="^adm_a
 ptb_app.add_handler(CallbackQueryHandler(admin_reject_callback, pattern="^adm_reject:"))
 
 # כל תמונה בפרטי – נניח כאישור תשלום
+ptb_app.add_handler(MessageHandler(
+    (filters.TEXT & filters.ChatType.PRIVATE & filters.Regex("^(עברית|English|عربي|Русский)$")),
+    language_selection_handler,
+))
+
 ptb_app.add_handler(MessageHandler(filters.PHOTO & filters.ChatType.PRIVATE, handle_payment_photo))
 
 # הודעת טקסט מאדמין – אם יש דחייה ממתינה
