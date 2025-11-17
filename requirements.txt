@@ -5,3 +5,4 @@ uvicorn[standard]==0.32.0
 python-dotenv==1.0.1
 psycopg2-binary
 requests
+httpx
