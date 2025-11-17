@@ -400,6 +400,10 @@ async def admin_stats(token: str = ""):
 # עזרי UI (מקשים)
 # =========================
 
+# main.py
+# ... (כל הקוד הקיים נשאר בדיוק כפי שהוא)
+
+# בלוק המקשים הראשי - הוספת כפתור החזון
 def main_menu_keyboard() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup([
         [
@@ -412,6 +416,9 @@ def main_menu_keyboard() -> InlineKeyboardMarkup:
             InlineKeyboardButton("🔗 שתף את שער הקהילה", callback_data="share"),
         ],
         [
+            InlineKeyboardButton("🌟 חזון SLH", callback_data="vision"),
+        ],
+        [
             InlineKeyboardButton("👤 האזור האישי שלי", callback_data="my_area"),
         ],
         [
@@ -419,6 +426,47 @@ def main_menu_keyboard() -> InlineKeyboardMarkup:
         ],
     ])
 
+# הוספת הפונקציה החדשה לחזון
+async def vision_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    query = update.callback_query
+    await query.answer()
+
+    text = (
+        "🌟 *Human Capital Protocol - SLH*\n\n"
+        
+        "💫 *מה זה SLH במשפט אחד?*\n"
+        "SLH הוא פרוטוקול הון אנושי שמחבר בין משפחות, קהילות ומומחים לרשת כלכלית אחת "
+        "– עם בוטים, חנויות, טוקן SLH, אקדמיה, משחק, ו־Exchange – כך שכל אדם יכול להפוך "
+        "לעסק, למומחה ולצומת כלכלי, מתוך הטלפון שלו.\n\n"
+        
+        "🎯 *החזון ארוך־טווח:*\n"
+        "• להפוך כל אדם ומשפחה ליחידת כלכלה עצמאית\n"
+        "• לבנות רשת מסחר גלובלית מבוזרת\n"
+        "• ליצור Meta-Economy: שכבת־על טכנולוגית\n"
+        "• להפוך את SLH לסטנדרט עולמי למדידת מומחיות\n\n"
+        
+        "🏗 *האקו־סיסטם המלא:*\n"
+        "• 🤖 Bots Layer - בוטי טלגרם\n"
+        "• 🛒 Commerce Layer - חנויות ומרקטפלייס\n"
+        "• ⛓️ Blockchain Layer - BSC + TON\n"
+        "• 🎓 Expertise Layer - Pi Index\n"
+        "• 🎮 Academy Layer - למידה ומשחק\n"
+        "• 💱 Exchange Layer - מסחר ונזילות\n\n"
+        
+        "🚀 *Human Capital Protocol*\n"
+        "SLH אינו עוד 'אפליקציה' אלא Meta-Protocol: כמו HTTP / Email לכלכלת משפחה וקהילה. "
+        "אנשים הם האלגוריתם, המערכת רק מודדת ומתגמלת.\n\n"
+        "*ידע = הון | משפחות = נכסים | קהילות = רשתות | אנשים = פרוטוקול*"
+    )
+
+    await query.edit_message_text(
+        text,
+        parse_mode="Markdown",
+        reply_markup=main_menu_keyboard(),
+    )
+
+# ברישום ה-handlers - הוספת השורה הזו:
+ptb_app.add_handler(CallbackQueryHandler(vision_callback, pattern="^vision$"))
 def payment_methods_keyboard() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup([
         [
