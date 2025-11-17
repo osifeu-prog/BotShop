@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 import os
 import time
@@ -13,6 +13,9 @@ from pydantic import BaseModel, Field
 # ============================================================
 
 core_router = APIRouter(tags=["slh_core"])
+
+# alias למבנה FastAPI הקלאסי – main.py מצפה ל-`router`
+router = core_router
 
 # --- Token / project config ---
 
@@ -36,7 +39,6 @@ class PublicConfig(BaseModel):
     token_price_ils: float = Field(..., description="Demo price of SLH in ILS")
     links: Dict[str, str]
     meta: Dict[str, str]
-
 
 @core_router.get("/config/public", response_model=PublicConfig)
 def get_public_config() -> PublicConfig:
@@ -237,4 +239,5 @@ def get_referral_tree(user_id: int) -> ReferralNode:
         )
 
     return _build_tree(user_id)
+
 
