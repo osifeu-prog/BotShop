@@ -400,10 +400,6 @@ async def admin_stats(token: str = ""):
 # עזרי UI (מקשים)
 # =========================
 
-# main.py
-# ... (כל הקוד הקיים נשאר בדיוק כפי שהוא)
-
-# בלוק המקשים הראשי - הוספת כפתור החזון
 def main_menu_keyboard() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup([
         [
@@ -426,47 +422,6 @@ def main_menu_keyboard() -> InlineKeyboardMarkup:
         ],
     ])
 
-# הוספת הפונקציה החדשה לחזון
-async def vision_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    query = update.callback_query
-    await query.answer()
-
-    text = (
-        "🌟 *Human Capital Protocol - SLH*\n\n"
-        
-        "💫 *מה זה SLH במשפט אחד?*\n"
-        "SLH הוא פרוטוקול הון אנושי שמחבר בין משפחות, קהילות ומומחים לרשת כלכלית אחת "
-        "– עם בוטים, חנויות, טוקן SLH, אקדמיה, משחק, ו־Exchange – כך שכל אדם יכול להפוך "
-        "לעסק, למומחה ולצומת כלכלי, מתוך הטלפון שלו.\n\n"
-        
-        "🎯 *החזון ארוך־טווח:*\n"
-        "• להפוך כל אדם ומשפחה ליחידת כלכלה עצמאית\n"
-        "• לבנות רשת מסחר גלובלית מבוזרת\n"
-        "• ליצור Meta-Economy: שכבת־על טכנולוגית\n"
-        "• להפוך את SLH לסטנדרט עולמי למדידת מומחיות\n\n"
-        
-        "🏗 *האקו־סיסטם המלא:*\n"
-        "• 🤖 Bots Layer - בוטי טלגרם\n"
-        "• 🛒 Commerce Layer - חנויות ומרקטפלייס\n"
-        "• ⛓️ Blockchain Layer - BSC + TON\n"
-        "• 🎓 Expertise Layer - Pi Index\n"
-        "• 🎮 Academy Layer - למידה ומשחק\n"
-        "• 💱 Exchange Layer - מסחר ונזילות\n\n"
-        
-        "🚀 *Human Capital Protocol*\n"
-        "SLH אינו עוד 'אפליקציה' אלא Meta-Protocol: כמו HTTP / Email לכלכלת משפחה וקהילה. "
-        "אנשים הם האלגוריתם, המערכת רק מודדת ומתגמלת.\n\n"
-        "*ידע = הון | משפחות = נכסים | קהילות = רשתות | אנשים = פרוטוקול*"
-    )
-
-    await query.edit_message_text(
-        text,
-        parse_mode="Markdown",
-        reply_markup=main_menu_keyboard(),
-    )
-
-# ברישום ה-handlers - הוספת השורה הזו:
-ptb_app.add_handler(CallbackQueryHandler(vision_callback, pattern="^vision$"))
 def payment_methods_keyboard() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup([
         [
@@ -1010,17 +965,89 @@ async def share_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     query = update.callback_query
     await query.answer()
 
-    text = (
-        "🔗 *שתף את שער הקהילה*\n\n"
-        "כדי להזמין חברים לקהילה, אפשר לשלוח להם את הקישור הבא:\n"
-        f"{LANDING_URL}\n\n"
-        "מומלץ לשתף בסטורי / סטטוס / קבוצות, ולהוסיף כמה מילים אישיות משלך.\n"
-        "כל מי שייכנס דרך הלינק וילחץ על Start בבוט – יעבור דרך שער הקהילה."
-    )
+    user = update.effective_user
+    if not user:
+        return
+
+    # בדיקה אם יש למשתמש כבר נכס
+    has_asset = False
+    if DB_AVAILABLE:
+        try:
+            from db import get_promoter_summary
+            summary = get_promoter_summary(user.id)
+            has_asset = summary is not None
+        except:
+            has_asset = False
+
+    if has_asset:
+        # אם יש לו נכס - הלינק האישי שלו
+        personal_link = build_personal_share_link(user.id)
+        text = (
+            "🔗 *שתף את שער הקהילה*\n\n"
+            "הלינק האישי שלך להפצה:\n"
+            f"`{personal_link}`\n\n"
+            "מומלץ לשתף בסטורי / סטטוס / קבוצות, ולהוסיף כמה מילים אישיות משלך.\n"
+            "כל מי שייכנס דרך הלינק וילחץ על Start בבוט – יעבור דרך שער הקהילה שלך."
+        )
+    else:
+        # אם אין לו נכס - הלינק הכללי + הסבר על 39 שיתופים
+        text = (
+            "🔗 *שתף את שער הקהילה*\n\n"
+            "כדי להזמין חברים לקהילה, אפשר לשלוח להם את הקישור הבא:\n"
+            f"{LANDING_URL}\n\n"
+            
+            "💝 *אפשרות צדקה - 39 שיתופים*\n"
+            "לאחר 39 שיתופים איכותיים של הקישור, תוכל לקבל גישה מלאה לקהילה ללא תשלום!\n"
+            "זו הזדמנות גם למי שידו אינה משגת להצטרף ולצמוח איתנו.\n\n"
+            
+            "📢 *איך לשתף:*\n"
+            "מומלץ לשתף בסטורי / סטטוס / קבוצות\n"
+            "ולהוסיף כמה מילים אישיות משלך.\n\n"
+            
+            "*כל מי שייכנס דרך הלינק וילחץ על Start בבוט - יעבור דרך שער הקהילה.*"
+        )
 
     await query.message.reply_text(
         text,
         parse_mode="Markdown",
+    )
+
+async def vision_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    query = update.callback_query
+    await query.answer()
+
+    text = (
+        "🌟 *Human Capital Protocol - SLH*\n\n"
+        
+        "💫 *מה זה SLH במשפט אחד?*\n"
+        "SLH הוא פרוטוקול הון אנושי שמחבר בין משפחות, קהילות ומומחים לרשת כלכלית אחת "
+        "– עם בוטים, חנויות, טוקן SLH, אקדמיה, משחק, ו־Exchange – כך שכל אדם יכול להפוך "
+        "לעסק, למומחה ולצומת כלכלי, מתוך הטלפון שלו.\n\n"
+        
+        "🎯 *החזון ארוך־טווח:*\n"
+        "• להפוך כל אדם ומשפחה ליחידת כלכלה עצמאית\n"
+        "• לבנות רשת מסחר גלובלית מבוזרת\n"
+        "• ליצור Meta-Economy: שכבת־על טכנולוגית\n"
+        "• להפוך את SLH לסטנדרט עולמי למדידת מומחיות\n\n"
+        
+        "🏗 *האקו־סיסטם המלא:*\n"
+        "• 🤖 Bots Layer - בוטי טלגרם\n"
+        "• 🛒 Commerce Layer - חנויות ומרקטפלייס\n"
+        "• ⛓️ Blockchain Layer - BSC + TON\n"
+        "• 🎓 Expertise Layer - Pi Index\n"
+        "• 🎮 Academy Layer - למידה ומשחק\n"
+        "• 💱 Exchange Layer - מסחר ונזילות\n\n"
+        
+        "🚀 *Human Capital Protocol*\n"
+        "SLH אינו עוד 'אפליקציה' אלא Meta-Protocol: כמו HTTP / Email לכלכלת משפחה וקהילה. "
+        "אנשים הם האלגוריתם, המערכת רק מודדת ומתגמלת.\n\n"
+        "*ידע = הון | משפחות = נכסים | קהילות = רשתות | אנשים = פרוטוקול*"
+    )
+
+    await query.edit_message_text(
+        text,
+        parse_mode="Markdown",
+        reply_markup=main_menu_keyboard(),
     )
 
 # =========================
@@ -1387,6 +1414,7 @@ ptb_app.add_handler(CallbackQueryHandler(digital_asset_info, pattern="^digital_a
 ptb_app.add_handler(CallbackQueryHandler(join_callback, pattern="^join$"))
 ptb_app.add_handler(CallbackQueryHandler(support_callback, pattern="^support$"))
 ptb_app.add_handler(CallbackQueryHandler(share_callback, pattern="^share$"))
+ptb_app.add_handler(CallbackQueryHandler(vision_callback, pattern="^vision$"))
 ptb_app.add_handler(CallbackQueryHandler(back_main_callback, pattern="^back_main$"))
 ptb_app.add_handler(CallbackQueryHandler(payment_method_callback, pattern="^pay_"))
 ptb_app.add_handler(CallbackQueryHandler(my_area_callback, pattern="^my_area$"))
