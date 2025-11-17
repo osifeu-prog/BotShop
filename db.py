@@ -65,6 +65,8 @@ def init_schema() -> None:
             CREATE TABLE IF NOT EXISTS users (
                 user_id      BIGINT PRIMARY KEY,
                 username     TEXT,
+                first_name   TEXT,
+                last_name    TEXT,
                 created_at   TIMESTAMPTZ NOT NULL DEFAULT NOW()
             );
             """
@@ -147,14 +149,29 @@ def init_schema() -> None:
             """
         )
 
-        logger.info("DB schema ensured (users, payments, referrals, rewards, promoters, metrics).")
+        # support_tickets - כרטיסי תמיכה
+        cur.execute(
+            """
+            CREATE TABLE IF NOT EXISTS support_tickets (
+                id          SERIAL PRIMARY KEY,
+                user_id     BIGINT NOT NULL,
+                username    TEXT,
+                subject     TEXT NOT NULL,
+                message     TEXT NOT NULL,
+                status      TEXT NOT NULL DEFAULT 'open',  -- open/closed
+                created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
+            );
+            """
+        )
+
+        logger.info("DB schema ensured (users, payments, referrals, rewards, promoters, metrics, support_tickets).")
 
 
 # =========================
 # users
 # =========================
 
-def store_user(user_id: int, username: Optional[str]) -> None:
+def store_user(user_id: int, username: Optional[str], first_name: Optional[str] = None, last_name: Optional[str] = None) -> None:
     """
     שומר/מעדכן משתמש.
     """
@@ -164,13 +181,31 @@ def store_user(user_id: int, username: Optional[str]) -> None:
             return
         cur.execute(
             """
-            INSERT INTO users (user_id, username)
-            VALUES (%s, %s)
+            INSERT INTO users (user_id, username, first_name, last_name)
+            VALUES (%s, %s, %s, %s)
             ON CONFLICT (user_id)
-            DO UPDATE SET username = EXCLUDED.username;
+            DO UPDATE SET 
+                username = EXCLUDED.username,
+                first_name = EXCLUDED.first_name,
+                last_name = EXCLUDED.last_name;
             """,
-            (user_id, username),
+            (user_id, username, first_name, last_name),
         )
+
+
+def get_user(user_id: int) -> Optional[Dict[str, Any]]:
+    """
+    מחזיר פרטי משתמש לפי ID
+    """
+    with db_cursor() as (conn, cur):
+        if cur is None:
+            return None
+        cur.execute(
+            "SELECT * FROM users WHERE user_id = %s;",
+            (user_id,)
+        )
+        row = cur.fetchone()
+        return dict(row) if row else None
 
 
 # =========================
@@ -500,3 +535,67 @@ def get_metric(key: str) -> int:
         )
         row = cur.fetchone()
         return int(row["value"]) if row else 0
+
+
+# =========================
+# support tickets
+# =========================
+
+def create_support_ticket(user_id: int, username: Optional[str], subject: str, message: str) -> int:
+    """
+    יוצר כרטיס תמיכה חדש ומחזיר את ה-ID
+    """
+    with db_cursor() as (conn, cur):
+        if cur is None:
+            logger.warning("create_support_ticket called without DB.")
+            return -1
+        
+        cur.execute(
+            """
+            INSERT INTO support_tickets (user_id, username, subject, message)
+            VALUES (%s, %s, %s, %s)
+            RETURNING id;
+            """,
+            (user_id, username, subject, message),
+        )
+        ticket_id = cur.fetchone()["id"]
+        return ticket_id
+
+
+def get_support_tickets(status: str = "open", limit: int = 50) -> List[Dict[str, Any]]:
+    """
+    מחזיר רשימה של כרטיסי תמיכה לפי סטטוס
+    """
+    with db_cursor() as (conn, cur):
+        if cur is None:
+            return []
+        
+        cur.execute(
+            """
+            SELECT * FROM support_tickets 
+            WHERE status = %s 
+            ORDER BY created_at DESC 
+            LIMIT %s;
+            """,
+            (status, limit),
+        )
+        return [dict(row) for row in cur.fetchall()]
+
+
+def update_ticket_status(ticket_id: int, status: str) -> None:
+    """
+    מעדכן סטטוס של כרטיס תמיכה
+    """
+    with db_cursor() as (conn, cur):
+        if cur is None:
+            logger.warning("update_ticket_status called without DB.")
+            return
+        
+        cur.execute(
+            """
+            UPDATE support_tickets 
+            SET status = %s 
+            WHERE id = %s;
+            """,
+            (status, ticket_id),
+        )
