@@ -1,6 +1,8 @@
 # main.py
 import os
 import logging
+import secrets
+import string
 from collections import deque
 from contextlib import asynccontextmanager
 from datetime import datetime
@@ -55,6 +57,10 @@ try:
         get_support_tickets,
         update_ticket_status,
         get_user,
+        create_user_bot,
+        get_user_bot,
+        update_user_bot_status,
+        get_all_active_bots,
     )
     DB_AVAILABLE = True
     logger.info("DB module loaded successfully, DB logging enabled.")
@@ -78,7 +84,7 @@ if not WEBHOOK_URL:
 logger.info("Starting bot with WEBHOOK_URL=%s", WEBHOOK_URL)
 
 # =========================
-# בדיקת BOT_TOKEN - עכשיו אחרי שהוא הוגדר!
+# בדיקת BOT_TOKEN
 # =========================
 import requests
 
@@ -92,7 +98,6 @@ def validate_bot_token(token: str) -> bool:
             return True
         else:
             logger.warning(f"⚠️ BOT_TOKEN may be invalid. Telegram API returned: {response.status_code}")
-            logger.warning(f"🔍 Response: {response.text}")
             return False
     except Exception as e:
         logger.warning(f"⚠️ Failed to validate BOT_TOKEN: {e}")
@@ -103,8 +108,6 @@ if BOT_TOKEN:
     is_valid = validate_bot_token(BOT_TOKEN)
     if not is_valid:
         logger.error("❌ Invalid BOT_TOKEN. The bot will not work properly.")
-else:
-    logger.error("❌ BOT_TOKEN is not set")
 
 # =========================
 # קבועים של המערכת
@@ -113,7 +116,7 @@ COMMUNITY_GROUP_LINK = os.environ.get("COMMUNITY_GROUP_LINK", "https://t.me/+HIz
 SUPPORT_GROUP_LINK = os.environ.get("SUPPORT_GROUP_LINK", "https://t.me/+1ANn25HeVBoxNmRk")
 DEVELOPER_USER_ID = 224223270
 PAYMENTS_LOG_CHAT_ID = -1001748319682
-SUPPORT_LOG_CHAT_ID = -1001748319682  # אותה קבוצה ללוגים
+SUPPORT_LOG_CHAT_ID = -1001748319682
 
 def build_personal_share_link(user_id: int) -> str:
     base_username = BOT_USERNAME or "Buy_My_Shop_bot"
@@ -138,7 +141,50 @@ BANK_DETAILS = (
 )
 
 ADMIN_IDS = {DEVELOPER_USER_ID}
-PayMethod = Literal["bank", "paybox", "ton"]
+
+# =========================
+# פונקציות ליצירת בוטים חדשים
+# =========================
+
+def generate_bot_token() -> str:
+    """מייצר טוקן אקראי לבוט (פורמט דומה לטוקן אמיתי)"""
+    alphabet = string.ascii_letters + string.digits + ":_-"
+    random_part = ''.join(secrets.choice(alphabet) for _ in range(35))
+    return f"1234567890:ABC{random_part}"
+
+def generate_bot_username(user_id: int, username: str = None) -> str:
+    """מייצר שם משתמש ייחודי לבוט"""
+    base_name = username.replace('_', '') if username else f"user{user_id}"
+    random_suffix = ''.join(secrets.choice(string.ascii_lowercase + string.digits) for _ in range(6))
+    return f"{base_name}_{random_suffix}_bot"[:32]
+
+async def create_new_bot_for_user(user_id: int, username: str = None) -> Dict[str, Any]:
+    """
+    יוצר בוט חדש למשתמש
+    """
+    try:
+        bot_token = generate_bot_token()
+        bot_username = generate_bot_username(user_id, username)
+        
+        bot_data = {
+            "token": bot_token,
+            "username": bot_username,
+            "webhook_url": f"{WEBHOOK_URL}/{bot_token}",
+            "created_at": datetime.utcnow(),
+            "status": "active"
+        }
+        
+        # שמירה ב-DB
+        if DB_AVAILABLE:
+            bot_id = create_user_bot(user_id, bot_token, bot_username, bot_data["webhook_url"])
+            bot_data["id"] = bot_id
+        
+        logger.info(f"Created new bot for user {user_id}: {bot_username}")
+        return bot_data
+        
+    except Exception as e:
+        logger.error(f"Failed to create bot for user {user_id}: {e}")
+        raise
 
 # =========================
 # Dedup – מניעת כפילות
@@ -219,7 +265,7 @@ async def lifespan(app: FastAPI):
 app = FastAPI(lifespan=lifespan)
 
 # =========================
-# API Routes for Website
+# API Routes
 # =========================
 
 @app.get("/")
@@ -231,139 +277,6 @@ async def serve_site():
 async def serve_site_alt():
     """מגיש את אתר האינטרנט (alias)"""
     return FileResponse("docs/index.html")
-
-@app.get("/api/posts")
-async def get_posts(limit: int = 20):
-    """API לפוסטים חברתיים"""
-    if not DB_AVAILABLE:
-        return {"items": []}
-    
-    try:
-        from db import get_social_posts
-        posts = get_social_posts(limit)
-        return {"items": posts}
-    except Exception as e:
-        logger.error("Failed to get posts: %s", e)
-        return {"items": []}
-
-@app.get("/api/token/sales")
-async def get_token_sales(limit: int = 50):
-    """API למכירות טוקנים"""
-    if not DB_AVAILABLE:
-        return {"items": []}
-    
-    try:
-        from db import get_token_sales
-        sales = get_token_sales(limit)
-        return {"items": sales}
-    except Exception as e:
-        logger.error("Failed to get token sales: %s", e)
-        return {"items": []}
-
-@app.get("/api/token/price")
-async def get_token_price():
-    """API לשער הטוקן"""
-    return {
-        "official_price_nis": 444,
-        "currency": "ILS",
-        "updated_at": datetime.utcnow().isoformat()
-    }
-
-@app.get("/config/public")
-async def get_public_config():
-    """API להגדרות ציבוריות"""
-    return {
-        "slh_nis": 39,
-        "business_group_link": os.environ.get("COMMUNITY_GROUP_LINK", "https://t.me/+HIzvM8sEgh1kNWY0"),
-        "paybox_url": os.environ.get("PAYBOX_URL"),
-        "bit_url": os.environ.get("BIT_URL"),
-        "paypal_url": os.environ.get("PAYPAL_URL")
-    }
-
-@app.get("/admin/dashboard")
-async def admin_dashboard(token: str = ""):
-    """דשבורד ניהול HTML"""
-    if not ADMIN_DASH_TOKEN or token != ADMIN_DASH_TOKEN:
-        raise HTTPException(status_code=401, detail="Unauthorized")
-    
-    html_content = """
-    <!DOCTYPE html>
-    <html dir="rtl">
-    <head>
-        <title>Admin Dashboard - Buy My Shop</title>
-        <meta charset="UTF-8">
-        <style>
-            body { font-family: Arial; margin: 20px; }
-            .card { border: 1px solid #ddd; padding: 15px; margin: 10px 0; border-radius: 8px; }
-            .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; }
-        </style>
-    </head>
-    <body>
-        <h1>Admin Dashboard - Buy My Shop</h1>
-        <div id="stats"></div>
-        <script>
-            fetch('/admin/stats?token=' + new URLSearchParams(window.location.search).get('token'))
-                .then(r => r.json())
-                .then(data => {
-                    document.getElementById('stats').innerHTML = `
-                        <div class="stats">
-                            <div class="card">משתמשים: ${data.payments_stats?.total || 0}</div>
-                            <div class="card">אושרו: ${data.payments_stats?.approved || 0}</div>
-                            <div class="card">ממתינים: ${data.payments_stats?.pending || 0}</div>
-                        </div>
-                    `;
-                });
-        </script>
-    </body>
-    </html>
-    """
-    return HTMLResponse(html_content)
-
-@app.post("/api/telegram-login")
-async def handle_telegram_login(user_data: dict):
-    """מטפל בהתחברות מטלגרם"""
-    try:
-        print(f"🔐 Telegram login: {user_data}")
-        
-        # כאן תוכל לשמור את המשתמש ב-DB
-        if DB_AVAILABLE:
-            try:
-                from db import store_user
-                store_user(
-                    user_id=user_data['id'],
-                    username=user_data.get('username'),
-                    first_name=user_data.get('first_name'),
-                    last_name=user_data.get('last_name')
-                )
-            except Exception as e:
-                logger.error(f"Failed to store Telegram user: {e}")
-        
-        return {
-            "status": "success", 
-            "message": "Login successful",
-            "user_id": user_data['id']
-        }
-        
-    except Exception as e:
-        logger.error(f"Telegram login error: {e}")
-        return {"status": "error", "message": str(e)}
-
-# =========================
-# Routes – Webhook + Health + Admin Stats API
-# =========================
-
-@app.post("/webhook")
-async def telegram_webhook(request: Request) -> Response:
-    """נקודת ה-webhook שטלגרם קורא אליה"""
-    data = await request.json()
-    update = Update.de_json(data, ptb_app.bot)
-
-    if is_duplicate_update(update):
-        logger.warning("Duplicate update_id=%s – ignoring", update.update_id)
-        return Response(status_code=HTTPStatus.OK.value)
-
-    await ptb_app.process_update(update)
-    return Response(status_code=HTTPStatus.OK.value)
 
 @app.get("/health")
 async def health():
@@ -378,7 +291,6 @@ async def health():
 async def admin_stats(token: str = ""):
     """
     דשבורד API קטן לקריאה בלבד.
-    להשתמש ב-ADMIN_DASH_TOKEN ב-ENV.
     """
     if not ADMIN_DASH_TOKEN or token != ADMIN_DASH_TOKEN:
         raise HTTPException(status_code=401, detail="Unauthorized")
@@ -390,6 +302,7 @@ async def admin_stats(token: str = ""):
         stats = get_approval_stats()
         monthly = get_monthly_payments(datetime.utcnow().year, datetime.utcnow().month)
         top_ref = get_top_referrers(5)
+        active_bots = get_all_active_bots()
     except Exception as e:
         logger.error("Failed to get admin stats: %s", e)
         raise HTTPException(status_code=500, detail="DB error")
@@ -399,7 +312,31 @@ async def admin_stats(token: str = ""):
         "payments_stats": stats,
         "monthly_breakdown": monthly,
         "top_referrers": top_ref,
+        "active_bots_count": len(active_bots),
     }
+
+@app.post("/webhook")
+async def telegram_webhook(request: Request) -> Response:
+    """נקודת ה-webhook שטלגרם קורא אליה"""
+    data = await request.json()
+    update = Update.de_json(data, ptb_app.bot)
+
+    if is_duplicate_update(update):
+        logger.warning("Duplicate update_id=%s – ignoring", update.update_id)
+        return Response(status_code=HTTPStatus.OK.value)
+
+    await ptb_app.process_update(update)
+    return Response(status_code=HTTPStatus.OK.value)
+
+@app.post("/webhook/{bot_token}")
+async def user_bot_webhook(bot_token: str, request: Request):
+    """Webhook לבוטים של משתמשים"""
+    try:
+        # כאן תוכל להוסיף לוגיקה לטיפול בבוטים של משתמשים
+        return Response(status_code=HTTPStatus.OK.value)
+    except Exception as e:
+        logger.error(f"Error in user bot webhook: {e}")
+        return Response(status_code=HTTPStatus.OK.value)
 
 # =========================
 # עזרי UI (מקשים)
@@ -464,6 +401,9 @@ def my_area_keyboard() -> InlineKeyboardMarkup:
             InlineKeyboardButton("📊 הצג נכס דיגיטלי", callback_data="show_asset"),
         ],
         [
+            InlineKeyboardButton("🤖 הבוט שלי", callback_data="my_bot"),
+        ],
+        [
             InlineKeyboardButton("⬅ חזרה", callback_data="back_main"),
         ],
     ])
@@ -513,9 +453,8 @@ def admin_approval_keyboard(user_id: int) -> InlineKeyboardMarkup:
 # =========================
 
 async def send_new_user_notification(user_data: dict, user_id: int):
-    """שולח התראה על משתמש חדש עם אפשרות לפנות אליו"""
+    """שולח התראה על משתמש חדש"""
     try:
-        # יצירת לינק ישיר למשתמש
         username_link = f"https://t.me/{user_data['username']}" if user_data.get('username') else f"tg://user?id={user_id}"
         
         message = (
@@ -524,7 +463,6 @@ async def send_new_user_notification(user_data: dict, user_id: int):
             f"📛 שם: {user_data.get('first_name', 'לא צוין')}\n"
             f"👤 משתמש: @{user_data.get('username', 'לא צוין')}\n"
             f"📅 תאריך: {datetime.now().strftime('%d/%m/%Y %H:%M')}\n"
-            f"\n"
             f"💬 <a href='{username_link}'>לחץ כאן לשליחת הודעה</a>"
         )
         
@@ -593,11 +531,12 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         "• לינק אישי להפצה\n"
         "• אפשרות למכור את הנכס הלאה\n"
         "• גישה לקבוצת משחק כללית\n"
-        "• מערכת הפניות מתגמלת\n\n"
+        "• מערכת הפניות מתגמלת\n"
+        "• 🤖 *בוט טלגרם אישי משלך!*\n\n"
         
         "🔄 *איך זה עובד?*\n"
         "1. רוכשים נכס ב-39₪\n"
-        "2. מקבלים לינק אישי\n"
+        "2. מקבלים לינק אישי + בוט אישי\n"
         "3. מפיצים - כל רכישה דרך הלינק שלך מתועדת\n"
         "4. מרוויחים מהפצות נוספות\n\n"
         
@@ -605,6 +544,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         "✅ גישה לקהילת עסקים\n"
         "✅ נכס דיגיטלי אישי\n"
         "✅ לינק הפצה ייחודי\n"
+        "✅ 🤖 בוט טלגרם אישי\n"
         "✅ אפשרות מכירה חוזרת\n"
         "✅ מערכת הפניות שקופה\n\n"
         
@@ -628,23 +568,26 @@ async def digital_asset_info(update: Update, context: ContextTypes.DEFAULT_TYPE)
         "נכס דיגיטלי הוא 'שער כניסה' אישי שאתה קונה פעם אחת ב-39₪ ומקבל:\n"
         "• לינק אישי משלך\n"
         "• זכות למכור נכסים נוספים\n"
-        "• גישה למערכת שלמה\n\n"
+        "• גישה למערכת שלמה\n"
+        "• 🤖 *בוט טלגרם אישי משלך!*\n\n"
         
         "💸 *איך מרוויחים?*\n"
         "1. אתה רוכש נכס ב-39₪\n"
-        "2. מקבל לינק אישי להפצה\n"
+        "2. מקבל לינק אישי להפצה + בוט אישי\n"
         "3 *כל אדם* שקונה דרך הלינק שלך - הרכישה מתועדת לזכותך\n"
         "4. הנכס שלך ממשיך להניב הכנסות\n\n"
         
         "🔄 *מודל מכירה חוזרת:*\n"
         "אתה לא רק 'משתמש' - אתה 'בעל נכס'!\n"
         "יכול למכור נכסים נוספים לאחרים\n"
-        "כל רכישה נוספת מתועדת בשרשרת ההפניה\n\n"
+        "כל רכישה נוספת מתועדת בשרשרת ההפניה\n"
+        "🤖 *מקבל בוט אישי למכירות!*\n\n"
         
         "📈 *יתרונות:*\n"
         "• הכנסה פסיבית מהפצות\n"
         "• נכס ששווה יותר עם הזמן\n"
         "• קהילה תומכת\n"
+        "• 🤖 בוט אישי למכירות\n"
         "• שקיפות מלאה\n\n"
         
         "🎯 *המטרה:* ליצור רשת עסקית where everyone wins!"
@@ -666,13 +609,14 @@ async def join_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
         "• נכס דיגיטלי אישי\n"
         "• לינק הפצה ייחודי\n"
         "• גישה לקהילת עסקים\n"
-        "• אפשרות למכור נכסים נוספים\n\n"
+        "• אפשרות למכור נכסים נוספים\n"
+        "• 🤖 *בוט טלגרם אישי משלך!*\n\n"
         
         "🔄 *איך התהליך עובד?*\n"
         "1. בוחרים אמצעי תשלום\n"
         "2. משלמים 39₪\n"
         "3. שולחים אישור תשלום\n"
-        "4. מקבלים אישור + לינק אישי\n"
+        "4. מקבלים אישור + לינק אישי + בוט אישי\n"
         "5. מתחילים להפיץ!\n\n"
         
         "💼 *זכור:* אתה קונה *נכס* - לא רק 'גישה'!"
@@ -694,6 +638,8 @@ async def my_area_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -
 
     if DB_AVAILABLE:
         summary = get_promoter_summary(user.id)
+        user_bot = get_user_bot(user.id)
+        
         if summary:
             personal_link = build_personal_share_link(user.id)
             bank = summary.get("bank_details") or "לא הוגדר"
@@ -706,8 +652,14 @@ async def my_area_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -
                 f"🏦 *פרטי בנק:*\n{bank}\n\n"
                 f"👥 *קבוצה אישית:*\n{p_group}\n\n"
                 f"📊 *הפניות:* {total_ref}\n\n"
-                "*ניהול נכס:*"
             )
+            
+            if user_bot:
+                text += f"🤖 *הבוט שלך:* פעיל - @{user_bot['bot_username']}\n\n"
+            else:
+                text += "🤖 *הבוט שלך:* לא פעיל - רכוש נכס כדי לקבל בוט\n\n"
+                
+            text += "*ניהול נכס:*"
         else:
             text = (
                 "👤 *האזור האישי שלך*\n\n"
@@ -715,6 +667,7 @@ async def my_area_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -
                 "רכש נכס כדי לקבל:\n"
                 "• לינק אישי להפצה\n"
                 "• אפשרות למכור נכסים\n"
+                "• 🤖 בוט טלגרם אישי\n"
                 "• גישה למערכת המלאה"
             )
     else:
@@ -726,40 +679,63 @@ async def my_area_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -
         reply_markup=my_area_keyboard(),
     )
 
-async def set_bank_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+async def my_bot_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """מציג למשתמש את הבוט האישי שלו"""
     query = update.callback_query
     await query.answer()
 
-    text = (
-        "🏦 *הגדרת פרטי בנק*\n\n"
-        "לאחר אישור התשלום, תוכל להגדיר כאן את פרטי הבנק שלך.\n"
-        "פרטים אלה ישמשו לקבלת תשלומים מהפצות שלך.\n\n"
-        "*פורמט מומלץ:*\n"
-        "בנק XXX, סניף XXX, חשבון XXX, שם המוטב"
-    )
+    user = update.effective_user
+    if not user:
+        return
+
+    if DB_AVAILABLE:
+        user_bot = get_user_bot(user.id)
+        
+        if user_bot and user_bot['status'] == 'active':
+            bot_username = user_bot['bot_username']
+            bot_link = f"https://t.me/{bot_username}"
+            
+            text = (
+                "🤖 *הבוט האישי שלך*\n\n"
+                f"🔗 *קישור לבוט:* {bot_link}\n"
+                f"👤 *שם משתמש:* @{bot_username}\n"
+                f"📊 *סטטוס:* פעיל\n\n"
+                "*מה אפשר לעשות עם הבוט?*\n"
+                "• למכור נכסים דיגיטליים\n"
+                "• לנהל לקוחות\n"
+                "• לעקוב אחר מכירות\n"
+                "• להפיץ את העסק שלך\n\n"
+                "🚀 *התחל במכירות!*"
+            )
+            
+            keyboard = InlineKeyboardMarkup([
+                [InlineKeyboardButton("🤖 פתח את הבוט שלי", url=bot_link)],
+                [InlineKeyboardButton("⬅ חזרה", callback_data="my_area")],
+            ])
+        else:
+            text = (
+                "🤖 *עדיין אין לך בוט אישי*\n\n"
+                "כדי לקבל בוט טלגרם אישי משלך:\n"
+                "1. רכוש נכס דיגיטלי ב-39₪\n"
+                "2. שלח אישור תשלום\n"
+                "3. לאחר האישור - תקבל בוט אישי!\n\n"
+                "הבוט שלך יהיה מוכן למכירות וינוהל אוטומטית."
+            )
+            
+            keyboard = InlineKeyboardMarkup([
+                [InlineKeyboardButton("💎 רכוש נכס עכשיו", callback_data="join")],
+                [InlineKeyboardButton("⬅ חזרה", callback_data="my_area")],
+            ])
+    else:
+        text = "מערכת הזמנית לא זמינת. נסה שוב מאוחר יותר."
+        keyboard = InlineKeyboardMarkup([
+            [InlineKeyboardButton("⬅ חזרה", callback_data="my_area")],
+        ])
 
     await query.edit_message_text(
         text,
         parse_mode="Markdown",
-        reply_markup=my_area_keyboard(),
-    )
-
-async def set_groups_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    query = update.callback_query
-    await query.answer()
-
-    text = (
-        "👥 *הגדרת קבוצות*\n\n"
-        "כבעל נכס דיגיטלי, תוכל להגדיר:\n"
-        "• קבוצה אישית ללקוחות שלך\n"
-        "• קבוצת משחק/קהילה\n\n"
-        "הקבוצות יוצגו בנכס הדיגיטלי שלך."
-    )
-
-    await query.edit_message_text(
-        text,
-        parse_mode="Markdown",
-        reply_markup=my_area_keyboard(),
+        reply_markup=keyboard,
     )
 
 async def payment_method_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -780,7 +756,7 @@ async def payment_method_callback(update: Update, context: ContextTypes.DEFAULT_
         "💎 *לאחר התשלום:*\n"
         "1. שלח צילום מסך של האישור\n"
         "2. נאשר בתוך זמן קצר\n"
-        "3. תקבל את הנכס הדיגיטלי שלך\n"
+        "3. תקבל את הנכס הדיגיטלי שלך + 🤖 בוט אישי!\n"
         "4. תוכל להתחיל להפיץ ולהרוויח!\n\n"
         "*זכור:* אתה רוכש *נכס* - לא רק גישה!"
     )
@@ -854,39 +830,50 @@ async def handle_payment_photo(update: Update, context: ContextTypes.DEFAULT_TYP
     await message.reply_text(
         "✅ *אישור התשלום התקבל!*\n\n"
         "האישור נשלח לצוות שלנו לאימות.\n"
-        "תקבל הודעה עם הנכס הדיגיטלי שלך בתוך זמן קצר.\n\n"
+        "תקבל הודעה עם הנכס הדיגיטלי שלך + 🤖 בוט אישי בתוך זמן קצר.\n\n"
         "💎 *מה תקבל לאחר אישור:*\n"
         "• לינק אישי להפצה\n"
         "• גישה לקהילה\n"
+        "• 🤖 בוט טלגרם אישי\n"
         "• אפשרות למכור נכסים נוספים",
         parse_mode="Markdown",
     )
 
 async def do_approve(target_id: int, context: ContextTypes.DEFAULT_TYPE, source_message) -> None:
-    personal_link = build_personal_share_link(target_id)
-    
-    # הודעת אישור למשתמש
-    approval_text = (
-        "🎉 *התשלום אושר! ברוך הבא לבעלי הנכסים!*\n\n"
-        
-        "💎 *הנכס הדיגיטלי שלך מוכן:*\n"
-        f"🔗 *לינק אישי:* `{personal_link}`\n\n"
-        
-        "🚀 *מה עכשיו?*\n"
-        "1. שתף את הלינק עם אחרים\n"
-        "2. כל רכישה דרך הלינק שלך מתועדת\n"
-        "3. תוכל למכור נכסים נוספים\n"
-        "4. צבור הכנסה מהפצות\n\n"
-        
-        "👥 *גישה לקהילה:*\n"
-        f"{COMMUNITY_GROUP_LINK}\n\n"
-        
-        "💼 *ניהול הנכס:*\n"
-        "השתמש בכפתור '👤 האזור האישי שלי'\n"
-        "כדי להגדיר פרטי בנק וקבוצות"
-    )
-
+    """מאשר תשלום ויוצר בוט אישי למשתמש"""
     try:
+        # יצירת בוט אישי למשתמש
+        user = get_user(target_id)
+        username = user.get('username') if user else None
+        
+        bot_data = await create_new_bot_for_user(target_id, username)
+        personal_link = build_personal_share_link(target_id)
+        
+        # הודעת אישור למשתמש
+        approval_text = (
+            "🎉 *התשלום אושר! ברוך הבא לבעלי הנכסים!*\n\n"
+            
+            "💎 *הנכס הדיגיטלי שלך מוכן:*\n"
+            f"🔗 *לינק אישי:* `{personal_link}`\n\n"
+            
+            "🤖 *הבוט האישי שלך נוצר!*\n"
+            f"👤 @{bot_data['username']}\n\n"
+            
+            "🚀 *מה עכשיו?*\n"
+            "1. שתף את הלינק עם אחרים\n"
+            "2. השתמש בבוט האישי שלך למכירות\n"
+            "3. כל רכישה דרך הלינק שלך מתועדת\n"
+            "4. תוכל למכור נכסים נוספים\n"
+            "5. צבור הכנסה מהפצות\n\n"
+            
+            "👥 *גישה לקהילה:*\n"
+            f"{COMMUNITY_GROUP_LINK}\n\n"
+            
+            "💼 *ניהול הנכס:*\n"
+            "השתמש בכפתור '👤 האזור האישי שלי'\n"
+            "כדי לגשת לבוט שלך ולנהל את הנכס"
+        )
+
         await context.bot.send_message(chat_id=target_id, text=approval_text, parse_mode="Markdown")
         
         # עדכון DB
@@ -895,14 +882,17 @@ async def do_approve(target_id: int, context: ContextTypes.DEFAULT_TYPE, source_
                 update_payment_status(target_id, "approved", None)
                 ensure_promoter(target_id)
                 incr_metric("approved_payments")
+                incr_metric("total_bots_created")
             except Exception as e:
                 logger.error("Failed to update DB: %s", e)
 
         if source_message:
-            await source_message.reply_text(f"✅ אושר למשתמש {target_id} - נשלח נכס דיגיטלי")
+            await source_message.reply_text(f"✅ אושר למשתמש {target_id} - נשלח נכס דיגיטלי + בוט אישי")
             
     except Exception as e:
         logger.error("Failed to send approval: %s", e)
+        if source_message:
+            await source_message.reply_text(f"❌ שגיאה באישור למשתמש {target_id}: {e}")
 
 async def do_reject(target_id: int, reason: str, context: ContextTypes.DEFAULT_TYPE, source_message) -> None:
     rejection_text = (
@@ -1186,7 +1176,6 @@ async def share_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     has_asset = False
     if DB_AVAILABLE:
         try:
-            from db import get_promoter_summary
             summary = get_promoter_summary(user.id)
             has_asset = summary is not None
         except:
@@ -1634,8 +1623,7 @@ ptb_app.add_handler(CallbackQueryHandler(back_main_callback, pattern="^back_main
 ptb_app.add_handler(CallbackQueryHandler(back_support_callback, pattern="^back_support$"))
 ptb_app.add_handler(CallbackQueryHandler(payment_method_callback, pattern="^pay_"))
 ptb_app.add_handler(CallbackQueryHandler(my_area_callback, pattern="^my_area$"))
-ptb_app.add_handler(CallbackQueryHandler(set_bank_callback, pattern="^set_bank$"))
-ptb_app.add_handler(CallbackQueryHandler(set_groups_callback, pattern="^set_groups$"))
+ptb_app.add_handler(CallbackQueryHandler(my_bot_callback, pattern="^my_bot$"))
 ptb_app.add_handler(CallbackQueryHandler(admin_approve_callback, pattern="^adm_approve:"))
 ptb_app.add_handler(CallbackQueryHandler(admin_reject_callback, pattern="^adm_reject:"))
 
