@@ -164,7 +164,7 @@ def init_schema() -> None:
         )
 
 
-        -- promoters – הגדרות מקדמים (owners)
+        # promoters – הגדרות מקדמים (owners)
         cur.execute(
             """
             CREATE TABLE IF NOT EXISTS promoters (
@@ -178,7 +178,7 @@ def init_schema() -> None:
             """
         )
 
-        -- rewards – תגמולים למקדמים / משתמשים
+        # rewards – תגמולים למקדמים / משתמשים
         cur.execute(
             """
             CREATE TABLE IF NOT EXISTS rewards (
@@ -192,7 +192,7 @@ def init_schema() -> None:
             """
         )
 
-        -- support_tickets – כרטיסי תמיכה
+        # support_tickets – כרטיסי תמיכה
         cur.execute(
             """
             CREATE TABLE IF NOT EXISTS support_tickets (
