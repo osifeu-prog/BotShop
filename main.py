@@ -1,4 +1,4 @@
-# main.py
+# main.py - מתוקן ומורחב
 import os
 import logging
 import secrets
@@ -8,10 +8,10 @@ from collections import deque
 from contextlib import asynccontextmanager
 from datetime import datetime
 from http import HTTPStatus
-from typing import Deque, Set, Literal, Optional, Dict, Any, List
+from typing import Deque, Set, Optional, Dict, Any
 
-from fastapi import FastAPI, Request, Response, HTTPException
-from fastapi.responses import FileResponse, HTMLResponse
+from fastapi import FastAPI, Request, Response, HTTPException, Depends, Query
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
 from telegram import (
     Update,
     InlineKeyboardMarkup,
@@ -27,7 +27,7 @@ from telegram.ext import (
 )
 
 # =========================
-# לוגינג בסיסי
+# לוגינג
 # =========================
 
 logging.basicConfig(
@@ -35,19 +35,17 @@ logging.basicConfig(
     format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
 )
 logger = logging.getLogger("gateway-bot")
-
-# צמצום לוגים של httpx כדי שלא יוצגו URLs מלאים עם טוקן
-httpx_logger = logging.getLogger("httpx")
-httpx_logger.setLevel(logging.WARNING)
+logging.getLogger("httpx").setLevel(logging.WARNING)
 
 # =========================
-# DB אופציונלי (db.py)
+# DB
 # =========================
 try:
     from db import (
         init_schema,
         log_payment,
         update_payment_status,
+        update_latest_payment_status_for_user,
         store_user,
         add_referral,
         get_top_referrers,
@@ -69,6 +67,8 @@ try:
         get_all_active_bots,
         get_bot_by_token,
         update_bot_webhook,
+        get_last_payment_for_user,
+        get_user_summary,
     )
     DB_AVAILABLE = True
     logger.info("DB module loaded successfully, DB logging enabled.")
@@ -77,7 +77,7 @@ except Exception as e:
     DB_AVAILABLE = False
 
 # =========================
-# Bot Creator Class
+# Bot Creator (שומר על הקוד הקיים)
 # =========================
 class BotCreator:
     def __init__(self):
@@ -85,31 +85,15 @@ class BotCreator:
         self.base_url = f"https://api.telegram.org/bot{self.botfather_token}"
     
     def create_new_bot(self, user_id: int, username: str = None) -> Dict[str, any]:
-        """
-        יוצר בוט חדש אמיתי דרך BotFather
-        """
         try:
-            # יצירת שם לבוט
             bot_name = f"ShopBot_{user_id}"
             bot_username = f"{username}_{user_id}_bot" if username else f"user_{user_id}_shop_bot"
-            
-            # ניקוי שם המשתמש
             bot_username = bot_username.replace(' ', '_').replace('-', '_').lower()[:32]
-            
-            # אם שם המשתמש ארוך מדי, נקצר אותו
             if len(bot_username) > 32:
                 bot_username = bot_username[:32]
-            
-            # פנייה ל-BotFather ליצירת בוט חדש
             create_url = f"{self.base_url}/newBot"
-            
-            payload = {
-                "name": bot_name,
-                "username": bot_username
-            }
-            
+            payload = {"name": bot_name, "username": bot_username}
             response = requests.post(create_url, data=payload, timeout=30)
-            
             if response.status_code == 200:
                 data = response.json()
                 if data.get('ok'):
@@ -123,27 +107,19 @@ class BotCreator:
                     }
                 else:
                     logger.error(f"BotFather error: {data.get('description')}")
-                    # אם יש שגיאה, נחזיר בוט מדומה עם טוקן אקראי
                     return self._create_fallback_bot(user_id, username)
             else:
                 logger.error(f"HTTP error from BotFather: {response.status_code}")
                 return self._create_fallback_bot(user_id, username)
-                
         except Exception as e:
             logger.error(f"Failed to create bot via BotFather: {e}")
             return self._create_fallback_bot(user_id, username)
     
     def _create_fallback_bot(self, user_id: int, username: str = None) -> Dict[str, any]:
-        """
-        יצירת בוט מדומה כגיבוי
-        """
-        bot_username = f"{username}_{user_id}_bot" if username else f"user_{user_id}_shop_bot"
-        bot_username = bot_username.replace(' ', '_').replace('-', '_').lower()[:32]
-        
-        # טוקן אקראי (לא אמיתי)
         alphabet = string.ascii_letters + string.digits + ":_-"
         token = f"6{user_id}:AA{''.join(secrets.choice(alphabet) for _ in range(32))}"
-        
+        bot_username = f"{username}_{user_id}_bot" if username else f"user_{user_id}_shop_bot"
+        bot_username = bot_username.replace(' ', '_').replace('-', '_').lower()[:32]
         return {
             'token': token,
             'username': bot_username,
@@ -154,14 +130,9 @@ class BotCreator:
         }
     
     def set_bot_commands(self, bot_token: str, commands: list) -> bool:
-        """
-        הגדרת פקודות לבוט
-        """
         try:
             url = f"https://api.telegram.org/bot{bot_token}/setMyCommands"
-            payload = {
-                "commands": commands
-            }
+            payload = {"commands": commands}
             response = requests.post(url, json=payload, timeout=10)
             return response.status_code == 200
         except Exception as e:
@@ -169,22 +140,15 @@ class BotCreator:
             return False
     
     def set_webhook(self, bot_token: str, webhook_url: str) -> bool:
-        """
-        הגדרת webhook לבוט
-        """
         try:
             url = f"https://api.telegram.org/bot{bot_token}/setWebhook"
-            payload = {
-                "url": webhook_url,
-                "allowed_updates": ["message", "callback_query"]
-            }
+            payload = {"url": webhook_url, "allowed_updates": ["message", "callback_query"]}
             response = requests.post(url, json=payload, timeout=10)
             return response.status_code == 200
         except Exception as e:
             logger.error(f"Failed to set webhook: {e}")
             return False
 
-# instance גלובלי
 bot_creator = BotCreator()
 
 # =========================
@@ -194,60 +158,46 @@ class UserBotHandler:
     def __init__(self):
         self.base_url = "https://api.telegram.org/bot"
     
-    def send_welcome_message(self, bot_token: str, chat_id: int, user_id: int):
-        """
-        שולח הודעת ברוך הבא בבוט האישי (טקסט פשוט, בלי Markdown כדי למנוע שגיאות פירסינג)
-        """
+    async def send_welcome_message(self, bot_token: str, chat_id: int, user_id: int):
         try:
-            personal_link = f"https://t.me/Buy_My_Shop_bot?start=ref_{user_id}"
             welcome_text = (
-                "🎉 התשלום אושר! ברוך הבא לבעלי הנכסים!\n\n"
-                "💎 הנכס הדיגיטלי שלך מוכן.\n"
-                f"🔗 הלינק האישי שלך: {personal_link}\n\n"
-                "🚀 מה עכשיו?\n"
+                "🎉 *התשלום אושר! ברוך הבא לבעלי הנכסים!*\n\n"
+                "💎 *הנכס הדיגיטלי שלך מוכן:*\n"
+                f"🔗 *לינק אישי:* `https://t.me/Buy_My_Shop_bot?start=ref_{user_id}`\n\n"
+                "🚀 *מה עכשיו?*\n"
                 "1. שתף את הלינק עם אחרים\n"
-                "2. השתמש בבוט למכירות\n"
+                "2. השתמש בבוט האישי שלך למכירות\n"
                 "3. כל רכישה דרך הלינק שלך מתועדת\n"
                 "4. תוכל למכור נכסים נוספים\n"
                 "5. צבור הכנסה מהפצות\n\n"
-                "👥 גישה לקהילה:\n"
+                "👥 *גישה לקהילה:*\n"
                 "https://t.me/+HIzvM8sEgh1kNWY0\n\n"
-                "💼 ניהול הנכס:\n"
-                "השתמש בכפתור '👤 האזור האישי שלי' בבוט הראשי כדי לנהל את הנכס שלך."
+                "💼 *ניהול הנכס:*\n"
+                "פתח את Buy_My_Shop ובדוק את 'האזור האישי שלי'"
             )
-
             keyboard = {
                 "inline_keyboard": [
                     [
                         {"text": "💎 מכור נכסים", "callback_data": "sell_digital_asset"},
-                        {"text": "🔗 שתף לינק", "callback_data": "share_link"},
+                        {"text": "🔗 שתף לינק", "callback_data": "share_link"}
                     ],
                     [
                         {"text": "📊 סטטיסטיקות", "callback_data": "stats"},
-                        {"text": "👥 קבוצת קהילה", "url": "https://t.me/+HIzvM8sEgh1kNWY0"},
+                        {"text": "👥 קבוצת קהילה", "url": "https://t.me/+HIzvM8sEgh1kNWY0"}
                     ],
                     [
-                        {"text": "🆘 תמיכה", "url": "https://t.me/Buy_My_Shop_bot"},
-                    ],
+                        {"text": "🆘 תמיכה", "url": "https://t.me/Buy_My_Shop_bot"}
+                    ]
                 ]
             }
-
             url = f"{self.base_url}{bot_token}/sendMessage"
-            payload = {
-                "chat_id": chat_id,
-                "text": welcome_text,
-                "reply_markup": keyboard,
-            }
-
+            payload = {"chat_id": chat_id, "text": welcome_text, "parse_mode": "Markdown", "reply_markup": keyboard}
             response = requests.post(url, json=payload, timeout=10)
             return response.status_code == 200
-
         except Exception as e:
-            logger.error(f"Failed to send welcome message to personal bot: {e}")
+            logger.error(f"Failed to send welcome message: {e}")
             return False
 
-
-# instance גלובלי
 user_bot_handler = UserBotHandler()
 
 # =========================
@@ -263,56 +213,21 @@ if not BOT_TOKEN:
 if not WEBHOOK_URL:
     raise RuntimeError("WEBHOOK_URL environment variable is not set")
 
-logger.info("Starting bot with WEBHOOK_URL=%s", WEBHOOK_URL)
-
-# =========================
-# בדיקת BOT_TOKEN
-# =========================
-def validate_bot_token(token: str) -> bool:
-    """בודק אם הטוקן תקין"""
-    try:
-        test_url = f"https://api.telegram.org/bot{token}/getMe"
-        response = requests.get(test_url, timeout=10)
-        if response.status_code == 200:
-            logger.info("✅ Bot token is valid")
-            return True
-        else:
-            logger.warning(f"⚠️ BOT_TOKEN may be invalid. Telegram API returned: {response.status_code}")
-            return False
-    except Exception as e:
-        logger.warning(f"⚠️ Failed to validate BOT_TOKEN: {e}")
-        return False
-
-# הרץ את הבדיקה
-if BOT_TOKEN:
-    is_valid = validate_bot_token(BOT_TOKEN)
-    if not is_valid:
-        logger.error("❌ Invalid BOT_TOKEN. The bot will not work properly.")
-
-# =========================
-# קבועים של המערכת
-# =========================
 COMMUNITY_GROUP_LINK = os.environ.get("COMMUNITY_GROUP_LINK", "https://t.me/+HIzvM8sEgh1kNWY0")
 SUPPORT_GROUP_LINK = os.environ.get("SUPPORT_GROUP_LINK", "https://t.me/+1ANn25HeVBoxNmRk")
 DEVELOPER_USER_ID = 224223270
 
-# ניתן להגדיר קבוצות לוגים דרך משתני סביבה (מחרוזות של chat_id)
 PAYMENTS_LOG_CHAT_ID = int(os.environ.get("PAYMENTS_LOG_CHAT_ID", "-1001748319682"))
 SUPPORT_LOG_CHAT_ID = int(os.environ.get("SUPPORT_LOG_CHAT_ID", str(PAYMENTS_LOG_CHAT_ID)))
 
-def build_personal_share_link(user_id: int) -> str:
-    base_username = BOT_USERNAME or "Buy_My_Shop_bot"
-    return f"https://t.me/{base_username}?start=ref_{user_id}"
-
-# לינקי תשלום
 PAYBOX_URL = os.environ.get("PAYBOX_URL", "https://links.payboxapp.com/1SNfaJ6XcYb")
 BIT_URL = os.environ.get("BIT_URL", "https://www.bitpay.co.il/app/share-info?i=190693822888_19l4oyvE")
 PAYPAL_URL = os.environ.get("PAYPAL_URL", "https://paypal.me/osifdu")
 LANDING_URL = os.environ.get("LANDING_URL", "https://slh-nft.com/")
 ADMIN_DASH_TOKEN = os.environ.get("ADMIN_DASH_TOKEN")
 START_IMAGE_PATH = os.environ.get("START_IMAGE_PATH", "assets/start_banner.jpg")
+TON_WALLET_ADDRESS = os.environ.get("TON_WALLET_ADDRESS", "")
 
-# פרטי תשלום
 BANK_DETAILS = (
     "🏦 *תשלום בהעברה בנקאית*\n\n"
     "בנק הפועלים\n"
@@ -323,6 +238,26 @@ BANK_DETAILS = (
 )
 
 ADMIN_IDS = {DEVELOPER_USER_ID}
+
+# =========================
+# בדיקת BOT_TOKEN (אופציונלי)
+# =========================
+def validate_bot_token(token: str) -> bool:
+    try:
+        test_url = f"https://api.telegram.org/bot{token}/getMe"
+        response = requests.get(test_url, timeout=10)
+        return response.status_code == 200
+    except Exception:
+        return False
+
+if BOT_TOKEN:
+    is_valid = validate_bot_token(BOT_TOKEN)
+    if not is_valid:
+        logger.error("Invalid BOT_TOKEN. The bot may not work properly.")
+
+def build_personal_share_link(user_id: int) -> str:
+    base_username = BOT_USERNAME or "Buy_My_Shop_bot"
+    return f"https://t.me/{base_username}?start=ref_{user_id}"
 
 # =========================
 # Dedup – מניעת כפילות
@@ -344,61 +279,6 @@ def is_duplicate_update(update: Update) -> bool:
     return False
 
 # =========================
-# זיכרון פשוט לתשלומים
-# =========================
-def get_payments_store(context: ContextTypes.DEFAULT_TYPE) -> Dict[int, Dict[str, Any]]:
-    store = context.application.bot_data.get("payments")
-    if store is None:
-        store = {}
-        context.application.bot_data["payments"] = store
-    return store
-
-def get_pending_rejects(context: ContextTypes.DEFAULT_TYPE) -> Dict[int, int]:
-    store = context.application.bot_data.get("pending_rejects")
-    if store is None:
-        store = {}
-        context.application.bot_data["pending_rejects"] = store
-    return store
-
-# =========================
-# פונקציות ליצירת בוטים חדשים
-# =========================
-
-
-async def create_new_bot_for_user(user_id: int, username: str = None) -> Dict[str, Any]:
-    """
-    "בוט אישי" לוגי למשתמש – בלי דיבור עם BotFather.
-    בפועל:
-    - מייצרים רשומת user_bots ב-DB (אם זמין)
-    - יוצרים לינק אישי (deep-link) לבוט הראשי
-    - מחזירים מידע שמאפשר להודיע למשתמש מה קיבל
-    """
-    personal_link = build_personal_share_link(user_id)
-    bot_username = BOT_USERNAME or "Buy_My_Shop_bot"
-    bot_token = BOT_TOKEN or ""
-
-    bot_id = -1
-    if DB_AVAILABLE:
-        try:
-            bot_id = create_user_bot(
-                user_id=user_id,
-                bot_token=bot_token,
-                bot_username=bot_username,
-                bot_name=personal_link,
-                price=39.0,  # מחיר ברירת מחדל – ניתן לשינוי בעתיד
-            )
-        except Exception as e:
-            logger.error(f"Failed to create logical user_bot record: {e}")
-
-    return {
-        "token": bot_token,
-        "username": bot_username,
-        "personal_link": personal_link,
-        "db_id": bot_id,
-    }
-
-
-# =========================
 # אפליקציית Telegram
 # =========================
 ptb_app: Application = (
@@ -412,18 +292,13 @@ ptb_app: Application = (
 # FastAPI + lifespan
 # =========================
 
+from social_api import router as social_router  # חדש
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """
-    בזמן עליית השרת:
-    1. מגדירים webhook ב-Telegram ל-WEBHOOK_URL
-    2. מפעילים את אפליקציית ה-Telegram
-    3. אם יש DB – מרימים schema
-    """
     logger.info("Setting Telegram webhook to %s", WEBHOOK_URL)
     await ptb_app.bot.setWebhook(url=WEBHOOK_URL, allowed_updates=Update.ALL_TYPES)
 
-    # init DB schema אם זמין
     if DB_AVAILABLE:
         try:
             init_schema()
@@ -439,6 +314,7 @@ async def lifespan(app: FastAPI):
         await ptb_app.stop()
 
 app = FastAPI(lifespan=lifespan)
+app.include_router(social_router)
 
 # =========================
 # API Routes
@@ -446,37 +322,33 @@ app = FastAPI(lifespan=lifespan)
 
 @app.get("/")
 async def serve_site():
-    """מגיש את אתר האינטרנט"""
     return FileResponse("docs/index.html")
 
 @app.get("/site")
 async def serve_site_alt():
-    """מגיש את אתר האינטרנט (alias)"""
     return FileResponse("docs/index.html")
 
 @app.get("/health")
 async def health():
-    """Healthcheck ל-Railway / ניטור"""
     return {
         "status": "ok",
         "service": "telegram-gateway-community-bot",
         "db": "enabled" if DB_AVAILABLE else "disabled",
     }
 
-@app.get("/admin/stats")
-async def admin_stats(token: str = ""):
-    """
-    דשבורד API קטן לקריאה בלבד.
-    """
+def require_admin_token(token: str = Query(..., description="ADMIN_DASH_TOKEN")):
     if not ADMIN_DASH_TOKEN or token != ADMIN_DASH_TOKEN:
         raise HTTPException(status_code=401, detail="Unauthorized")
+    return True
 
+@app.get("/admin/stats")
+async def admin_stats(_=Depends(require_admin_token)):
     if not DB_AVAILABLE:
         return {"db": "disabled"}
 
     try:
         stats = get_approval_stats()
-        monthly = get_monthly_payments(datetime.utcnow().year, datetime.utcnow().month)
+        monthly = get_monthly_payments(6)  # תיקון: חודשים אחורה
         top_ref = get_top_referrers(5)
         active_bots = get_all_active_bots()
     except Exception as e:
@@ -491,9 +363,106 @@ async def admin_stats(token: str = ""):
         "active_bots_count": len(active_bots),
     }
 
+@app.get("/admin/dashboard")
+async def admin_dashboard(_=Depends(require_admin_token)):
+    """
+    דשבורד HTML בסיסי שמציג את /admin/stats
+    """
+    html = """
+    <!doctype html>
+    <html lang="he" dir="rtl">
+    <head>
+      <meta charset="UTF-8">
+      <title>Admin Dashboard - Buy My Shop</title>
+      <style>
+        body { font-family: system-ui; background: #f7fafc; color: #111; margin: 0; padding: 20px; }
+        .card { background: white; border-radius: 12px; padding: 20px; box-shadow: 0 4px 16px rgba(0,0,0,.08); margin-bottom: 20px; }
+        h1, h2 { margin: 0 0 12px 0; }
+        table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+        th, td { text-align: right; padding: 8px; border-bottom: 1px solid #eee; }
+        .muted { color: #666; font-size: .9rem; }
+      </style>
+    </head>
+    <body>
+      <div class="card">
+        <h1>דשבורד אדמין</h1>
+        <p class="muted">מציג נתונים חיים מ- /admin/stats</p>
+      </div>
+
+      <div class="card" id="summary">
+        <h2>סטטוס תשלומים</h2>
+        <div id="payments"></div>
+      </div>
+
+      <div class="card" id="monthly">
+        <h2>חודשי (6 חודשים)</h2>
+        <table id="monthly-table">
+          <thead><tr><th>חודש</th><th>תשלומים</th><th>סכום</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+
+      <div class="card" id="ref">
+        <h2>Top Referrers</h2>
+        <table id="ref-table">
+          <thead><tr><th>משתמש</th><th>סה"כ הפניות</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+
+      <div class="card">
+        <h2>בוטים פעילים</h2>
+        <div id="active-bots-count"></div>
+      </div>
+
+      <script>
+        async function load() {
+          const urlParams = new URLSearchParams(window.location.search);
+          const token = urlParams.get('token');
+          const res = await fetch(`/admin/stats?token=${encodeURIComponent(token)}`);
+          const data = await res.json();
+
+          // payments stats
+          const ps = data.payments_stats || {};
+          document.getElementById('payments').innerHTML = `
+            <ul>
+              <li><strong>אושרו:</strong> ${ps.approved || 0}</li>
+              <li><strong>נדחו:</strong> ${ps.rejected || 0}</li>
+              <li><strong>ממתינים:</strong> ${ps.pending || 0}</li>
+              <li><strong>סה"כ:</strong> ${ps.total || 0}</li>
+            </ul>
+          `;
+
+          // monthly table
+          const mb = data.monthly_breakdown || [];
+          const mt = document.querySelector('#monthly-table tbody');
+          mt.innerHTML = mb.map(item => {
+            const month = new Date(item.month).toLocaleDateString('he-IL', { year: 'numeric', month: '2-digit' });
+            const total = item.total_payments || 0;
+            const amount = item.total_amount || 0;
+            return `<tr><td>${month}</td><td>${total}</td><td>${amount}</td></tr>`;
+          }).join('');
+
+          // ref table
+          const refs = data.top_referrers || [];
+          const rt = document.querySelector('#ref-table tbody');
+          rt.innerHTML = refs.map(r => {
+            const uname = r.username || ('ID ' + r.referrer_id);
+            return `<tr><td>${uname}</td><td>${r.total_referrals}</td></tr>`;
+          }).join('');
+
+          // bots
+          document.getElementById('active-bots-count').innerText = data.active_bots_count || 0;
+        }
+        load();
+      </script>
+    </body>
+    </html>
+    """
+    return HTMLResponse(html)
+
 @app.post("/webhook")
 async def telegram_webhook(request: Request) -> Response:
-    """נקודת ה-webhook שטלגרם קורא אליה"""
     data = await request.json()
     update = Update.de_json(data, ptb_app.bot)
 
@@ -506,7 +475,6 @@ async def telegram_webhook(request: Request) -> Response:
 
 @app.post("/user_bot/{bot_token}")
 async def user_bot_webhook(bot_token: str, request: Request):
-    """Webhook לבוטים של משתמשים"""
     try:
         data = await request.json()
         
@@ -517,22 +485,14 @@ async def user_bot_webhook(bot_token: str, request: Request):
             
             user_id = bot_data['user_id']
             
-            # טיפול בהודעות
             if 'message' in data:
                 message = data['message']
                 chat_id = message['chat']['id']
                 
-                # אם זו פקודת /start
                 if 'text' in message and message['text'] == '/start':
-                    await user_bot_handler.send_welcome_message(
-                        bot_token, chat_id, user_id
-                    )
-                
-                # הודעת טקסט רגילה
+                    await user_bot_handler.send_welcome_message(bot_token, chat_id, user_id)
                 elif 'text' in message:
                     await handle_user_bot_message(bot_token, chat_id, message['text'])
-                    
-            # טיפול ב-callback queries
             elif 'callback_query' in data:
                 callback = data['callback_query']
                 await handle_user_bot_callback(bot_token, callback)
@@ -543,116 +503,26 @@ async def user_bot_webhook(bot_token: str, request: Request):
         logger.error(f"Error in user bot webhook: {e}")
         return Response(status_code=HTTPStatus.OK.value)
 
-async def handle_user_bot_message(bot_token: str, chat_id: int, text: str):
-    """מטפל בהודעות טקסט רגילות"""
-    try:
-        # לוגיקה בסיסית - ניתן להרחיב
-        if 'נכס' in text or 'מכור' in text:
-            response_text = (
-                "💎 *מכירת נכסים דיגיטליים*\n\n"
-                "אתה יכול למכור נכסים דיגיטליים ללקוחות שלך.\n\n"
-                "1. נכס בסיסי - 39₪\n"
-                "2. חבילת מתקדם - 99₪\n"
-                "3. חבילת עסקים - 199₪\n\n"
-                "לכל קונה שלך - אתה מקבל עמלה!"
-            )
-            
-            url = f"https://api.telegram.org/bot{bot_token}/sendMessage"
-            payload = {
-                "chat_id": chat_id,
-                "text": response_text,
-                "parse_mode": "Markdown"
-            }
-            requests.post(url, json=payload, timeout=10)
-            
-    except Exception as e:
-        logger.error(f"Failed to handle user bot message: {e}")
-
-async def handle_user_bot_callback(bot_token: str, callback: Dict):
-    """מטפל ב-callback queries"""
-    try:
-        chat_id = callback['message']['chat']['id']
-        data = callback['data']
-        
-        if data == 'sell_digital_asset':
-            response_text = (
-                "🛒 *מכור נכס דיגיטלי*\n\n"
-                "שתף את הלינק הבא עם הלקוח שלך:\n\n"
-                "`https://t.me/Buy_My_Shop_bot`\n\n"
-                "כל רכישה דרך הלינק הזה תתועד לזכותך!"
-            )
-        elif data == 'share_link':
-            # מציאת user_id מהבוט
-            bot_data = get_bot_by_token(bot_token)
-            if bot_data:
-                user_id = bot_data['user_id']
-                response_text = (
-                    "🔗 *הלינק האישי שלך*\n\n"
-                    f"`https://t.me/Buy_My_Shop_bot?start=ref_{user_id}`\n\n"
-                    "העתק ושלח ללקוחות שלך!"
-                )
-            else:
-                response_text = "לא נמצא מידע על המשתמש."
-        elif data == 'stats':
-            response_text = (
-                "📊 *סטטיסטיקות שלך*\n\n"
-                "• סה\"כ הפניות: 0\n"
-                "• מכירות מאושרות: 0\n"
-                "• רווח מצטבר: 0₪\n\n"
-                "הנתונים מתעדכנים אוטומטית."
-            )
-        
-        url = f"https://api.telegram.org/bot{bot_token}/sendMessage"
-        payload = {
-            "chat_id": chat_id,
-            "text": response_text,
-            "parse_mode": "Markdown"
-        }
-        requests.post(url, json=payload, timeout=10)
-        
-    except Exception as e:
-        logger.error(f"Failed to handle user bot callback: {e}")
-
 # =========================
-# עזרי UI (מקשים)
+# Handlers – לוגיקת הבוט
 # =========================
 
 def main_menu_keyboard() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup([
-        [
-            InlineKeyboardButton("🚀 הצטרפות לקהילת העסקים (39 ₪)", callback_data="join"),
-        ],
-        [
-            InlineKeyboardButton("💎 מה זה הנכס הדיגיטלי?", callback_data="digital_asset_info"),
-        ],
-        [
-            InlineKeyboardButton("🔗 שתף את שער הקהילה", callback_data="share"),
-        ],
-        [
-            InlineKeyboardButton("🌟 חזון SLH", callback_data="vision"),
-        ],
-        [
-            InlineKeyboardButton("👤 האזור האישי שלי", callback_data="my_area"),
-        ],
-        [
-            InlineKeyboardButton("🆘 תמיכה טכנית", callback_data="technical_support"),
-        ],
+        [InlineKeyboardButton("🚀 הצטרפות לקהילת העסקים (39 ₪)", callback_data="join")],
+        [InlineKeyboardButton("💎 מה זה הנכס הדיגיטלי?", callback_data="digital_asset_info")],
+        [InlineKeyboardButton("🔗 שתף את שער הקהילה", callback_data="share")],
+        [InlineKeyboardButton("🌟 חזון SLH", callback_data="vision")],
+        [InlineKeyboardButton("👤 האזור האישי שלי", callback_data="my_area")],
+        [InlineKeyboardButton("🆘 תמיכה טכנית", callback_data="technical_support")],
     ])
 
 def payment_methods_keyboard() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup([
-        [
-            InlineKeyboardButton("🏦 העברה בנקאית", callback_data="pay_bank"),
-        ],
-        [
-            InlineKeyboardButton("📲 ביט / פייבוקס / PayPal", callback_data="pay_paybox"),
-        ],
-        [
-            InlineKeyboardButton("💎 טלגרם (TON)", callback_data="pay_ton"),
-        ],
-        [
-            InlineKeyboardButton("⬅ חזרה", callback_data="back_main"),
-        ],
+        [InlineKeyboardButton("🏦 העברה בנקאית", callback_data="pay_bank")],
+        [InlineKeyboardButton("📲 ביט / פייבוקס / PayPal", callback_data="pay_paybox")],
+        [InlineKeyboardButton("💎 טלגרם (TON)", callback_data="pay_ton")],
+        [InlineKeyboardButton("⬅ חזרה", callback_data="back_main")],
     ])
 
 def payment_links_keyboard() -> InlineKeyboardMarkup:
@@ -666,53 +536,27 @@ def payment_links_keyboard() -> InlineKeyboardMarkup:
 
 def my_area_keyboard() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup([
-        [
-            InlineKeyboardButton("🏦 הגדר פרטי בנק", callback_data="set_bank"),
-        ],
-        [
-            InlineKeyboardButton("👥 הגדר קבוצות", callback_data="set_groups"),
-        ],
-        [
-            InlineKeyboardButton("📊 הצג נכס דיגיטלי", callback_data="show_asset"),
-        ],
-        [
-            InlineKeyboardButton("🤖 הבוט שלי", callback_data="my_bot"),
-        ],
-        [
-            InlineKeyboardButton("⬅ חזרה", callback_data="back_main"),
-        ],
+        [InlineKeyboardButton("🏦 הגדר פרטי בנק", callback_data="set_bank")],
+        [InlineKeyboardButton("👥 הגדר קבוצות", callback_data="set_groups")],
+        [InlineKeyboardButton("📊 הצג נכס דיגיטלי", callback_data="show_asset")],
+        [InlineKeyboardButton("🤖 הבוט שלי", callback_data="my_bot")],
+        [InlineKeyboardButton("⬅ חזרה", callback_data="back_main")],
     ])
 
 def support_keyboard() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup([
-        [
-            InlineKeyboardButton("🛠️ תמיכה טכנית", callback_data="technical_support"),
-        ],
-        [
-            InlineKeyboardButton("📞 פניה למנהל", callback_data="contact_admin"),
-        ],
-        [
-            InlineKeyboardButton("❓ עזרה", callback_data="help_support"),
-        ],
-        [
-            InlineKeyboardButton("⬅ חזרה", callback_data="back_main"),
-        ],
+        [InlineKeyboardButton("🛠️ תמיכה טכנית", callback_data="technical_support")],
+        [InlineKeyboardButton("📞 פניה למנהל", callback_data="contact_admin")],
+        [InlineKeyboardButton("❓ עזרה", callback_data="help_support")],
+        [InlineKeyboardButton("⬅ חזרה", callback_data="back_main")],
     ])
 
 def technical_support_keyboard() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup([
-        [
-            InlineKeyboardButton("📋 דיווח באג", callback_data="report_bug"),
-        ],
-        [
-            InlineKeyboardButton("❓ בעיה טכנית", callback_data="tech_issue"),
-        ],
-        [
-            InlineKeyboardButton("🔧 בעיית תשלום", callback_data="payment_issue"),
-        ],
-        [
-            InlineKeyboardButton("⬅ חזרה", callback_data="back_support"),
-        ],
+        [InlineKeyboardButton("📋 דיווח באג", callback_data="report_bug")],
+        [InlineKeyboardButton("❓ בעיה טכנית", callback_data="tech_issue")],
+        [InlineKeyboardButton("🔧 בעיית תשלום", callback_data="payment_issue")],
+        [InlineKeyboardButton("⬅ חזרה", callback_data="back_support")],
     ])
 
 def admin_approval_keyboard(user_id: int) -> InlineKeyboardMarkup:
@@ -723,15 +567,9 @@ def admin_approval_keyboard(user_id: int) -> InlineKeyboardMarkup:
         ],
     ])
 
-# =========================
-# Handlers – לוגיקת הבוט
-# =========================
-
 async def send_new_user_notification(user_data: dict, user_id: int):
-    """שולח התראה על משתמש חדש"""
     try:
         username_link = f"https://t.me/{user_data['username']}" if user_data.get('username') else f"tg://user?id={user_id}"
-        
         message = (
             f"👤 משתמש חדש התחיל את הבוט:\n"
             f"🆔 ID: {user_id}\n"
@@ -740,7 +578,6 @@ async def send_new_user_notification(user_data: dict, user_id: int):
             f"📅 תאריך: {datetime.now().strftime('%d/%m/%Y %H:%M')}\n"
             f"💬 <a href='{username_link}'>לחץ כאן לשליחת הודעה</a>"
         )
-        
         await ptb_app.bot.send_message(
             chat_id=PAYMENTS_LOG_CHAT_ID,
             text=message,
@@ -757,23 +594,17 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
     user = update.effective_user
 
-    # לוג ל-DB ולקבוצת הלוגים
     if DB_AVAILABLE and user:
         try:
             store_user(user.id, user.username, user.first_name, user.last_name)
             incr_metric("total_starts")
-            
-            # שליחת התראה על משתמש חדש
-            user_data = {
-                'username': user.username,
-                'first_name': user.first_name,
-                'last_name': user.last_name
-            }
-            await send_new_user_notification(user_data, user.id)
+            await send_new_user_notification(
+                {'username': user.username, 'first_name': user.first_name, 'last_name': user.last_name},
+                user.id
+            )
         except Exception as e:
             logger.error("Failed to store user: %s", e)
 
-    # טיפול ב-referral
     if message.text and message.text.startswith("/start") and user:
         parts = message.text.split()
         if len(parts) > 1 and parts[1].startswith("ref_"):
@@ -785,7 +616,6 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
             except Exception as e:
                 logger.error("Failed to add referral: %s", e)
 
-    # ניסיון לשלוח תמונה אם קיימת
     try:
         if os.path.exists(START_IMAGE_PATH):
             with open(START_IMAGE_PATH, 'rb') as photo:
@@ -797,40 +627,24 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     except Exception as e:
         logger.error("Failed to send start image: %s", e)
 
-    # שליחת הודעת ברוכים הבאים
     text = (
         "🎉 *ברוך הבא לנכס הדיגיטלי המניב שלך!*\n\n"
-        
         "💎 *מה זה הנכס הדיגיטלי?*\n"
         "זהו שער כניסה אישי לקהילת עסקים פעילה. לאחר רכישה תקבל:\n"
         "• לינק אישי להפצה\n"
         "• אפשרות למכור את הנכס הלאה\n"
         "• גישה לקבוצת משחק כללית\n"
         "• מערכת הפניות מתגמלת\n"
-        "• 🤖 *בוט טלגרם אישי משלך!*\n\n"
-        
+        "• 🤖 *בוט טלגרם אישי*\n\n"
         "🔄 *איך זה עובד?*\n"
         "1. רוכשים נכס ב-39₪\n"
         "2. מקבלים לינק אישי + בוט אישי\n"
-        "3. מפיצים - כל רכישה דרך הלינק שלך מתועדת\n"
+        "3. מפיצים – כל רכישה דרך הלינק שלך מתועדת\n"
         "4. מרוויחים מהפצות נוספות\n\n"
-        
-        "🚀 *מה תקבל?*\n"
-        "✅ גישה לקהילת עסקים\n"
-        "✅ נכס דיגיטלי אישי\n"
-        "✅ לינק הפצה ייחודי\n"
-        "✅ 🤖 בוט טלגרם אישי\n"
-        "✅ אפשרות מכירה חוזרת\n"
-        "✅ מערכת הפניות שקופה\n\n"
-        
         "💼 *הנכס שלך - העסק שלך!*"
     )
 
-    await message.reply_text(
-        text,
-        parse_mode="Markdown",
-        reply_markup=main_menu_keyboard(),
-    )
+    await message.reply_text(text, parse_mode="Markdown", reply_markup=main_menu_keyboard())
 
 async def digital_asset_info(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     query = update.callback_query
@@ -838,41 +652,25 @@ async def digital_asset_info(update: Update, context: ContextTypes.DEFAULT_TYPE)
 
     text = (
         "💎 *הנכס הדיגיטלי - ההזדמנות העסקית שלך!*\n\n"
-        
-        "🏗 *מה זה בעצם?*\n"
+        "🏗 *מה זה?*\n"
         "נכס דיגיטלי הוא 'שער כניסה' אישי שאתה קונה פעם אחת ב-39₪ ומקבל:\n"
-        "• לינק אישי משלך\n"
+        "• לינק אישי\n"
         "• זכות למכור נכסים נוספים\n"
-        "• גישה למערכת שלמה\n"
-        "• 🤖 *בוט טלגרם אישי משלך!*\n\n"
-        
-        "💸 *איך מרוויחים?*\n"
+        "• גישה למערכת\n"
+        "• 🤖 בוט טלגרם אישי\n\n"
+        "💸 *מודל הכנסה:*\n"
         "1. אתה רוכש נכס ב-39₪\n"
-        "2. מקבל לינק אישי להפצה + בוט אישי\n"
-        "3 *כל אדם* שקונה דרך הלינק שלך - הרכישה מתועדת לזכותך\n"
-        "4. הנכס שלך ממשיך להניב הכנסות\n\n"
-        
-        "🔄 *מודל מכירה חוזרת:*\n"
-        "אתה לא רק 'משתמש' - אתה 'בעל נכס'!\n"
+        "2. מקבל לינק אישי להפצה + בוט\n"
+        "3. כל רכישה דרך הלינק מתועדת לזכותך\n"
+        "4. הנכס ממשיך להניב\n\n"
+        "🔄 *מכירה חוזרת:*\n"
+        "אתה 'בעל נכס', לא רק 'משתמש'.\n"
         "יכול למכור נכסים נוספים לאחרים\n"
         "כל רכישה נוספת מתועדת בשרשרת ההפניה\n"
-        "🤖 *מקבל בוט אישי למכירות!*\n\n"
-        
-        "📈 *יתרונות:*\n"
-        "• הכנסה פסיבית מהפצות\n"
-        "• נכס ששווה יותר עם הזמן\n"
-        "• קהילה תומכת\n"
-        "• 🤖 בוט אישי למכירות\n"
-        "• שקיפות מלאה\n\n"
-        
-        "🎯 *המטרה:* ליצור רשת עסקית where everyone wins!"
+        "🤖 בוט אישי למכירות"
     )
 
-    await query.edit_message_text(
-        text,
-        parse_mode="Markdown",
-        reply_markup=main_menu_keyboard(),
-    )
+    await query.edit_message_text(text, parse_mode="Markdown", reply_markup=main_menu_keyboard())
 
 async def join_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     query = update.callback_query
@@ -885,23 +683,11 @@ async def join_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
         "• לינק הפצה ייחודי\n"
         "• גישה לקהילת עסקים\n"
         "• אפשרות למכור נכסים נוספים\n"
-        "• 🤖 *בוט טלגרם אישי משלך!*\n\n"
-        
-        "🔄 *איך התהליך עובד?*\n"
-        "1. בוחרים אמצעי תשלום\n"
-        "2. משלמים 39₪\n"
-        "3. שולחים אישור תשלום\n"
-        "4. מקבלים אישור + לינק אישי + בוט אישי\n"
-        "5. מתחילים להפיץ!\n\n"
-        
-        "💼 *זכור:* אתה קונה *נכס* - לא רק 'גישה'!"
+        "• 🤖 בוט טלגרם אישי\n\n"
+        "בחר את אמצעי התשלום:"
     )
 
-    await query.edit_message_text(
-        text,
-        parse_mode="Markdown",
-        reply_markup=payment_methods_keyboard(),
-    )
+    await query.edit_message_text(text, parse_mode="Markdown", reply_markup=payment_methods_keyboard())
 
 async def my_area_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     query = update.callback_query
@@ -914,49 +700,41 @@ async def my_area_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -
     if DB_AVAILABLE:
         summary = get_promoter_summary(user.id)
         user_bot = get_user_bot(user.id)
-        
+        personal_link = build_personal_share_link(user.id)
+
         if summary:
-            personal_link = build_personal_share_link(user.id)
             bank = summary.get("bank_details") or "לא הוגדר"
             p_group = summary.get("personal_group_link") or "לא הוגדר"
             total_ref = summary.get("total_referrals", 0)
-            
             text = (
                 "👤 *האזור האישי שלך*\n\n"
-                f"🔗 *לינק אישי:*\n`{personal_link}`\n\n"
-                f"🏦 *פרטי בנק:*\n{bank}\n\n"
-                f"👥 *קבוצה אישית:*\n{p_group}\n\n"
+                f"🔗 *לינק אישי:* `{personal_link}`\n\n"
+                f"🏦 *פרטי בנק:* {bank}\n\n"
+                f"👥 *קבוצה אישית:* {p_group}\n\n"
                 f"📊 *הפניות:* {total_ref}\n\n"
             )
-            
             if user_bot:
                 bot_link = f"https://t.me/{user_bot['bot_username']}"
                 text += f"🤖 *הבוט שלך:* פעיל - [@{user_bot['bot_username']}]({bot_link})\n\n"
             else:
                 text += "🤖 *הבוט שלך:* לא פעיל - רכוש נכס כדי לקבל בוט\n\n"
-                
             text += "*ניהול נכס:*"
         else:
             text = (
                 "👤 *האזור האישי שלך*\n\n"
-                "עדיין אין לך נכס דיגיטלי.\n"
+                "אין לך עדיין נכס דיגיטלי.\n"
                 "רכש נכס כדי לקבל:\n"
-                "• לינק אישי להפצה\n"
-                "• אפשרות למכור נכסים\n"
+                "• לינק אישי\n"
+                "• מכירה חוזרת\n"
                 "• 🤖 בוט טלגרם אישי\n"
                 "• גישה למערכת המלאה"
             )
     else:
-        text = "מערכת הזמנית לא זמינת. נסה שוב מאוחר יותר."
+        text = "מערכת הזמנית לא זמינה. נסה שוב מאוחר יותר."
 
-    await query.edit_message_text(
-        text,
-        parse_mode="Markdown",
-        reply_markup=my_area_keyboard(),
-    )
+    await query.edit_message_text(text, parse_mode="Markdown", reply_markup=my_area_keyboard())
 
 async def my_bot_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """מציג למשתמש את הבוט האישי שלו"""
     query = update.callback_query
     await query.answer()
 
@@ -966,11 +744,9 @@ async def my_bot_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
 
     if DB_AVAILABLE:
         user_bot = get_user_bot(user.id)
-        
         if user_bot and user_bot['status'] == 'active':
             bot_username = user_bot['bot_username']
             bot_link = f"https://t.me/{bot_username}"
-            
             text = (
                 "🤖 *הבוט האישי שלך*\n\n"
                 f"🔗 *קישור לבוט:* {bot_link}\n"
@@ -983,49 +759,44 @@ async def my_bot_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
                 "• להפיץ את העסק שלך\n\n"
                 "🚀 *התחל במכירות!*"
             )
-            
             keyboard = InlineKeyboardMarkup([
                 [InlineKeyboardButton("🤖 פתח את הבוט שלי", url=bot_link)],
                 [InlineKeyboardButton("⬅ חזרה", callback_data="my_area")],
             ])
         else:
             text = (
-                "🤖 *עדיין אין לך בוט אישי*\n\n"
-                "כדי לקבל בוט טלגרם אישי משלך:\n"
+                "🤖 *אין עדיין בוט אישי*\n\n"
+                "כדי לקבל בוט טלגרם אישי:\n"
                 "1. רכוש נכס דיגיטלי ב-39₪\n"
                 "2. שלח אישור תשלום\n"
-                "3. לאחר האישור - תקבל בוט אישי!\n\n"
-                "הבוט שלך יהיה מוכן למכירות וינוהל אוטומטית."
+                "3. לאחר האישור - תקבל בוט אישי\n"
             )
-            
             keyboard = InlineKeyboardMarkup([
                 [InlineKeyboardButton("💎 רכוש נכס עכשיו", callback_data="join")],
                 [InlineKeyboardButton("⬅ חזרה", callback_data="my_area")],
             ])
     else:
-        text = "מערכת הזמנית לא זמינת. נסה שוב מאוחר יותר."
-        keyboard = InlineKeyboardMarkup([
-            [InlineKeyboardButton("⬅ חזרה", callback_data="my_area")],
-        ])
+        text = "מערכת הזמנית לא זמינה. נסה שוב."
+        keyboard = InlineKeyboardMarkup([[InlineKeyboardButton("⬅ חזרה", callback_data="my_area")]])
 
-    await query.edit_message_text(
-        text,
-        parse_mode="Markdown",
-        reply_markup=keyboard,
-    )
+    await query.edit_message_text(text, parse_mode="Markdown", reply_markup=keyboard)
 
 async def payment_method_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     query = update.callback_query
     await query.answer()
     data = query.data
 
-    method_text = ""
+    # שמירת שיטת תשלום
     if data == "pay_bank":
+        context.user_data["last_pay_method"] = "bank"
         method_text = BANK_DETAILS
     elif data == "pay_paybox":
+        context.user_data["last_pay_method"] = "paybox"
         method_text = "📲 *תשלום בביט / פייבוקס / PayPal*"
     elif data == "pay_ton":
-        method_text = "💎 *תשלום ב-TON*"
+        context.user_data["last_pay_method"] = "ton"
+        ton_addr = TON_WALLET_ADDRESS or "לא הוגדר"
+        method_text = f"💎 *תשלום ב-TON*\nארנק: `{ton_addr}`"
 
     text = (
         f"{method_text}\n\n"
@@ -1037,11 +808,7 @@ async def payment_method_callback(update: Update, context: ContextTypes.DEFAULT_
         "*זכור:* אתה רוכש *נכס* - לא רק גישה!"
     )
 
-    await query.edit_message_text(
-        text,
-        parse_mode="Markdown",
-        reply_markup=payment_links_keyboard(),
-    )
+    await query.edit_message_text(text, parse_mode="Markdown", reply_markup=payment_links_keyboard())
 
 async def handle_payment_photo(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     message = update.message
@@ -1052,36 +819,24 @@ async def handle_payment_photo(update: Update, context: ContextTypes.DEFAULT_TYP
     chat_id = message.chat_id
     username = f"@{user.username}" if user and user.username else "(ללא username)"
 
-    pay_method = context.user_data.get("last_pay_method", "unknown")
+    pay_method_key = context.user_data.get("last_pay_method", "unknown")
     pay_method_text = {
         "bank": "העברה בנקאית",
         "paybox": "ביט / פייבוקס / PayPal",
         "ton": "טלגרם (TON)",
         "unknown": "לא ידוע",
-    }.get(pay_method, "לא ידוע")
+    }.get(pay_method_key, "לא ידוע")
 
-    # לוג ל-DB
     if DB_AVAILABLE:
         try:
-            log_payment(user.id, username, pay_method_text)
+            log_payment(user.id, username, pay_method_text, amount=39.00)
         except Exception as e:
             logger.error("Failed to log payment to DB: %s", e)
 
-    # שליחת אישור לקבוצת הלוגים
     photo = message.photo[-1]
     file_id = photo.file_id
 
-    payments = get_payments_store(context)
-    payments[user.id] = {
-        "file_id": file_id,
-        "pay_method": pay_method_text,
-        "username": username,
-        "chat_id": chat_id,
-    }
-
-    # יצירת לינק ישיר למשתמש
     username_link = f"https://t.me/{user.username}" if user.username else f"tg://user?id={user.id}"
-    
     caption_log = (
         f"💰 <b>אישור תשלום חדש התקבל!</b>\n\n"
         f"👤 <b>user_id:</b> <code>{user.id}</code>\n"
@@ -1115,77 +870,72 @@ async def handle_payment_photo(update: Update, context: ContextTypes.DEFAULT_TYP
         parse_mode="Markdown",
     )
 
-
 async def do_approve(target_id: int, context: ContextTypes.DEFAULT_TYPE, source_message) -> None:
-    """מאשר תשלום ומסיים את תהליך הרכישה עבור המשתמש."""
     try:
-        # שליפת משתמש מה-DB (אם קיים)
         user = get_user(target_id) if DB_AVAILABLE else None
         username = user.get("username") if user else None
 
-        # "יצירת" בוט לוגי במערכת (רשומה + לינק אישי)
+        # עדכון התשלום האחרון במצב 'pending' עבור המשתמש
+        payment_id = None
+        if DB_AVAILABLE:
+            payment_id = update_latest_payment_status_for_user(target_id, "approved", None)
+
+        # יצירת רשומת בוט לוגית + לינק אישי
         bot_data = await create_new_bot_for_user(target_id, username)
         personal_link = bot_data.get("personal_link") or build_personal_share_link(target_id)
 
-        
-        # הודעת אישור למשתמש – בלי להבטיח בוט נפרד, אלא נכס + לינק אישי
         approval_text = (
-            "🎉 התשלום אושר! ברוך הבא לבעלי הנכסים!\n\n"
-            "💎 הנכס הדיגיטלי שלך מוכן!\n\n"
-            "🔗 הלינק האישי שלך להפצה:\n"
+            "🎉 *התשלום אושר! ברוך הבא לבעלי הנכסים!*\n\n"
+            "💎 *הנכס הדיגיטלי שלך מוכן!*\n\n"
+            "🔗 *הלינק האישי שלך להפצה:*\n"
             f"{personal_link}\n\n"
-            "מה תקבל מעכשיו:\n"
-            "• זכאות לנכס דיגיטלי מקורי\n"
-            "• מעקב אחרי הפניות דרך הלינק האישי שלך\n"
+            "📲 *איך משתמשים בלינק?*\n"
+            "• שלח את הלינק לחברים, לקוחות ועוקבים\n"
+            "• כל מי שייכנס דרך הלינק יירשם תחתיך\n"
             "• כל מכירה תיזקף לזכותך במערכת\n\n"
-            "👥 גישה לקהילה:\n"
+            "👥 *גישה לקהילה:*\n"
             f"{COMMUNITY_GROUP_LINK}\n\n"
-            "💼 לאזור האישי שלך:\n"
+            "💼 *לאזור האישי שלך:*\n"
             f"פתח את @{BOT_USERNAME or 'Buy_My_Shop_bot'} ושלח /start – המערכת תזהה אותך כבעל נכס.\n\n"
-            "🚀 מכאן מתחילים לעבוד – שתף את הלינק והתחל למכור!"
+            "🚀 *מכאן מתחילים – שתף את הלינק והתחל למכור!*"
         )
 
-        await context.bot.send_message(chat_id=target_id, text=approval_text)
+        await context.bot.send_message(chat_id=target_id, text=approval_text, parse_mode="Markdown")
 
-
-        # עדכון DB
         if DB_AVAILABLE:
             try:
-                update_payment_status(target_id, "approved", None)
                 ensure_promoter(target_id)
                 incr_metric("approved_payments")
                 incr_metric("total_bots_created")
             except Exception as e:
-                logger.error("Failed to update DB: %s", e)
+                logger.error("Failed to update metrics: %s", e)
 
         if source_message:
+            status_note = f"(payment_id={payment_id})" if payment_id else "(payment_id=N/A)"
             await source_message.reply_text(
-                f"✅ אושר למשתמש {target_id} - הופעל נכס דיגיטלי ולינק אישי נוצר."
+                f"✅ אושר למשתמש {target_id} - הופעל נכס דיגיטלי ולינק אישי נוצר {status_note}."
             )
 
     except Exception as e:
         logger.error("Failed to send approval: %s", e)
         if source_message:
             await source_message.reply_text(f"❌ שגיאה באישור למשתמש {target_id}: {e}")
+
 async def do_reject(target_id: int, reason: str, context: ContextTypes.DEFAULT_TYPE, source_message) -> None:
     rejection_text = (
         "❌ *אישור התשלום נדחה*\n\n"
         f"*סיבה:* {reason}\n\n"
         "אם לדעתך מדובר בטעות, פנה לתמיכה."
     )
-    
     try:
         await context.bot.send_message(chat_id=target_id, text=rejection_text, parse_mode="Markdown")
-        
         if DB_AVAILABLE:
             try:
-                update_payment_status(target_id, "rejected", reason)
+                update_latest_payment_status_for_user(target_id, "rejected", reason)
             except Exception as e:
                 logger.error("Failed to update DB: %s", e)
-                
         if source_message:
             await source_message.reply_text(f"❌ נדחה למשתמש {target_id}")
-            
     except Exception as e:
         logger.error("Failed to send rejection: %s", e)
 
@@ -1197,11 +947,9 @@ async def admin_approve_callback(update: Update, context: ContextTypes.DEFAULT_T
     query = update.callback_query
     await query.answer()
     admin = query.from_user
-
     if admin.id not in ADMIN_IDS:
         await query.answer("אין הרשאה", show_alert=True)
         return
-
     data = query.data or ""
     try:
         _, user_id_str = data.split(":", 1)
@@ -1209,18 +957,15 @@ async def admin_approve_callback(update: Update, context: ContextTypes.DEFAULT_T
     except Exception:
         await query.answer("שגיאה", show_alert=True)
         return
-
     await do_approve(target_id, context, query.message)
 
 async def admin_reject_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     query = update.callback_query
     await query.answer()
     admin = query.from_user
-
     if admin.id not in ADMIN_IDS:
         await query.answer("אין הרשאה", show_alert=True)
         return
-
     data = query.data or ""
     try:
         _, user_id_str = data.split(":", 1)
@@ -1228,29 +973,21 @@ async def admin_reject_callback(update: Update, context: ContextTypes.DEFAULT_TY
     except Exception:
         await query.answer("שגיאה", show_alert=True)
         return
-
-    pending = get_pending_rejects(context)
-    pending[admin.id] = target_id
-
-    await query.message.reply_text(
-        f"❌ דחייה למשתמש {target_id}\nשלח סיבה:"
-    )
+    context.user_data['pending_reject_for'] = target_id
+    await query.message.reply_text(f"❌ דחייה למשתמש {target_id}\nשלח סיבה:")
 
 async def admin_reject_reason_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     user = update.effective_user
     if user is None or user.id not in ADMIN_IDS:
         return
-
-    pending = get_pending_rejects(context)
-    if user.id not in pending:
+    target_id = context.user_data.pop('pending_reject_for', None)
+    if not target_id:
         return
-
-    target_id = pending.pop(user.id)
-    reason = update.message.text.strip()
+    reason = (update.message.text or "").strip()
     await do_reject(target_id, reason, context, update.effective_message)
 
 # =========================
-# Back handlers
+# Back & support handlers
 # =========================
 
 async def back_main_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -1262,10 +999,8 @@ async def back_main_callback(update: Update, context: ContextTypes.DEFAULT_TYPE)
 async def back_support_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     query = update.callback_query
     await query.answer()
-    
     await query.edit_message_text(
-        "🆘 *תמיכה ועזרה*\n\n"
-        "בחר את סוג התמיכה שאתה צריך:",
+        "🆘 *תמיכה ועזרה*\n\nבחר את סוג התמיכה שאתה צריך:",
         parse_mode="Markdown",
         reply_markup=support_keyboard(),
     )
@@ -1273,137 +1008,89 @@ async def back_support_callback(update: Update, context: ContextTypes.DEFAULT_TY
 async def technical_support_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     query = update.callback_query
     await query.answer()
-
     text = (
         "🛠️ *תמיכה טכנית*\n\n"
-        "בחר את סוג הבעיה שאתה נתקל בה:\n\n"
-        "• 📋 דיווח באג - דיווח על תקלה טכנית\n"
-        "• ❓ בעיה טכנית - בעיה בהפעלת המערכת\n"
-        "• 🔧 בעיית תשלום - בעיה בתהליך התשלום"
+        "בחר את סוג הבעיה:\n\n"
+        "• 📋 דיווח באג\n"
+        "• ❓ בעיה טכנית\n"
+        "• 🔧 בעיית תשלום"
     )
-
-    await query.edit_message_text(
-        text,
-        parse_mode="Markdown",
-        reply_markup=technical_support_keyboard(),
-    )
+    await query.edit_message_text(text, parse_mode="Markdown", reply_markup=technical_support_keyboard())
 
 async def contact_admin_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     query = update.callback_query
     await query.answer()
-
     text = (
         "📞 *פניה למנהל*\n\n"
-        "לפנייה ישירה למנהל המערכת:\n\n"
-        f"👤 <a href='tg://user?id={DEVELOPER_USER_ID}'>לחץ כאן לשליחת הודעה למנהל</a>\n\n"
-        "או השתמש בכפתור למטה:"
+        "לפנייה ישירה למנהל:\n\n"
+        f"👤 <a href='tg://user?id={DEVELOPER_USER_ID}'>לחץ כאן לשליחת הודעה</a>\n\n"
+        "או השתמש בכפתור:"
     )
-
     keyboard = InlineKeyboardMarkup([
         [InlineKeyboardButton("👥 שלח הודעה למנהל", url=f"tg://user?id={DEVELOPER_USER_ID}")],
         [InlineKeyboardButton("⬅ חזרה", callback_data="back_support")],
     ])
-
-    await query.edit_message_text(
-        text,
-        parse_mode="HTML",
-        reply_markup=keyboard,
-        disable_web_page_preview=True
-    )
+    await query.edit_message_text(text, parse_mode="HTML", reply_markup=keyboard, disable_web_page_preview=True)
 
 async def help_support_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     query = update.callback_query
     await query.answer()
-
     text = (
         "❓ *עזרה כללית*\n\n"
-        "לעזרה כללית והסברים על המערכת:\n\n"
+        "לעזרה כללית והסברים:\n\n"
         f"👥 <a href='{SUPPORT_GROUP_LINK}'>קבוצת התמיכה שלנו</a>\n\n"
-        "בקבוצה תוכל לקבל עזרה ממשתמשים אחרים ומהצוות."
+        "בקבוצה תקבל עזרה מהצוות ומהקהילה."
     )
-
     keyboard = InlineKeyboardMarkup([
         [InlineKeyboardButton("👥 הצטרף לקבוצת התמיכה", url=SUPPORT_GROUP_LINK)],
         [InlineKeyboardButton("⬅ חזרה", callback_data="back_support")],
     ])
-
-    await query.edit_message_text(
-        text,
-        parse_mode="HTML",
-        reply_markup=keyboard,
-        disable_web_page_preview=True
-    )
+    await query.edit_message_text(text, parse_mode="HTML", reply_markup=keyboard, disable_web_page_preview=True)
 
 async def report_bug_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     query = update.callback_query
     await query.answer()
-
     context.user_data['support_type'] = 'bug_report'
-    
     await query.edit_message_text(
-        "📋 *דיווח באג*\n\n"
-        "אנא תאר את הבאג או התקלה הטכנית שאתה נתקל בה:\n\n"
-        "שלח הודעה עם פרטים מלאים על הבעיה.",
+        "📋 *דיווח באג*\n\nתאר את התקלה הטכנית.\nשלח הודעה עם פרטים.",
         parse_mode="Markdown",
     )
 
 async def tech_issue_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     query = update.callback_query
     await query.answer()
-
     context.user_data['support_type'] = 'tech_issue'
-    
     await query.edit_message_text(
-        "❓ *בעיה טכנית*\n\n"
-        "אנא תאר את הבעיה הטכנית שאתה נתקל בה:\n\n"
-        "שלח הודעה עם פרטים מלאים על הבעיה.",
+        "❓ *בעיה טכנית*\n\nתאר את הבעיה.\nשלח הודעה עם פרטים.",
         parse_mode="Markdown",
     )
 
 async def payment_issue_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     query = update.callback_query
     await query.answer()
-
     context.user_data['support_type'] = 'payment_issue'
-    
     await query.edit_message_text(
-        "🔧 *בעיית תשלום*\n\n"
-        "אנא תאר את בעיית התשלום שאתה נתקל בה:\n\n"
-        "שלח הודעה עם פרטים מלאים על הבעיה.",
+        "🔧 *בעיית תשלום*\n\nתאר את הבעיה.\nשלח הודעה עם פרטים.",
         parse_mode="Markdown",
     )
 
 async def handle_support_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """מטפל בהודעות תמיכה מהמשתמש"""
     message = update.message
     if not message or not message.text:
         return
 
     user = update.effective_user
     support_type = context.user_data.get('support_type')
-    
     if not support_type:
         return
 
-    # יצירת כרטיס תמיכה ב-DB
     ticket_id = -1
     if DB_AVAILABLE:
-        subject = {
-            'bug_report': 'דיווח באג',
-            'tech_issue': 'בעיה טכנית',
-            'payment_issue': 'בעיית תשלום'
-        }.get(support_type, 'תמיכה כללית')
-        
-        ticket_id = create_support_ticket(
-            user.id, 
-            user.username, 
-            subject, 
-            message.text
-        )
+        subj_map = {'bug_report': 'דיווח באג', 'tech_issue': 'בעיה טכנית', 'payment_issue': 'בעיית תשלום'}
+        subject = subj_map.get(support_type, 'תמיכה כללית')
+        ticket_id = create_support_ticket(user.id, subject, message.text)
 
-    # שליחת הודעה לקבוצת הלוגים
     username_link = f"https://t.me/{user.username}" if user.username else f"tg://user?id={user.id}"
-    
     support_message = (
         f"🆘 <b>כרטיס תמיכה חדש</b>\n\n"
         f"📋 <b>סוג:</b> {support_type}\n"
@@ -1424,17 +1111,13 @@ async def handle_support_message(update: Update, context: ContextTypes.DEFAULT_T
     except Exception as e:
         logger.error("Failed to send support message to log group: %s", e)
 
-    # אישור למשתמש
     await message.reply_text(
         "✅ *הודעת התמיכה התקבלה!*\n\n"
-        "ההודעה נשלחה לצוות התמיכה שלנו.\n"
-        "נחזור אליך בהקדם האפשרי.\n\n"
+        "נחזור אליך בהקדם.\n\n"
         f"מספר כרטיס: #{ticket_id if ticket_id != -1 else 'לא נרשם'}",
         parse_mode="Markdown",
         reply_markup=main_menu_keyboard(),
     )
-
-    # ניקוי סוג התמיכה
     context.user_data.pop('support_type', None)
 
 async def share_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -1445,7 +1128,6 @@ async def share_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     if not user:
         return
 
-    # בדיקה אם יש למשתמש כבר נכס
     has_asset = False
     if DB_AVAILABLE:
         try:
@@ -1455,337 +1137,202 @@ async def share_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
             has_asset = False
 
     if has_asset:
-        # אם יש לו נכס - הלינק האישי שלו
         personal_link = build_personal_share_link(user.id)
         text = (
             "🔗 *שתף את שער הקהילה*\n\n"
-            "הלינק האישי שלך להפצה:\n"
+            "הלינק האישי שלך:\n"
             f"`{personal_link}`\n\n"
-            "מומלץ לשתף בסטורי / סטטוס / קבוצות, ולהוסיף כמה מילים אישיות משלך.\n"
-            "כל מי שייכנס דרך הלינק וילחץ על Start בבוט – יעבור דרך שער הקהילה שלך."
+            "שתף בסטורי / סטטוס / קבוצות עם טקסט אישי."
         )
     else:
-        # אם אין לו נכס - הלינק הכללי + הסבר על 39 שיתופים
         text = (
             "🔗 *שתף את שער הקהילה*\n\n"
-            "כדי להזמין חברים לקהילה, אפשר לשלוח להם את הקישור הבא:\n"
+            "שלח לחברים את הקישור:\n"
             f"{LANDING_URL}\n\n"
-            
-            "💝 *אפשרות צדקה - 39 שיתופים*\n"
-            "לאחר 39 שיתופים איכותיים של הקישור, תוכל לקבל גישה מלאה לקהילה ללא תשלום!\n"
-            "זו הזדמנות גם למי שידו אינה משגת להצטרף ולצמוח איתנו.\n\n"
-            
-            "📢 *איך לשתף:*\n"
-            "מומלץ לשתף בסטורי / סטטוס / קבוצות\n"
-            "ולהוסיף כמה מילים אישיות משלך.\n\n"
-            
-            "*כל מי שייכנס דרך הלינק וילחץ על Start בבוט - יעבור דרך שער הקהילה.*"
+            "💝 *39 שיתופים איכותיים = גישה מלאה ללא תשלום*\n"
+            "שתף ובנה קהילה סביבך.\n"
         )
 
-    await query.message.reply_text(
-        text,
-        parse_mode="Markdown",
-    )
+    await query.message.reply_text(text, parse_mode="Markdown")
 
 async def vision_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     query = update.callback_query
     await query.answer()
-
     text = (
         "🌟 *Human Capital Protocol - SLH*\n\n"
-        
-        "💫 *מה זה SLH במשפט אחד?*\n"
-        "SLH הוא פרוטוקול הון אנושי שמחבר בין משפחות, קהילות ומומחים לרשת כלכלית אחת "
-        "– עם בוטים, חנויות, טוקן SLH, אקדמיה, משחק, ו־Exchange – כך שכל אדם יכול להפוך "
-        "לעסק, למומחה ולצומת כלכלי, מתוך הטלפון שלו.\n\n"
-        
-        "🎯 *החזון ארוך־טווח:*\n"
-        "• להפוך כל אדם ומשפחה ליחידת כלכלה עצמאית\n"
-        "• לבנות רשת מסחר גלובלית מבוזרת\n"
-        "• ליצור Meta-Economy: שכבת־על טכנולוגית\n"
-        "• להפוך את SLH לסטנדרט עולמי למדידת מומחיות\n\n"
-        
-        "🏗 *האקו־סיסטם המלא:*\n"
-        "• 🤖 Bots Layer - בוטי טלגרם\n"
-        "• 🛒 Commerce Layer - חנויות ומרקטפלייס\n"
-        "• ⛓️ Blockchain Layer - BSC + TON\n"
-        "• 🎓 Expertise Layer - Pi Index\n"
-        "• 🎮 Academy Layer - למידה ומשחק\n"
-        "• 💱 Exchange Layer - מסחר ונזילות\n\n"
-        
-        "🚀 *Human Capital Protocol*\n"
-        "SLH אינו עוד 'אפליקציה' אלא Meta-Protocol: כמו HTTP / Email לכלכלת משפחה וקהילה. "
-        "אנשים הם האלגוריתם, המערכת רק מודדת ומתגמלת.\n\n"
-        "*ידע = הון | משפחות = נכסים | קהילות = רשתות | אנשים = פרוטוקול*"
+        "SLH הוא פרוטוקול הון אנושי שמחבר בין משפחות, קהילות ומומחים לרשת כלכלית אחת.\n"
+        "Layers: Bots, Commerce, Blockchain (BSC+TON), Expertise (Pi), Academy, Exchange.\n\n"
+        "אנשים הם האלגוריתם, המערכת רק מודדת ומתגמלת."
     )
-
-    await query.edit_message_text(
-        text,
-        parse_mode="Markdown",
-        reply_markup=main_menu_keyboard(),
-    )
+    await query.edit_message_text(text, parse_mode="Markdown", reply_markup=main_menu_keyboard())
 
 # =========================
-# Additional command handlers
+# Commands
 # =========================
 
 async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """עזרה בסיסית"""
     message = update.message or update.effective_message
     if not message:
         return
-
     text = (
-        "/start – התחלה מחדש ותפריט ראשי\n"
-        "/help – עזרה\n\n"
-        "אחרי ביצוע תשלום – שלח צילום מסך של האישור לבוט.\n\n"
-        "לשיתוף שער הקהילה: כפתור '🔗 שתף את שער הקהילה' בתפריט הראשי.\n\n"
-        "למארגנים / אדמינים:\n"
+        "/start – התחלה מחדש\n"
+        "/help – עזרה\n"
         "/admin – תפריט אדמין\n"
         "/leaderboard – לוח מפנים (Top 10)\n"
         "/payments_stats – סטטיסטיקות תשלומים\n"
-        "/reward_slh <user_id> <points> <reason> – יצירת Reward ל-SLH\n"
+        "/reward_slh <user_id> <points> <reason> – יצירת Reward SLH\n"
         "/approve <user_id> – אישור תשלום\n"
         "/reject <user_id> <סיבה> – דחיית תשלום\n"
-        "או שימוש בכפתורי האישור/דחייה ליד כל תשלום בלוגים."
+        "/chatid – פרטי צ'אט\n"
+        "/my_bot – מצב הנכס שלך\n"
+        "/set_bank – עדכון פרטי בנק\n"
+        "/set_groups – עדכון קישורי קבוצות\n"
     )
-
     await message.reply_text(text)
 
-
-
-
-
-
-
 async def chatid_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """
-    מחזיר את ה-chat_id של כל צ'אט (פרטי / קבוצה / סופר-קבוצה) שבו הבוט נמצא.
-    שימוש: /chatid בתוך הקבוצה או בצ'אט פרטי.
-    """
     chat = update.effective_chat
     message = update.effective_message or update.message
     if not chat or not message:
         return
-
     chat_type = getattr(chat, "type", "unknown")
     title = getattr(chat, "title", None)
-
-    text_lines = [
+    lines = [
         "📡 פרטי הצ'אט הזה:",
         f"🆔 chat_id: {chat.id}",
         f"📂 type: {chat_type}",
     ]
     if title:
-        text_lines.append(f"🏷 title: {title}")
-
-    await message.reply_text("\n".join(text_lines))
-
+        lines.append(f"🏷 title: {title}")
+    await message.reply_text("\n".join(lines))
 
 async def admin_menu_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """פקודת /admin – תפריט אדמין"""
     if update.effective_user is None or update.effective_user.id not in ADMIN_IDS:
         await update.effective_message.reply_text(
-            "אין לך הרשאה לתפריט אדמין.\n"
-            "אם אתה צריך גישה – דבר עם המתכנת: @OsifEU"
+            "אין לך הרשאה לתפריט אדמין.\nדבר עם המתכנת: @OsifEU"
         )
         return
 
     text = (
         "🛠 *תפריט אדמין – Buy My Shop*\n\n"
-        "בחר אחת מהאפשרויות:\n"
         "• סטטוס מערכת (DB, Webhook, לינקים)\n"
-        "• מוני תמונת שער (כמה פעמים הוצגה/נשלחה)\n"
-        "• רעיונות לפיצ'רים עתידיים לבוט\n\n"
-        "פקודות נוספות:\n"
-        "/leaderboard – לוח מפנים\n"
-        "/payments_stats – דוח תשלומים\n"
-        "/reward_slh – יצירת Reward SLH\n"
+        "• לוח מפנים\n"
+        "• דוח תשלומים\n"
+        "• יצירת Rewards\n\n"
+        "גישה לדשבורד: /admin/dashboard?token=ADMIN_DASH_TOKEN"
     )
-
-    await update.effective_message.reply_text(
-        text,
-        parse_mode="Markdown",
-    )
+    await update.effective_message.reply_text(text, parse_mode="Markdown")
 
 async def approve_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """אישור תשלום למשתמש: /approve <user_id>"""
     if update.effective_user is None or update.effective_user.id not in ADMIN_IDS:
-        await update.effective_message.reply_text(
-            "אין לך הרשאה לבצע פעולה זו.\n"
-            "אם אתה חושב שזו טעות – דבר עם המתכנת: @OsifEU"
-        )
+        await update.effective_message.reply_text("אין לך הרשאה.")
         return
-
     if not context.args:
         await update.effective_message.reply_text("שימוש: /approve <user_id>")
         return
-
     try:
         target_id = int(context.args[0])
     except ValueError:
         await update.effective_message.reply_text("user_id חייב להיות מספרי.")
         return
-
     await do_approve(target_id, context, update.effective_message)
 
 async def reject_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """דחיית תשלום למשתמש: /reject <user_id> <סיבה>"""
     if update.effective_user is None or update.effective_user.id not in ADMIN_IDS:
-        await update.effective_message.reply_text(
-            "אין לך הרשאה לבצע פעולה זו.\n"
-            "אם אתה חושב שזו טעות – דבר עם המתכנת: @OsifEU"
-        )
+        await update.effective_message.reply_text("אין לך הרשאה.")
         return
-
     if len(context.args) < 2:
         await update.effective_message.reply_text("שימוש: /reject <user_id> <סיבה>")
         return
-
     try:
         target_id = int(context.args[0])
     except ValueError:
         await update.effective_message.reply_text("user_id חייב להיות מספרי.")
         return
-
     reason = " ".join(context.args[1:])
     await do_reject(target_id, reason, context, update.effective_message)
 
 async def admin_leaderboard_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """לוח מפנים – /leaderboard"""
     if update.effective_user is None or update.effective_user.id not in ADMIN_IDS:
-        await update.effective_message.reply_text(
-            "אין לך הרשאה לצפות בלוח המפנים.\n"
-            "אם אתה חושב שזו טעות – דבר עם המתכנת: @OsifEU"
-        )
+        await update.effective_message.reply_text("אין הרשאה.")
         return
-
     if not DB_AVAILABLE:
         await update.effective_message.reply_text("DB לא פעיל כרגע.")
         return
-
     try:
         rows = get_top_referrers(10)
     except Exception as e:
         logger.error("Failed to get top referrers: %s", e)
         await update.effective_message.reply_text("שגיאה בקריאת נתוני הפניות.")
         return
-
     if not rows:
         await update.effective_message.reply_text("אין עדיין נתוני הפניות.")
         return
-
     lines = ["🏆 *לוח מפנים – Top 10* \n"]
-    rank = 1
-    for row in rows:
+    for i, row in enumerate(rows, start=1):
         rid = row["referrer_id"]
         uname = row["username"] or f"ID {rid}"
         total = row["total_referrals"]
-        lines.append(f"{rank}. {uname} – {total} הפניות")
-        rank += 1
-
-    await update.effective_message.reply_text(
-        "\n".join(lines),
-        parse_mode="Markdown",
-    )
+        lines.append(f"{i}. {uname} – {total} הפניות")
+    await update.effective_message.reply_text("\n".join(lines), parse_mode="Markdown")
 
 async def admin_payments_stats_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """דוח תשלומים – /payments_stats"""
     if update.effective_user is None or update.effective_user.id not in ADMIN_IDS:
-        await update.effective_message.reply_text(
-            "אין לך הרשאה לצפות בסטטיסטיקות.\n"
-            "אם אתה צריך גישה – דבר עם המתכנת: @OsifEU"
-        )
+        await update.effective_message.reply_text("אין הרשאה.")
         return
-
     if not DB_AVAILABLE:
-        await update.effective_message.reply_text("DB לא פעיל כרגע.")
+        await update.effective_message.reply_text("DB לא פעיל.")
         return
-
-    now = datetime.utcnow()
-    year = now.year
-    month = now.month
-
     try:
         stats = get_approval_stats()
     except Exception as e:
         logger.error("Failed to get payment stats: %s", e)
-        await update.effective_message.reply_text("שגיאה בקריאת נתוני תשלום.")
+        await update.effective_message.reply_text("שגיאה בנתוני תשלום.")
         return
-
-    lines = [f"📊 *דוח תשלומים – {month:02d}/{year}* \n"]
-
-    if stats and stats.get("total", 0) > 0:
-        total = stats["total"]
-        approved = stats["approved"]
-        rejected = stats["rejected"]
-        pending = stats["pending"]
-        approval_rate = round(approved * 100 / total, 1) if total else 0.0
-        lines.append("\n*סטטוס כללי:*")
-        lines.append(f"- אושרו: {approved}")
-        lines.append(f"- נדחו: {rejected}")
-        lines.append(f"- ממתינים: {pending}")
-        lines.append(f"- אחוז אישור: {approval_rate}%")
-    else:
-        lines.append("\nאין עדיין נתונים כלליים.")
-
-    await update.effective_message.reply_text(
-        "\n".join(lines),
-        parse_mode="Markdown",
-    )
+    lines = [f"📊 *דוח תשלומים* \n"]
+    total = stats.get("total", 0)
+    approved = stats.get("approved", 0)
+    rejected = stats.get("rejected", 0)
+    pending = stats.get("pending", 0)
+    approval_rate = round(approved * 100 / total, 1) if total else 0.0
+    lines.append(f"- אושרו: {approved}")
+    lines.append(f"- נדחו: {rejected}")
+    lines.append(f"- ממתינים: {pending}")
+    lines.append(f"- אחוז אישור: {approval_rate}%")
+    await update.effective_message.reply_text("\n".join(lines), parse_mode="Markdown")
 
 async def admin_reward_slh_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """
-    יצירת Reward ידני למשתמש – לדוגמה:
-    /reward_slh <user_id> <points> <reason...>
-    """
     if update.effective_user is None or update.effective_user.id not in ADMIN_IDS:
-        await update.effective_message.reply_text(
-            "אין לך הרשאה ליצור Rewards.\n"
-            "אם אתה צריך גישה – דבר עם המתכנת: @OsifEU"
-        )
+        await update.effective_message.reply_text("אין הרשאה.")
         return
-
     if not DB_AVAILABLE:
-        await update.effective_message.reply_text("DB לא פעיל כרגע.")
+        await update.effective_message.reply_text("DB לא פעיל.")
         return
-
     if len(context.args) < 3:
-        await update.effective_message.reply_text(
-            "שימוש: /reward_slh <user_id> <points> <reason...>"
-        )
+        await update.effective_message.reply_text("שימוש: /reward_slh <user_id> <points> <reason...>")
         return
-
     try:
         target_id = int(context.args[0])
         points = int(context.args[1])
     except ValueError:
         await update.effective_message.reply_text("user_id ו-points חייבים להיות מספריים.")
         return
-
     reason = " ".join(context.args[2:])
-
     try:
-        create_reward(target_id, "SLH", reason, points)
+        create_reward(target_id, "SLH", points, reason)
     except Exception as e:
         logger.error("Failed to create reward: %s", e)
         await update.effective_message.reply_text("שגיאה ביצירת Reward.")
         return
-
-    # הודעה למשתמש (עדיין ללא mint אמיתי – לוגי)
+    await update.effective_message.reply_text(f"נוצר Reward SLH למשתמש {target_id} ({points} נק׳): {reason}")
     try:
-        await update.effective_message.reply_text(
-            f"נוצר Reward SLH למשתמש {target_id} ({points} נק׳): {reason}"
-        )
-
         await ptb_app.bot.send_message(
             chat_id=target_id,
             text=(
-                "🎁 קיבלת Reward על הפעילות שלך בקהילה!\n\n"
+                "🎁 קיבלת Reward על הפעילות שלך!\n\n"
                 f"סוג: *SLH* ({points} נק׳)\n"
                 f"סיבה: {reason}\n\n"
-                "Reward זה יאסף למאזן שלך ויאפשר הנפקת מטבעות/נכסים "
-                "דיגיטליים לפי המדיניות שתפורסם בקהילה."
+                "המאזן יאפשר מימוש הטבות לפי מדיניות הקהילה."
             ),
             parse_mode="Markdown",
         )
@@ -1793,110 +1340,68 @@ async def admin_reward_slh_command(update: Update, context: ContextTypes.DEFAULT
         logger.error("Failed to notify user about reward: %s", e)
 
 async def my_bot_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """
-    מציג למשתמש מידע על הנכס הדיגיטלי שלו (אם קיים).
-    """
     user = update.effective_user
     if user is None:
         return
-
     if not DB_AVAILABLE:
-        await update.effective_message.reply_text("DB לא פעיל כרגע, נסה מאוחר יותר.")
+        await update.effective_message.reply_text("DB לא פעיל כרגע.")
         return
-
     summary = get_promoter_summary(user.id)
     personal_link = build_personal_share_link(user.id)
-
     if not summary:
         await update.effective_message.reply_text(
-            "כרגע עדיין לא רשום לך נכס דיגיטלי כמקדם.\n"
-            "אם ביצעת תשלום והתקבל אישור – נסה שוב בעוד מספר דקות."
+            "עדיין לא רשום נכס דיגיטלי.\nאם ביצעת תשלום והתקבל אישור – נסה שוב."
         )
         return
-
     bank = summary.get("bank_details") or "לא הוגדר"
     p_group = summary.get("personal_group_link") or "לא הוגדר"
     g_group = summary.get("global_group_link") or "לא הוגדר"
     total_ref = summary.get("total_referrals", 0)
-    approved_ref = summary.get("approved_referrals", 0)
-
     text = (
         "📌 *הנכס הדיגיטלי שלך – שער קהילה אישי*\n\n"
         f"🔗 *קישור אישי להפצה:*\n{personal_link}\n\n"
-        f"🏦 *פרטי בנק לקבלת תשלום:*\n"
-        f"{bank}\n\n"
-        f"👥 *קבוצת לקוחות פרטית:*\n"
-        f"{p_group}\n\n"
-        f"👥 *קבוצת משחק/קהילה כללית:*\n"
-        f"{g_group}\n\n"
-        f"📊 *סטטוס פעילות:*\n"
-        f"- סה\"כ הפניות רשומות: {total_ref}\n"
-        f"- מהן אושרו עם תשלום: {approved_ref}\n\n"
-        "אפשר לעדכן פרטים בכל רגע עם:\n"
-        "/set_bank – עדכון פרטי בנק\n"
-        "/set_groups – עדכון קישורי קבוצות"
+        f"🏦 *פרטי בנק:*\n{bank}\n\n"
+        f"👥 *קבוצת לקוחות פרטית:*\n{p_group}\n\n"
+        f"👥 *קבוצת כללית:*\n{g_group}\n\n"
+        f"📊 *סה\"כ הפניות:* {total_ref}\n\n"
+        "עדכון פרטים:\n"
+        "/set_bank | /set_groups"
     )
-
     await update.effective_message.reply_text(text, parse_mode="Markdown")
 
 async def set_bank_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """
-    עדכון פרטי הבנק של המקדם. שימוש:
-    /set_bank <טקסט חופשי עם פרטי החשבון>
-    """
     user = update.effective_user
     if user is None:
         return
-
     if not DB_AVAILABLE:
         await update.effective_message.reply_text("DB לא פעיל כרגע, נסה מאוחר יותר.")
         return
-
     if not context.args:
         await update.effective_message.reply_text(
-            "שלח את הפקודה כך:\n"
-            "/set_bank בנק הפועלים, סניף 153, חשבון 73462, המוטב: קאופמן צביקה"
+            "שלח כך:\n/set_bank בנק, סניף, חשבון, מוטב"
         )
         return
-
     bank_details = " ".join(context.args).strip()
-
-    # נוודא שקיימת רשומת promoter
     ensure_promoter(user.id)
     update_promoter_settings(user.id, bank_details=bank_details)
-
     await update.effective_message.reply_text("פרטי הבנק עודכנו בהצלחה ✅")
 
 async def set_groups_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """
-    עדכון קישורי קבוצות. שימוש:
-    /set_groups <קישור לקבוצה שלך> <קישור לקבוצת המשחק הכללית (אופציונלי)>
-    """
     user = update.effective_user
     if user is None:
         return
-
     if not DB_AVAILABLE:
         await update.effective_message.reply_text("DB לא פעיל כרגע, נסה מאוחר יותר.")
         return
-
     if not context.args:
         await update.effective_message.reply_text(
-            "שלח את הפקודה כך:\n"
-            "/set_groups <קישור לקבוצת הלקוחות שלך> <קישור לקבוצת המשחק הכללית (אופציונלי)>"
+            "שלח כך:\n/set_groups <קישור לקבוצת הלקוחות> <קישור לקבוצת הכללית (אופציונלי)>"
         )
         return
-
     personal_group_link = context.args[0]
     global_group_link = context.args[1] if len(context.args) > 1 else None
-
     ensure_promoter(user.id)
-    update_promoter_settings(
-        user.id,
-        personal_group_link=personal_group_link,
-        global_group_link=global_group_link,
-    )
-
+    update_promoter_settings(user.id, personal_group_link=personal_group_link, global_group_link=global_group_link)
     await update.effective_message.reply_text("קישורי הקבוצות עודכנו בהצלחה ✅")
 
 # =========================
@@ -1931,18 +1436,8 @@ ptb_app.add_handler(CallbackQueryHandler(my_bot_callback, pattern="^my_bot$"))
 ptb_app.add_handler(CallbackQueryHandler(admin_approve_callback, pattern="^adm_approve:"))
 ptb_app.add_handler(CallbackQueryHandler(admin_reject_callback, pattern="^adm_reject:"))
 
-# handlers לתמיכה טכנית
-ptb_app.add_handler(CallbackQueryHandler(report_bug_callback, pattern="^report_bug$"))
-ptb_app.add_handler(CallbackQueryHandler(tech_issue_callback, pattern="^tech_issue$"))
-ptb_app.add_handler(CallbackQueryHandler(payment_issue_callback, pattern="^payment_issue$"))
-
-# כל תמונה בפרטי – נניח כאישור תשלום
 ptb_app.add_handler(MessageHandler(filters.PHOTO & filters.ChatType.PRIVATE, handle_payment_photo))
-
-# הודעות תמיכה טכנית
 ptb_app.add_handler(MessageHandler(filters.TEXT & filters.ChatType.PRIVATE, handle_support_message))
-
-# הודעת טקסט מאדמין – אם יש דחייה ממתינה
 ptb_app.add_handler(MessageHandler(filters.TEXT & filters.User(list(ADMIN_IDS)), admin_reject_reason_handler))
 
 if __name__ == "__main__":
