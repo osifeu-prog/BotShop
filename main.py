@@ -294,8 +294,10 @@ if BOT_TOKEN:
 COMMUNITY_GROUP_LINK = os.environ.get("COMMUNITY_GROUP_LINK", "https://t.me/+HIzvM8sEgh1kNWY0")
 SUPPORT_GROUP_LINK = os.environ.get("SUPPORT_GROUP_LINK", "https://t.me/+1ANn25HeVBoxNmRk")
 DEVELOPER_USER_ID = 224223270
-PAYMENTS_LOG_CHAT_ID = -1001748319682
-SUPPORT_LOG_CHAT_ID = -1001748319682
+
+# ניתן להגדיר קבוצות לוגים דרך משתני סביבה (מחרוזות של chat_id)
+PAYMENTS_LOG_CHAT_ID = int(os.environ.get("PAYMENTS_LOG_CHAT_ID", "-1001748319682"))
+SUPPORT_LOG_CHAT_ID = int(os.environ.get("SUPPORT_LOG_CHAT_ID", str(PAYMENTS_LOG_CHAT_ID)))
 
 def build_personal_share_link(user_id: int) -> str:
     base_username = BOT_USERNAME or "Buy_My_Shop_bot"
