@@ -70,16 +70,7 @@ def init_schema() -> None:
             """
         )
 
-        
-        # שדה שפה למשתמשים (אם לא קיים)
-        try:
-            cur.execute(
-                "ALTER TABLE users ADD COLUMN IF NOT EXISTS language TEXT"
-            )
-        except Exception as e:
-            logger.debug("language column may already exist or cannot be altered: %s", e)
-
-# payments – תשלומים / אישורים
+        # payments – תשלומים / אישורים
         cur.execute(
             """
             CREATE TABLE IF NOT EXISTS payments (
@@ -180,51 +171,6 @@ def store_user(user_id: int, username: Optional[str]) -> None:
             """,
             (user_id, username),
         )
-
-def set_user_language(user_id: int, language: str) -> None:
-    """שומר את השפה המועדפת של המשתמש (he/en/ar/ru)."""
-    language = (language or "he")[:5]
-    with db_cursor() as (conn, cur):
-        if cur is None:
-            logger.warning("set_user_language called without DB.")
-            return
-        try:
-            cur.execute(
-                """
-                UPDATE users
-                SET language = %s
-                WHERE user_id = %s
-                """,
-                (language, user_id),
-            )
-        except Exception as e:
-            logger.error("Failed to set user language: %s", e)
-
-
-def get_user_language(user_id: int) -> Optional[str]:
-    """מחזיר את השפה המועדפת של המשתמש, אם קיימת."""
-    with db_cursor() as (conn, cur):
-        if cur is None:
-            logger.warning("get_user_language called without DB.")
-            return None
-        try:
-            cur.execute(
-                """
-                SELECT language
-                FROM users
-                WHERE user_id = %s
-                """,
-                (user_id,),
-            )
-            row = cur.fetchone()
-            if not row:
-                return None
-            return row.get("language")
-        except Exception as e:
-            logger.error("Failed to get user language: %s", e)
-            return None
-
-
 
 
 # =========================
