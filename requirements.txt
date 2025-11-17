@@ -1,7 +1,7 @@
 aiohttp
-fastapi==0.115.5
+fastapi==0.104.1
 uvicorn[standard]==0.32.0
-python-telegram-bot==22.5
+python-telegram-bot==20.7
 psycopg2-binary==2.9.9
 python-multipart==0.0.6
 web3==6.11.0
