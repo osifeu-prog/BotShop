@@ -1,107 +1,64 @@
-# Buy My Shop – Telegram Gateway Bot
+# Digital Assets Ecosystem / BOTSHOP
 
-בוט טלגרם שמשמש כ"שער כניסה" לקהילת עסקים, עם:
+Production-ready FastAPI + Telegram Bot service for managing digital assets, referrals and marketing networks.
 
-- תשלום חד־פעמי (39 ₪) במספר ערוצים (בנק, פייבוקס, ביט, PayPal, TON).
-- אישור תשלום ידני + שליחת קישור לקהילת העסקים.
-- העברת לוגים של תשלומים לקבוצת ניהול.
-- תמונת שער עם מונים (כמה פעמים הוצגה, כמה עותקים נשלחו אחרי אישור).
-- תפריט אדמין עם סטטוס מערכת, מונים ורעיונות לפיתוח עתידי.
-- אינטגרציה אופציונלית ל-PostgreSQL דרך `db.py`.
-- דף נחיתה סטטי ב-GitHub Pages לשיתוף ברשתות:
-  - `https://osifeu-prog.github.io/botshop/`
+## ENV alignment with your Railway service
 
-## קבצים עיקריים
+הקוד תומך ישירות בכל המשתנים שיש לך כבר על השרת:
 
-- `main.py` – לוגיקת הבוט + FastAPI + webhook + JobQueue.
-- `requirements.txt` – ספריות נדרשות.
-- `Procfile` – פקודת הרצה ל-PaaS (Railway).
-- `.gitignore` – הגדרות גיט.
-- `assets/start_banner.jpg` – תמונת שער ל-/start (הבוט משתמש בה).
-- `docs/index.html` – דף נחיתה ל-GitHub Pages (עם Open Graph לתמונה).
-- `db.py` (אופציונלי) – חיבור ל-PostgreSQL ללוגים של תשלומים.
-- `.env.example` – דוגמה למשתני סביבה.
+- BOT_TOKEN
+- BOT_USERNAME
+- WEBHOOK_URL (מכוון ל-/webhook שתואם לקוד)
+- ADMIN_DASH_TOKEN
+- DATABASE_URL
+- DATABASE_PUBLIC_URL (לא חובה)
+- COMMUNITY_GROUP_LINK
+- SUPPORT_GROUP_LINK
+- PAYBOX_URL
+- BIT_URL
+- PAYPAL_URL
+- LANDING_URL
+- START_IMAGE_PATH
+- TON_WALLET_ADDRESS
+- (PYTHONIOENCODING, PYTHONPATH, your_password – לא נדרשים בקוד, אבל לא מזיקים אם קיימים)
 
-## משתני סביבה (Railway → Variables)
+## GitHub Pages – תיקיית DOCS
 
-חובה:
+התיקייה `docs/` בפרויקט משמשת לאתר שיווקי סטטי ל-GitHub Pages.
 
-- `BOT_TOKEN` – הטוקן שקיבלת מ-@BotFather.
-- `WEBHOOK_URL` – ה-URL המלא של ה-webhook, לדוגמה:  
-  `https://webwook-production-4861.up.railway.app/webhook`
+- GitHub: Settings → Pages → Source = `Deploy from a branch` → `main` + folder `docs`.
+- GitHub יציג את `docs/index.html` כלנדינג.
 
-אופציונלי, אבל מומלץ:
-
-- `PAYBOX_URL` – לינק תשלום לפייבוקס (אפשר להחליף מדי פעם).
-- `BIT_URL` – לינק תשלום לביט.
-- `PAYPAL_URL` – לינק ל-PayPal.
-- `LANDING_URL` – לינק לדף הנחיתה (ברירת מחדל: GitHub Pages).
-- `START_IMAGE_PATH` – נתיב לתמונת השער (ברירת מחדל: `assets/start_banner.jpg`).
-- `DATABASE_URL` – אם משתמשים ב-PostgreSQL (מבנה: `postgres://user:pass@host:port/dbname`).
-
-## הרצה לוקאלית
+## Local Run
 
 ```bash
 python -m venv .venv
-source .venv/bin/activate  # ב-Windows: .venv\Scripts\activate
+source .venv/bin/activate  # Windows: .venv\Scripts\activate
 pip install -r requirements.txt
 
-# הגדרת משתני סביבה לדוגמה:
-export BOT_TOKEN="123:ABC"
-export WEBHOOK_URL="https://your-public-url/webhook"
+cp .env.example .env  # עדכן לערכים האמיתיים שלך
+psql "$DATABASE_URL" -f database_schema.sql
 
-uvicorn main:app --host 0.0.0.0 --port 8000
+uvicorn main:app --reload
+```
 
-Buy My Shop – Telegram Gateway Bot
-בוט טלגרם שמשמש כ"שער כניסה" לקהילת עסקים, עם:
+בדיקות:
 
-תשלום חד־פעמי (39 ₪) במספר ערוצים (בנק, פייבוקס, ביט, PayPal, TON).
-אישור תשלום ידני + שליחת קישור לקהילת העסקים.
-העברת לוגים של תשלומים לקבוצת ניהול.
-תמונת שער עם מונים (כמה פעמים הוצגה, כמה עותקים נשלחו אחרי אישור).
-תפריט אדמין עם סטטוס מערכת, מונים ורעיונות לפיתוח עתידי.
-אינטגרציה אופציונלית ל-PostgreSQL דרך db.py.
-דף נחיתה סטטי ב-GitHub Pages לשיתוף ברשתות:
-https://osifeu-prog.github.io/botshop/
+- `GET http://127.0.0.1:8000/health`
+- `GET http://127.0.0.1:8000/api/docs`
 
-**פיצ'רים חדשים:**
-- מערכת תמיכה טכנית עם כרטיסי תמיכה
-- כפתורי תמיכה בכל מקום בבוט
-- התראות משתמשים חדשים עם אפשרות לפנות ישירה
-- תמונת ברוך הבא בהפעלה ראשונה
+## Railway
 
-קבצים עיקריים
-main.py – לוגיקת הבוט + FastAPI + webhook + JobQueue.
-requirements.txt – ספריות נדרשות.
-Procfile – פקודת הרצה ל-PaaS (Railway).
-.gitignore – הגדרות גיט.
-assets/start_banner.jpg – תמונת שער ל-/start (הבוט משתמש בה).
-docs/index.html – דף נחיתה ל-GitHub Pages (עם Open Graph לתמונה).
-db.py (אופציונלי) – חיבור ל-PostgreSQL ללוגים של תשלומים.
-.env.example – דוגמה למשתני סביבה.
+1. העלה לגיטהאב
+2. Railway → New Project → GitHub → בחר Repo
+3. Variables – הזן את אותם ערכים שכבר יש לך (כמו ברשימה למעלה)
+4. ודא שה-Build מצליח
+5. בדוק:
 
-משתני סביבה (Railway → Variables)
-חובה:
+   - `https://<service>.up.railway.app/health`
+   - `/api/docs`
 
-BOT_TOKEN – הטוקן שקיבלת מ-@BotFather.
-WEBHOOK_URL – ה-URL המלא של ה-webhook, לדוגמה:
-https://webwook-production-4861.up.railway.app/webhook
-אופציונלי, אבל מומלץ:
+6. בוט:
 
-PAYBOX_URL – לינק תשלום לפייבוקס (אפשר להחליף מדי פעם).
-BIT_URL – לינק תשלום לביט.
-PAYPAL_URL – לינק ל-PayPal.
-LANDING_URL – לינק לדף הנחיתה (ברירת מחדל: GitHub Pages).
-START_IMAGE_PATH – נתיב לתמונת השער (ברירת מחדל: assets/start_banner.jpg).
-DATABASE_URL – אם משתמשים ב-PostgreSQL (מבנה: postgres://user:pass@host:port/dbname).
-
-הרצה לוקאלית
-python -m venv .venv
-source .venv/bin/activate  # ב-Windows: .venv\Scripts\activate
-pip install -r requirements.txt
-
-# הגדרת משתני סביבה לדוגמה:
-export BOT_TOKEN="123:ABC"
-export WEBHOOK_URL="https://your-public-url/webhook"
-
-uvicorn main:app --host 0.0.0.0 --port 8000
+   - ודא שתהליך `bot` רץ
+   - שלח `/start` לבוט → אמור להחזיר הודעת Welcome עם כל הלינקים שלך.
