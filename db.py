@@ -164,7 +164,23 @@ def init_schema() -> None:
             """
         )
 
-        logger.info("DB schema ensured (users, payments, referrals, rewards, promoters, metrics, support_tickets).")
+        # user_bots - בוטים אישיים למשתמשים
+        cur.execute(
+            """
+            CREATE TABLE IF NOT EXISTS user_bots (
+                id           SERIAL PRIMARY KEY,
+                user_id      BIGINT NOT NULL,
+                bot_token    TEXT NOT NULL,
+                bot_username TEXT NOT NULL,
+                webhook_url  TEXT,
+                status       TEXT NOT NULL DEFAULT 'active',  -- active/inactive
+                created_at   TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                updated_at   TIMESTAMPTZ NOT NULL DEFAULT NOW()
+            );
+            """
+        )
+
+        logger.info("DB schema ensured (users, payments, referrals, rewards, promoters, metrics, support_tickets, user_bots).")
 
 
 # =========================
@@ -599,3 +615,88 @@ def update_ticket_status(ticket_id: int, status: str) -> None:
             """,
             (status, ticket_id),
         )
+
+
+# =========================
+# user bots - בוטים אישיים
+# =========================
+
+def create_user_bot(user_id: int, bot_token: str, bot_username: str, webhook_url: str = None) -> int:
+    """
+    יוצר רשומת בוט חדשה למשתמש
+    """
+    with db_cursor() as (conn, cur):
+        if cur is None:
+            logger.warning("create_user_bot called without DB.")
+            return -1
+        
+        cur.execute(
+            """
+            INSERT INTO user_bots (user_id, bot_token, bot_username, webhook_url)
+            VALUES (%s, %s, %s, %s)
+            RETURNING id;
+            """,
+            (user_id, bot_token, bot_username, webhook_url),
+        )
+        bot_id = cur.fetchone()["id"]
+        return bot_id
+
+
+def get_user_bot(user_id: int) -> Optional[Dict[str, Any]]:
+    """
+    מחזיר את הבוט של משתמש מסוים
+    """
+    with db_cursor() as (conn, cur):
+        if cur is None:
+            return None
+        
+        cur.execute(
+            """
+            SELECT * FROM user_bots 
+            WHERE user_id = %s AND status = 'active'
+            ORDER BY created_at DESC 
+            LIMIT 1;
+            """,
+            (user_id,),
+        )
+        row = cur.fetchone()
+        return dict(row) if row else None
+
+
+def update_user_bot_status(bot_id: int, status: str) -> None:
+    """
+    מעדכן סטטוס של בוט
+    """
+    with db_cursor() as (conn, cur):
+        if cur is None:
+            logger.warning("update_user_bot_status called without DB.")
+            return
+        
+        cur.execute(
+            """
+            UPDATE user_bots 
+            SET status = %s, updated_at = NOW()
+            WHERE id = %s;
+            """,
+            (status, bot_id),
+        )
+
+
+def get_all_active_bots() -> List[Dict[str, Any]]:
+    """
+    מחזיר רשימה של כל הבוטים הפעילים
+    """
+    with db_cursor() as (conn, cur):
+        if cur is None:
+            return []
+        
+        cur.execute(
+            """
+            SELECT ub.*, u.username, u.first_name
+            FROM user_bots ub
+            LEFT JOIN users u ON ub.user_id = u.user_id
+            WHERE ub.status = 'active'
+            ORDER BY ub.created_at DESC;
+            """,
+        )
+        return [dict(row) for row in cur.fetchall()]
