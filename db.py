@@ -109,6 +109,31 @@ def init_schema() -> None:
             );
             """
         )
+        # התאמת טבלת payments לסכימה החדשה
+        cur.execute(
+            """
+            ALTER TABLE payments ADD COLUMN IF NOT EXISTS username   TEXT;
+            ALTER TABLE payments ADD COLUMN IF NOT EXISTS pay_method TEXT;
+            ALTER TABLE payments ADD COLUMN IF NOT EXISTS amount     NUMERIC NOT NULL DEFAULT 0;
+            ALTER TABLE payments ADD COLUMN IF NOT EXISTS status     TEXT    NOT NULL DEFAULT 'pending';
+            ALTER TABLE payments ADD COLUMN IF NOT EXISTS reason     TEXT;
+            ALTER TABLE payments ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
+            ALTER TABLE payments ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
+            """
+        )
+
+        # התאמת טבלת user_bots לסכימה החדשה
+        cur.execute(
+            """
+            ALTER TABLE user_bots ADD COLUMN IF NOT EXISTS bot_name    TEXT;
+            ALTER TABLE user_bots ADD COLUMN IF NOT EXISTS webhook_url TEXT;
+            ALTER TABLE user_bots ADD COLUMN IF NOT EXISTS price       NUMERIC NOT NULL DEFAULT 39.00;
+            ALTER TABLE user_bots ADD COLUMN IF NOT EXISTS status      TEXT    NOT NULL DEFAULT 'active';
+            ALTER TABLE user_bots ADD COLUMN IF NOT EXISTS created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW();
+            ALTER TABLE user_bots ADD COLUMN IF NOT EXISTS updated_at  TIMESTAMPTZ NOT NULL DEFAULT NOW();
+            """
+        )
+
 
         # bot_sales - מכירות בוטים בין משתמשים
         cur.execute(

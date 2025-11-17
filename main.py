@@ -294,8 +294,10 @@ if BOT_TOKEN:
 COMMUNITY_GROUP_LINK = os.environ.get("COMMUNITY_GROUP_LINK", "https://t.me/+HIzvM8sEgh1kNWY0")
 SUPPORT_GROUP_LINK = os.environ.get("SUPPORT_GROUP_LINK", "https://t.me/+1ANn25HeVBoxNmRk")
 DEVELOPER_USER_ID = 224223270
-PAYMENTS_LOG_CHAT_ID = -1001748319682
-SUPPORT_LOG_CHAT_ID = -1001748319682
+
+# ניתן להגדיר קבוצות לוגים דרך משתני סביבה (מחרוזת של chat_id)
+PAYMENTS_LOG_CHAT_ID = int(os.environ.get("PAYMENTS_LOG_CHAT_ID", "-1001748319682"))
+SUPPORT_LOG_CHAT_ID = int(os.environ.get("SUPPORT_LOG_CHAT_ID", str(PAYMENTS_LOG_CHAT_ID)))
 
 def build_personal_share_link(user_id: int) -> str:
     base_username = BOT_USERNAME or "Buy_My_Shop_bot"
@@ -485,7 +487,8 @@ async def admin_stats(token: str = ""):
 
     try:
         stats = get_approval_stats()
-        monthly = get_monthly_payments(datetime.utcnow().year, datetime.utcnow().month)
+        # חודשים אחרונים (ברירת מחדל: 6 חודשים)
+        monthly = get_monthly_payments()
         top_ref = get_top_referrers(5)
         active_bots = get_all_active_bots()
     except Exception as e:
@@ -499,6 +502,29 @@ async def admin_stats(token: str = ""):
         "top_referrers": top_ref,
         "active_bots_count": len(active_bots),
     }
+
+
+@app.get("/stats/summary")
+async def stats_summary():
+    """
+    תקציר סטטיסטיקות בסיסי (לקריאה בלבד, ללא הרשאת אדמין).
+    """
+    if not DB_AVAILABLE:
+        return {"db": "disabled"}
+
+    try:
+        total_starts = get_metric("total_starts") if DB_AVAILABLE else 0
+        approval = get_approval_stats()
+    except Exception as e:
+        logger.error("Failed to get stats summary: %s", e)
+        raise HTTPException(status_code=500, detail="DB error")
+
+    return {
+        "db": "enabled",
+        "total_starts": total_starts,
+        "approval_stats": approval,
+    }
+
 
 @app.post("/webhook")
 async def telegram_webhook(request: Request) -> Response:
@@ -1558,6 +1584,31 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
 
     await message.reply_text(text)
 
+
+
+async def chatid_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """
+    מחזיר את ה-chat_id של כל צ'אט (פרטי / קבוצה / סופר-קבוצה) שבו הבוט נמצא.
+    שימוש: /chatid בתוך הקבוצה או בצ'אט פרטי.
+    """
+    chat = update.effective_chat
+    message = update.effective_message or update.message
+    if not chat or not message:
+        return
+
+    chat_type = getattr(chat, "type", "unknown")
+    title = getattr(chat, "title", None)
+
+    text = (
+        "📡 *פרטי הצ'אט הזה:*\n"
+        f"🆔 chat_id: `{chat.id}`\n"
+        f"📂 type: `{chat_type}`\n"
+    )
+    if title:
+        text += f"🏷 title: {title}\n"
+
+    await message.reply_text(text, parse_mode="Markdown")
+
 async def admin_menu_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """פקודת /admin – תפריט אדמין"""
     if update.effective_user is None or update.effective_user.id not in ADMIN_IDS:
@@ -1881,6 +1932,7 @@ async def set_groups_command(update: Update, context: ContextTypes.DEFAULT_TYPE)
 
 ptb_app.add_handler(CommandHandler("start", start))
 ptb_app.add_handler(CommandHandler("help", help_command))
+ptb_app.add_handler(CommandHandler("chatid", chatid_command))
 ptb_app.add_handler(CommandHandler("admin", admin_menu_command))
 ptb_app.add_handler(CommandHandler("approve", approve_command))
 ptb_app.add_handler(CommandHandler("reject", reject_command))
