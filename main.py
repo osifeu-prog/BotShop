@@ -383,7 +383,7 @@ def get_stable_keyboard(lang: str = 'he') -> ReplyKeyboardMarkup:
             KeyboardButton(trans_manager.get_text("support", lang))
         ]
     ]
-    return ReplyKeyboardMarkup(keyboard, resize_keyboard=True, persistent=True)
+    return ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
 
 # =========================
 # API Routes for Website
@@ -669,791 +669,840 @@ def language_keyboard() -> InlineKeyboardMarkup:
     ])
 
 # =========================
+# Error Handler
+# =========================
+
+async def error_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """לוכד שגיאות שלא טופלו"""
+    logger.error("Exception while handling an update:", exc_info=context.error)
+    
+    try:
+        # נסה להודיע למשתמש על השגיאה
+        if update and update.effective_message:
+            await update.effective_message.reply_text(
+                "❌ אירעה שגיאה בלתי צפויה. נסה שוב או פנה לתמיכה.",
+                reply_markup=ReplyKeyboardRemove()
+            )
+    except:
+        pass
+
+# =========================
 # Handlers – לוגיקת הבוט
 # =========================
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    message = update.message or update.effective_message
-    if not message:
-        return
+    try:
+        message = update.message or update.effective_message
+        if not message:
+            return
 
-    user = update.effective_user
-    lang = trans_manager.get_user_language(user.id) if user else 'he'
+        user = update.effective_user
+        lang = trans_manager.get_user_language(user.id) if user else 'he'
 
-    # בדיקה אם זה משתמש חדש או תהליך תקוע
-    is_new_user = False
-    has_stuck_payment = False
-    
-    if DB_AVAILABLE and user:
-        try:
-            # בדיקה אם משתמש חדש
-            existing_user = get_user(user.id)
-            if not existing_user:
-                is_new_user = True
-                store_user(user.id, user.username)
-                incr_metric("total_starts")
-            
-            # בדיקה אם יש תשלום תלוי יותר מ-24 שעות
-            pending_count = get_pending_payments_count(user.id)
-            if pending_count > 0:
-                # כאן אפשר להוסיף לוגיקה לבדיקת זמן
-                has_stuck_payment = True
-                
-        except Exception as e:
-            logger.error("Failed to check user status: %s", e)
-
-    # לוג לקבוצת התשלומים רק למשתמשים חדשים או תהליך תקוע
-    if (is_new_user or has_stuck_payment) and PAYMENTS_LOG_CHAT_ID and update.effective_user:
-        try:
-            user = update.effective_user
-            username_str = f"@{user.username}" if user.username else "(ללא username)"
-            status_note = "🆕 משתמש חדש" if is_new_user else "⚠️ תהליך תקוע"
-            
-            log_text = (
-                f"{trans_manager.get_text('new_user_start', 'he')}\n\n"
-                f"👤 user_id: `{user.id}`\n"
-                f"📛 username: {username_str}\n"
-                f"💬 chat_id: `{update.effective_chat.id}`\n"
-                f"📊 סטטוס: {status_note}\n"
-                f"🕐 זמן: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n"
-            )
-            await context.bot.send_message(
-                chat_id=PAYMENTS_LOG_CHAT_ID,
-                text=log_text,
-                parse_mode="Markdown",
-            )
-        except Exception as e:
-            logger.error("Failed to send /start log to payments group: %s", e)
-
-    # טיפול ב-referral
-    if message.text and message.text.startswith("/start") and user:
-        parts = message.text.split()
-        if len(parts) > 1 and parts[1].startswith("ref_"):
+        # בדיקה אם זה משתמש חדש או תהליך תקוע
+        is_new_user = False
+        has_stuck_payment = False
+        
+        if DB_AVAILABLE and user:
             try:
-                referrer_id = int(parts[1].split("ref_")[1])
-                if DB_AVAILABLE and referrer_id != user.id:
-                    add_referral(referrer_id, user.id, source="bot_start")
-                    logger.info("Referral added: %s -> %s", referrer_id, user.id)
+                # בדיקה אם משתמש חדש
+                existing_user = get_user(user.id)
+                if not existing_user:
+                    is_new_user = True
+                    store_user(user.id, user.username)
+                    incr_metric("total_starts")
+                
+                # בדיקה אם יש תשלום תלוי יותר מ-24 שעות
+                pending_count = get_pending_payments_count(user.id)
+                if pending_count > 0:
+                    # כאן אפשר להוסיף לוגיקה לבדיקת זמן
+                    has_stuck_payment = True
+                    
             except Exception as e:
-                logger.error("Failed to add referral: %s", e)
+                logger.error("Failed to check user status: %s", e)
 
-    # שליחת הודעת ברוכים הבאים
-    welcome_text = {
-        'he': (
-            "🎉 *ברוך הבא לנכס הדיגיטלי המניב שלך!*\n\n"
-            
-            "💎 *מה זה הנכס הדיגיטלי?*\n"
-            "זהו שער כניסה אישי לקהילת עסקים פעילה. לאחר רכישה תקבל:\n"
-            "• לינק אישי להפצה\n"
-            "• אפשרות למכור את הנכס הלאה\n"
-            "• גישה לקבוצת משחק כללית\n"
-            "• מערכת הפניות מתגמלת\n\n"
-            
-            "🔄 *איך זה עובד?*\n"
-            "1. רוכשים נכס ב-39₪\n"
-            "2. מקבלים לינק אישי\n"
-            "3. מפיצים - כל רכישה דרך הלינק שלך מתועדת\n"
-            "4. מרוויחים מהפצות נוספות\n\n"
-            
-            "🚀 *מה תקבל?*\n"
-            "✅ גישה לקהילת עסקים\n"
-            "✅ נכס דיגיטלי אישי\n"
-            "✅ לינק הפצה ייחודי\n"
-            "✅ אפשרות מכירה חוזרת\n"
-            "✅ מערכת הפניות שקופה\n\n"
-            
-            "💼 *הנכס שלך - העסק שלך!*"
-        ),
-        'en': (
-            "🎉 *Welcome to your profitable digital asset!*\n\n"
-            
-            "💎 *What is the Digital Asset?*\n"
-            "This is a personal gateway to an active business community. After purchase you get:\n"
-            "• Personal sharing link\n"
-            "• Ability to resell the asset\n"
-            "• Access to general community group\n"
-            "• Rewarding referral system\n\n"
-            
-            "🔄 *How it works?*\n"
-            "1. Buy an asset for 39₪\n"
-            "2. Get personal link\n"
-            "3. Share - every purchase through your link is recorded\n"
-            "4. Earn from additional referrals\n\n"
-            
-            "🚀 *What you get?*\n"
-            "✅ Access to business community\n"
-            "✅ Personal digital asset\n"
-            "✅ Unique sharing link\n"
-            "✅ Resale option\n"
-            "✅ Transparent referral system\n\n"
-            
-            "💼 *Your Asset - Your Business!*"
-        ),
-        'ru': (
-            "🎉 *Добро пожаловать в ваш прибыльный цифровой актив!*\n\n"
-            
-            "💎 *Что такое цифровой актив?*\n"
-            "Это персональный вход в активное бизнес-сообщество. После покупки вы получаете:\n"
-            "• Персональную ссылку для распространения\n"
-            "• Возможность перепродажи актива\n"
-            "• Доступ к общей группе сообщества\n"
-            "• Вознаграждающую реферальную систему\n\n"
-            
-            "🔄 *Как это работает?*\n"
-            "1. Покупаете актив за 39₪\n"
-            "2. Получаете персональную ссылку\n"
-            "3. Распространяете - каждая покупка по вашей ссылке записывается\n"
-            "4. Зарабатываете на дополнительных рефералах\n\n"
-            
-            "🚀 *Что вы получаете?*\n"
-            "✅ Доступ к бизнес-сообществу\n"
-            "✅ Персональный цифровой актив\n"
-            "✅ Уникальную ссылку для распространения\n"
-            "✅ Опцию перепродажи\n"
-            "✅ Прозрачную реферальную систему\n\n"
-            
-            "💼 *Ваш актив - Ваш бизнес!*"
-        ),
-        'ar': (
-            "🎉 *مرحبًا بك في أصولك الرقمية المربحة!*\n\n"
-            
-            "💎 *ما هي الأصول الرقمية؟*\n"
-            "هذا هو المدخل الشخصي لمجتمع الأعمال النشط. بعد الشراء تحصل على:\n"
-            "• رابط مشاركة شخصي\n"
-            "• إمكانية إعادة بيع الأصل\n"
-            "• الوصول إلى مجموعة المجتمع العامة\n"
-            "• نظام إحالة مجزي\n\n"
-            
-            "🔄 *كيف يعمل؟*\n"
-            "1. شراء أصل بـ 39₪\n"
-            "2. الحصول على رابط شخصي\n"
-            "3. شارك - يتم تسجيل كل عملية شراء through رابطك\n"
-            "4. اربح من الإحالات الإضافية\n\n"
-            
-            "🚀 *ماذا تحصل؟*\n"
-            "✅ الوصول إلى مجتمع الأعمال\n"
-            "✅ الأصول الرقمية الشخصية\n"
-            "✅ رابط مشاركة فريد\n"
-            "✅ خيار إعادة البيع\n"
-            "✅ نظام إحالة شفاف\n\n"
-            
-            "💼 *أصولك - عملك!*"
-        )
-    }
+        # לוג לקבוצת התשלומים רק למשתמשים חדשים או תהליך תקוע
+        if (is_new_user or has_stuck_payment) and PAYMENTS_LOG_CHAT_ID and update.effective_user:
+            try:
+                user = update.effective_user
+                username_str = f"@{user.username}" if user.username else "(ללא username)"
+                status_note = "🆕 משתמש חדש" if is_new_user else "⚠️ תהליך תקוע"
+                
+                log_text = (
+                    f"{trans_manager.get_text('new_user_start', 'he')}\n\n"
+                    f"👤 user_id: `{user.id}`\n"
+                    f"📛 username: {username_str}\n"
+                    f"💬 chat_id: `{update.effective_chat.id}`\n"
+                    f"📊 סטטוס: {status_note}\n"
+                    f"🕐 זמן: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n"
+                )
+                await context.bot.send_message(
+                    chat_id=PAYMENTS_LOG_CHAT_ID,
+                    text=log_text,
+                    parse_mode="Markdown",
+                )
+            except Exception as e:
+                logger.error("Failed to send /start log to payments group: %s", e)
 
-    text = welcome_text.get(lang, welcome_text['he'])
+        # טיפול ב-referral
+        if message.text and message.text.startswith("/start") and user:
+            parts = message.text.split()
+            if len(parts) > 1 and parts[1].startswith("ref_"):
+                try:
+                    referrer_id = int(parts[1].split("ref_")[1])
+                    if DB_AVAILABLE and referrer_id != user.id:
+                        add_referral(referrer_id, user.id, source="bot_start")
+                        logger.info("Referral added: %s -> %s", referrer_id, user.id)
+                except Exception as e:
+                    logger.error("Failed to add referral: %s", e)
 
-    await message.reply_text(
-        text,
-        parse_mode="Markdown",
-        reply_markup=get_stable_keyboard(lang),
-    )
-
-    # הצעה לבחירת שפה אם עדיין לא נבחרה
-    if DB_AVAILABLE and (not get_user_language(user.id) or is_new_user):
-        lang_prompt = {
-            'he': "🌐 *בחר שפה / Choose language*",
-            'en': "🌐 *Choose language / اختر اللغة*", 
-            'ru': "🌐 *Выберите язык / اختر اللغة*",
-            'ar': "🌐 *اختر اللغة / Choose language*"
+        # שליחת הודעת ברוכים הבאים
+        welcome_text = {
+            'he': (
+                "🎉 *ברוך הבא לנכס הדיגיטלי המניב שלך!*\n\n"
+                
+                "💎 *מה זה הנכס הדיגיטלי?*\n"
+                "זהו שער כניסה אישי לקהילת עסקים פעילה. לאחר רכישה תקבל:\n"
+                "• לינק אישי להפצה\n"
+                "• אפשרות למכור את הנכס הלאה\n"
+                "• גישה לקבוצת משחק כללית\n"
+                "• מערכת הפניות מתגמלת\n\n"
+                
+                "🔄 *איך זה עובד?*\n"
+                "1. רוכשים נכס ב-39₪\n"
+                "2. מקבלים לינק אישי\n"
+                "3. מפיצים - כל רכישה דרך הלינק שלך מתועדת\n"
+                "4. מרוויחים מהפצות נוספות\n\n"
+                
+                "🚀 *מה תקבל?*\n"
+                "✅ גישה לקהילת עסקים\n"
+                "✅ נכס דיגיטלי אישי\n"
+                "✅ לינק הפצה ייחודי\n"
+                "✅ אפשרות מכירה חוזרת\n"
+                "✅ מערכת הפניות שקופה\n\n"
+                
+                "💼 *הנכס שלך - העסק שלך!*"
+            ),
+            'en': (
+                "🎉 *Welcome to your profitable digital asset!*\n\n"
+                
+                "💎 *What is the Digital Asset?*\n"
+                "This is a personal gateway to an active business community. After purchase you get:\n"
+                "• Personal sharing link\n"
+                "• Ability to resell the asset\n"
+                "• Access to general community group\n"
+                "• Rewarding referral system\n\n"
+                
+                "🔄 *How it works?*\n"
+                "1. Buy an asset for 39₪\n"
+                "2. Get personal link\n"
+                "3. Share - every purchase through your link is recorded\n"
+                "4. Earn from additional referrals\n\n"
+                
+                "🚀 *What you get?*\n"
+                "✅ Access to business community\n"
+                "✅ Personal digital asset\n"
+                "✅ Unique sharing link\n"
+                "✅ Resale option\n"
+                "✅ Transparent referral system\n\n"
+                
+                "💼 *Your Asset - Your Business!*"
+            ),
+            'ru': (
+                "🎉 *Добро пожаловать в ваш прибыльный цифровой актив!*\n\n"
+                
+                "💎 *Что такое цифровой актив?*\n"
+                "Это персональный вход в активное бизнес-сообщество. После покупки вы получаете:\n"
+                "• Персональную ссылку для распространения\n"
+                "• Возможность перепродажи актива\n"
+                "• Доступ к общей группе сообщества\n"
+                "• Вознаграждающую реферальную систему\n\n"
+                
+                "🔄 *Как это работает?*\n"
+                "1. Покупаете актив за 39₪\n"
+                "2. Получаете персональную ссылку\n"
+                "3. Распространяете - каждая покупка по вашей ссылке записывается\n"
+                "4. Зарабатываете на дополнительных рефералах\n\n"
+                
+                "🚀 *Что вы получаете?*\n"
+                "✅ Доступ к бизнес-сообществу\n"
+                "✅ Персональный цифровой актив\n"
+                "✅ Уникальную ссылку для распространения\n"
+                "✅ Опцию перепродажи\n"
+                "✅ Прозрачную реферальную систему\n\n"
+                
+                "💼 *Ваш актив - Ваш бизнес!*"
+            ),
+            'ar': (
+                "🎉 *مرحبًا بك في أصولك الرقمية المربحة!*\n\n"
+                
+                "💎 *ما هي الأصول الرقمية؟*\n"
+                "هذا هو المدخل الشخصي لمجتمع الأعمال النشط. بعد الشراء تحصل على:\n"
+                "• رابط مشاركة شخصي\n"
+                "• إمكانية إعادة بيع الأصل\n"
+                "• الوصول إلى مجموعة المجتمع العامة\n"
+                "• نظام إحالة مجزي\n\n"
+                
+                "🔄 *كيف يعمل؟*\n"
+                "1. شراء أصل بـ 39₪\n"
+                "2. الحصول على رابط شخصي\n"
+                "3. شارك - يتم تسجيل كل عملية شراء through رابطك\n"
+                "4. اربح من الإحالات الإضافية\n\n"
+                
+                "🚀 *ماذا تحصل؟*\n"
+                "✅ الوصول إلى مجتمع الأعمال\n"
+                "✅ الأصول الرقمية الشخصية\n"
+                "✅ رابط مشاركة فريد\n"
+                "✅ خيار إعادة البيع\n"
+                "✅ نظام إحالة شفاف\n\n"
+                
+                "💼 *أصولك - عملك!*"
+            )
         }
+
+        text = welcome_text.get(lang, welcome_text['he'])
+
         await message.reply_text(
-            lang_prompt.get(lang, lang_prompt['he']),
-            reply_markup=language_keyboard()
+            text,
+            parse_mode="Markdown",
+            reply_markup=get_stable_keyboard(lang),
         )
+
+        # הצעה לבחירת שפה אם עדיין לא נבחרה
+        if DB_AVAILABLE and (not get_user_language(user.id) or is_new_user):
+            lang_prompt = {
+                'he': "🌐 *בחר שפה / Choose language*",
+                'en': "🌐 *Choose language / اختر اللغة*", 
+                'ru': "🌐 *Выберите язык / اختر اللغة*",
+                'ar': "🌐 *اختر اللغة / Choose language*"
+            }
+            await message.reply_text(
+                lang_prompt.get(lang, lang_prompt['he']),
+                reply_markup=language_keyboard()
+            )
+
+    except Exception as e:
+        logger.error("Error in start handler: %s", e)
+        # נסה לשלוח הודעת שגיאה בסיסית
+        try:
+            if update.effective_message:
+                await update.effective_message.reply_text(
+                    "❌ אירעה שגיאה. נסה שוב או פנה לתמיכה.",
+                    reply_markup=ReplyKeyboardRemove()
+                )
+        except:
+            pass
 
 async def handle_language_selection(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """מטפל בבחירת שפה"""
-    query = update.callback_query
-    await query.answer()
-    
-    user = update.effective_user
-    lang = query.data.replace('lang_', '')
-    
-    if DB_AVAILABLE and user:
-        try:
-            update_user_language(user.id, lang)
-        except Exception as e:
-            logger.error("Failed to update user language: %s", e)
-    
-    # הודעת אישור
-    confirmation = {
-        'he': "✅ שפה נבחרה: עברית",
-        'en': "✅ Language selected: English", 
-        'ru': "✅ Язык выбран: Русский",
-        'ar': "✅ تم اختيار اللغة: العربية"
-    }
-    
-    await query.edit_message_text(
-        confirmation.get(lang, confirmation['he'])
-    )
-    
-    # שליחת הודעת ברוכים הבאים מחדש בשפה החדשה
-    fake_update = Update(update_id=update.update_id, message=query.message)
-    await start(fake_update, context)
+    try:
+        query = update.callback_query
+        await query.answer()
+        
+        user = update.effective_user
+        lang = query.data.replace('lang_', '')
+        
+        if DB_AVAILABLE and user:
+            try:
+                update_user_language(user.id, lang)
+            except Exception as e:
+                logger.error("Failed to update user language: %s", e)
+        
+        # הודעת אישור
+        confirmation = {
+            'he': "✅ שפה נבחרה: עברית",
+            'en': "✅ Language selected: English", 
+            'ru': "✅ Язык выбран: Русский",
+            'ar': "✅ تم اختيار اللغة: العربية"
+        }
+        
+        await query.edit_message_text(
+            confirmation.get(lang, confirmation['he'])
+        )
+        
+        # שליחת הודעת ברוכים הבאים מחדש בשפה החדשה
+        fake_update = Update(update_id=update.update_id, message=query.message)
+        await start(fake_update, context)
+    except Exception as e:
+        logger.error("Error in language selection: %s", e)
 
 async def digital_asset_info(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    query = update.callback_query
-    await query.answer()
-    
-    user = update.effective_user
-    lang = trans_manager.get_user_language(user.id) if user else 'he'
+    try:
+        query = update.callback_query
+        await query.answer()
+        
+        user = update.effective_user
+        lang = trans_manager.get_user_language(user.id) if user else 'he'
 
-    text = {
-        'he': (
-            "💎 *הנכס הדיגיטלי - ההזדמנות העסקית שלך!*\n\n"
-            
-            "🏗 *מה זה בעצם?*\n"
-            "נכס דיגיטלי הוא 'שער כניסה' אישי שאתה קונה פעם אחת ב-39₪ ומקבל:\n"
-            "• לינק אישי משלך\n"
-            "• זכות למכור נכסים נוספים\n"
-            "• גישה למערכת שלמה\n\n"
-            
-            "💸 *איך מרוויחים?*\n"
-            "1. אתה רוכש נכס ב-39₪\n"
-            "2. מקבל לינק אישי להפצה\n"
-            "3 *כל אדם* שקונה דרך הלינק שלך - הרכישה מתועדת לזכותך\n"
-            "4. הנכס שלך ממשיך להניב הכנסות\n\n"
-            
-            "🔄 *מודל מכירה חוזרת:*\n"
-            "אתה לא רק 'משתמש' - אתה 'בעל נכס'!\n"
-            "יכול למכור נכסים נוספים לאחרים\n"
-            "כל רכישה נוספת מתועדת בשרשרת ההפניה\n\n"
-            
-            "📈 *יתרונות:*\n"
-            "• הכנסה פסיבית מהפצות\n"
-            "• נכס ששווה יותר עם הזמן\n"
-            "• קהילה תומכת\n"
-            "• שקיפות מלאה\n\n"
-            
-            "🎯 *המטרה:* ליצור רשת עסקית where everyone wins!"
-        ),
-        'en': (
-            "💎 *The Digital Asset - Your Business Opportunity!*\n\n"
-            
-            "🏗 *What is it actually?*\n"
-            "A digital asset is a personal 'gateway' that you buy once for 39₪ and get:\n"
-            "• Your personal link\n"
-            "• Right to sell additional assets\n"
-            "• Access to complete system\n\n"
-            
-            "💸 *How to earn?*\n"
-            "1. You buy an asset for 39₪\n"
-            "2. Get personal sharing link\n"
-            "3 *Every person* who buys through your link - purchase recorded to your credit\n"
-            "4. Your asset continues to generate income\n\n"
-            
-            "🔄 *Resale model:*\n"
-            "You're not just a 'user' - you're an 'asset owner'!\n"
-            "Can sell additional assets to others\n"
-            "Every additional purchase is recorded in referral chain\n\n"
-            
-            "📈 *Advantages:*\n"
-            "• Passive income from sharing\n"
-            "• Asset that gains value over time\n"
-            "• Supportive community\n"
-            "• Full transparency\n\n"
-            
-            "🎯 *The goal:* Create business network where everyone wins!"
-        ),
-        'ru': (
-            "💎 *Цифровой актив - Ваша бизнес-возможность!*\n\n"
-            
-            "🏗 *Что это на самом деле?*\n"
-            "Цифровой актив - это персональный 'вход', который вы покупаете один раз за 39₪ и получаете:\n"
-            "• Вашу персональную ссылку\n"
-            "• Право продавать дополнительные активы\n"
-            "• Доступ к полной системе\n\n"
-            
-            "💸 *Как заработать?*\n"
-            "1. Вы покупаете актив за 39₪\n"
-            "2. Получаете персональную ссылку для распространения\n"
-            "3 *Каждый человек*, который покупает по вашей ссылке - покупка записывается в ваш зачет\n"
-            "4. Ваш актив продолжает генерировать доход\n\n"
-            
-            "🔄 *Модель перепродажи:*\n"
-            "Вы не просто 'пользователь' - вы 'владелец актива'!\n"
-            "Можете продавать дополнительные активы другим\n"
-            "Каждая дополнительная покупка записывается в реферальную цепочку\n\n"
-            
-            "📈 *Преимущества:*\n"
-            "• Пассивный доход от распространения\n"
-            "• Актив, который со временем растет в цене\n"
-            "• Поддерживающее сообщество\n"
-            "• Полная прозрачность\n\n"
-            
-            "🎯 *Цель:* Создать бизнес-сеть, где выигрывают все!"
-        ),
-        'ar': (
-            "💎 *الأصول الرقمية - فرصة عملك!*\n\n"
-            
-            "🏗 *ما هو في الواقع؟*\n"
-            "الأصل الرقمي هو 'بوابة' شخصية تشتريها once بـ 39₪ وتحصل على:\n"
-            "• رابطك الشخصي\n"
-            "• الحق في بيع أصول إضافية\n"
-            "• الوصول إلى النظام الكامل\n\n"
-            
-            "💸 *كيف تربح؟*\n"
-            "1. تشتري أصلًا بـ 39₪\n"
-            "2. احصل على رابط مشاركة شخصي\n"
-            "3 *كل شخص* يشتري through رابطك - يتم تسجيل الشراء لرصيدك\n"
-            "4. أصولك تستمر في تحقيق الدخل\n\n"
-            
-            "🔄 *نموذج إعادة البيع:*\n"
-            "أنت لست مجرد 'مستخدم' - أنت 'مالك أصول'!\n"
-            "يمكنك بيع أصول إضافية للآخرين\n"
-            "يتم تسجيل كل عملية شراء إضافية في سلسلة الإحالة\n\n"
-            
-            "📈 *مزايا:*\n"
-            "• دخل سلبي من المشاركة\n"
-            "• الأصول التي تكتسب قيمة over time\n"
-            "• مجتمع داعم\n"
-            "• شفافية كاملة\n\n"
-            
-            "🎯 *الهدف:* إنشاء شبكة أعمال where everyone wins!"
-        )
-    }
-
-    await query.edit_message_text(
-        text.get(lang, text['he']),
-        parse_mode="Markdown",
-        reply_markup=main_menu_keyboard(lang),
-    )
-
-async def join_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    query = update.callback_query
-    await query.answer()
-    
-    user = update.effective_user
-    lang = trans_manager.get_user_language(user.id) if user else 'he'
-
-    text = {
-        'he': (
-            "🔑 *רכישת הנכס הדיגיטלי - 39₪*\n\n"
-            "בתמורה ל-39₪ תקבל:\n"
-            "• נכס דיגיטלי אישי\n"
-            "• לינק הפצה ייחודי\n"
-            "• גישה לקהילת עסקים\n"
-            "• אפשרות למכור נכסים נוספים\n\n"
-            
-            "🔄 *איך התהליך עובד?*\n"
-            "1. בוחרים אמצעי תשלום\n"
-            "2. משלמים 39₪\n"
-            "3. שולחים אישור תשלום\n"
-            "4. מקבלים אישור + לינק אישי\n"
-            "5. מתחילים להפיץ!\n\n"
-            
-            "💼 *זכור:* אתה קונה *נכס* - לא רק 'גישה'!"
-        ),
-        'en': (
-            "🔑 *Digital Asset Purchase - 39₪*\n\n"
-            "In return for 39₪ you get:\n"
-            "• Personal digital asset\n"
-            "• Unique sharing link\n"
-            "• Access to business community\n"
-            "• Ability to sell additional assets\n\n"
-            
-            "🔄 *How the process works?*\n"
-            "1. Choose payment method\n"
-            "2. Pay 39₪\n"
-            "3. Send payment confirmation\n"
-            "4. Get approval + personal link\n"
-            "5. Start sharing!\n\n"
-            
-            "💼 *Remember:* You're buying an *asset* - not just 'access'!"
-        ),
-        'ru': (
-            "🔑 *Покупка цифрового актива - 39₪*\n\n"
-            "Взамен на 39₪ вы получаете:\n"
-            "• Персональный цифровой актив\n"
-            "• Уникальную ссылку для распространения\n"
-            "• Доступ к бизнес-сообществу\n"
-            "• Возможность продавать дополнительные активы\n\n"
-            
-            "🔄 *Как работает процесс?*\n"
-            "1. Выбираете способ оплаты\n"
-            "2. Платите 39₪\n"
-            "3. Отправляете подтверждение оплаты\n"
-            "4. Получаете одобрение + персональную ссылку\n"
-            "5. Начинаете распространять!\n\n"
-            
-            "💼 *Помните:* Вы покупаете *актив* - не просто 'доступ'!"
-        ),
-        'ar': (
-            "🔑 *شراء الأصول الرقمية - 39₪*\n\n"
-            "في مقابل 39₪ تحصل على:\n"
-            "• الأصول الرقمية الشخصية\n"
-            "• رابط مشاركة فريد\n"
-            "• الوصول إلى مجتمع الأعمال\n"
-            "• القدرة على بيع أصول إضافية\n\n"
-            
-            "🔄 *كيف تعمل العملية؟*\n"
-            "1. اختر طريقة الدفع\n"
-            "2. ادفع 39₪\n"
-            "3. أرسل تأكيد الدفع\n"
-            "4. احصل على الموافقة + الرابط الشخصي\n"
-            "5. ابدأ المشاركة!\n\n"
-            
-            "💼 *تذكر:* أنت تشتري *أصولًا* - ليس مجرد 'وصول'!"
-        )
-    }
-
-    await query.edit_message_text(
-        text.get(lang, text['he']),
-        parse_mode="Markdown",
-        reply_markup=payment_methods_keyboard(lang),
-    )
-
-async def my_area_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    query = update.callback_query
-    await query.answer()
-
-    user = update.effective_user
-    if not user:
-        return
-
-    lang = trans_manager.get_user_language(user.id)
-
-    if DB_AVAILABLE:
-        summary = get_promoter_summary(user.id)
-        if summary:
-            personal_link = build_personal_share_link(user.id)
-            bank = summary.get("bank_details") or "לא הוגדר"
-            p_group = summary.get("personal_group_link") or "לא הוגדר"
-            total_ref = summary.get("total_referrals", 0)
-            
-            text = {
-                'he': (
-                    "👤 *האזור האישי שלך*\n\n"
-                    f"🔗 *לינק אישי:*\n`{personal_link}`\n\n"
-                    f"🏦 *פרטי בנק:*\n{bank}\n\n"
-                    f"👥 *קבוצה אישית:*\n{p_group}\n\n"
-                    f"📊 *הפניות:* {total_ref}\n\n"
-                    "*ניהול נכס:*"
-                ),
-                'en': (
-                    "👤 *Your Personal Area*\n\n"
-                    f"🔗 *Personal link:*\n`{personal_link}`\n\n"
-                    f"🏦 *Bank details:*\n{bank}\n\n"
-                    f"👥 *Personal group:*\n{p_group}\n\n"
-                    f"📊 *Referrals:* {total_ref}\n\n"
-                    "*Asset management:*"
-                ),
-                'ru': (
-                    "👤 *Ваша личная зона*\n\n"
-                    f"🔗 *Персональная ссылка:*\n`{personal_link}`\n\n"
-                    f"🏦 *Банковские реквизиты:*\n{bank}\n\n"
-                    f"👥 *Персональная группа:*\n{p_group}\n\n"
-                    f"📊 *Рефералы:* {total_ref}\n\n"
-                    "*Управление активом:*"
-                ),
-                'ar': (
-                    "👤 *منطقتك الشخصية*\n\n"
-                    f"🔗 *رابط شخصي:*\n`{personal_link}`\n\n"
-                    f"🏦 *تفاصيل البنك:*\n{bank}\n\n"
-                    f"👥 *مجموعة شخصية:*\n{p_group}\n\n"
-                    f"📊 *الإحالات:* {total_ref}\n\n"
-                    "*إدارة الأصول:*"
-                )
-            }
-        else:
-            text = {
-                'he': (
-                    "👤 *האזור האישי שלך*\n\n"
-                    "עדיין אין לך נכס דיגיטלי.\n"
-                    "רכש נכס כדי לקבל:\n"
-                    "• לינק אישי להפצה\n"
-                    "• אפשרות למכור נכסים\n"
-                    "• גישה למערכת המלאה"
-                ),
-                'en': (
-                    "👤 *Your Personal Area*\n\n"
-                    "You don't have a digital asset yet.\n"
-                    "Purchase an asset to get:\n"
-                    "• Personal sharing link\n"
-                    "• Ability to sell assets\n"
-                    "• Access to full system"
-                ),
-                'ru': (
-                    "👤 *Ваша личная зона*\n\n"
-                    "У вас еще нет цифрового актива.\n"
-                    "Приобретите актив, чтобы получить:\n"
-                    "• Персональную ссылку для распространения\n"
-                    "• Возможность продавать активы\n"
-                    "• Доступ к полной системе"
-                ),
-                'ar': (
-                    "👤 *منطقتك الشخصية*\n\n"
-                    "ليس لديك أصول رقمية after.\n"
-                    "شراء أصول للحصول على:\n"
-                    "• رابط مشاركة شخصي\n"
-                    "• القدرة على بيع الأصول\n"
-                    "• الوصول إلى النظام الكامل"
-                )
-            }
-    else:
         text = {
-            'he': "מערכת הזמנית לא זמינת. נסה שוב מאוחר יותר.",
-            'en': "Temporary system unavailable. Try again later.",
-            'ru': "Временная система недоступна. Попробуйте позже.",
-            'ar': "النظام المؤقت غير متاح. حاول مرة أخرى later."
+            'he': (
+                "💎 *הנכס הדיגיטלי - ההזדמנות העסקית שלך!*\n\n"
+                
+                "🏗 *מה זה בעצם?*\n"
+                "נכס דיגיטלי הוא 'שער כניסה' אישי שאתה קונה פעם אחת ב-39₪ ומקבל:\n"
+                "• לינק אישי משלך\n"
+                "• זכות למכור נכסים נוספים\n"
+                "• גישה למערכת שלמה\n\n"
+                
+                "💸 *איך מרוויחים?*\n"
+                "1. אתה רוכש נכס ב-39₪\n"
+                "2. מקבל לינק אישי להפצה\n"
+                "3 *כל אדם* שקונה דרך הלינק שלך - הרכישה מתועדת לזכותך\n"
+                "4. הנכס שלך ממשיך להניב הכנסות\n\n"
+                
+                "🔄 *מודל מכירה חוזרת:*\n"
+                "אתה לא רק 'משתמש' - אתה 'בעל נכס'!\n"
+                "יכול למכור נכסים נוספים לאחרים\n"
+                "כל רכישה נוספת מתועדת בשרשרת ההפניה\n\n"
+                
+                "📈 *יתרונות:*\n"
+                "• הכנסה פסיבית מהפצות\n"
+                "• נכס ששווה יותר עם הזמן\n"
+                "• קהילה תומכת\n"
+                "• שקיפות מלאה\n\n"
+                
+                "🎯 *המטרה:* ליצור רשת עסקית where everyone wins!"
+            ),
+            'en': (
+                "💎 *The Digital Asset - Your Business Opportunity!*\n\n"
+                
+                "🏗 *What is it actually?*\n"
+                "A digital asset is a personal 'gateway' that you buy once for 39₪ and get:\n"
+                "• Your personal link\n"
+                "• Right to sell additional assets\n"
+                "• Access to complete system\n\n"
+                
+                "💸 *How to earn?*\n"
+                "1. You buy an asset for 39₪\n"
+                "2. Get personal sharing link\n"
+                "3 *Every person* who buys through your link - purchase recorded to your credit\n"
+                "4. Your asset continues to generate income\n\n"
+                
+                "🔄 *Resale model:*\n"
+                "You're not just a 'user' - you're an 'asset owner'!\n"
+                "Can sell additional assets to others\n"
+                "Every additional purchase is recorded in referral chain\n\n"
+                
+                "📈 *Advantages:*\n"
+                "• Passive income from sharing\n"
+                "• Asset that gains value over time\n"
+                "• Supportive community\n"
+                "• Full transparency\n\n"
+                
+                "🎯 *The goal:* Create business network where everyone wins!"
+            ),
+            'ru': (
+                "💎 *Цифровой актив - Ваша бизнес-возможность!*\n\n"
+                
+                "🏗 *Что это на самом деле?*\n"
+                "Цифровой актив - это персональный 'вход', который вы покупаете один раз за 39₪ и получаете:\n"
+                "• Вашу персональную ссылку\n"
+                "• Право продавать дополнительные активы\n"
+                "• Доступ к полной системе\n\n"
+                
+                "💸 *Как заработать?*\n"
+                "1. Вы покупаете актив за 39₪\n"
+                "2. Получаете персональную ссылку для распространения\n"
+                "3 *Каждый человек*, который покупает по вашей ссылке - покупка записывается в ваш зачет\n"
+                "4. Ваш актив продолжает генерировать доход\n\n"
+                
+                "🔄 *Модель перепродажи:*\n"
+                "Вы не просто 'пользователь' - вы 'владелец актива'!\n"
+                "Можете продавать дополнительные активы другим\n"
+                "Каждая дополнительная покупка записывается в реферальную цепочку\n\n"
+                
+                "📈 *Преимущества:*\n"
+                "• Пассивный доход от распространения\n"
+                "• Актив, который со временем растет в цене\n"
+                "• Поддерживающее сообщество\n"
+                "• Полная прозрачность\n\n"
+                
+                "🎯 *Цель:* Создать бизнес-сеть, где выигрывают все!"
+            ),
+            'ar': (
+                "💎 *الأصول الرقمية - فرصة عملك!*\n\n"
+                
+                "🏗 *ما هو في الواقع؟*\n"
+                "الأصل الرقمي هو 'بوابة' شخصية تشتريها once بـ 39₪ وتحصل على:\n"
+                "• رابطك الشخصي\n"
+                "• الحق في بيع أصول إضافية\n"
+                "• الوصول إلى النظام الكامل\n\n"
+                
+                "💸 *كيف تربح؟*\n"
+                "1. تشتري أصلًا بـ 39₪\n"
+                "2. احصل على رابط مشاركة شخصي\n"
+                "3 *كل شخص* يشتري through رابطك - يتم تسجيل الشراء لرصيدك\n"
+                "4. أصولك تستمر في تحقيق الدخل\n\n"
+                
+                "🔄 *نموذج إعادة البيع:*\n"
+                "أنت لست مجرد 'مستخدم' - أنت 'مالك أصول'!\n"
+                "يمكنك بيع أصول إضافية للآخرين\n"
+                "يتم تسجيل كل عملية شراء إضافية في سلسلة الإحالة\n\n"
+                
+                "📈 *مزايا:*\n"
+                "• دخل سلبي من المشاركة\n"
+                "• الأصول التي تكتسب قيمة over time\n"
+                "• مجتمع داعم\n"
+                "• شفافية كاملة\n\n"
+                
+                "🎯 *الهدف:* إنشاء شبكة أعمال where everyone wins!"
+            )
         }
 
-    await query.edit_message_text(
-        text.get(lang, text['he']),
-        parse_mode="Markdown",
-        reply_markup=my_area_keyboard(lang),
-    )
-
-async def payment_method_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    query = update.callback_query
-    await query.answer()
-    data = query.data
-    
-    user = update.effective_user
-    lang = trans_manager.get_user_language(user.id) if user else 'he'
-
-    method_text = ""
-    if data == "pay_bank":
-        method_text = BANK_DETAILS
-    elif data == "pay_paybox":
-        method_text = "📲 *תשלום בביט / פייבוקס / PayPal*"
-    elif data == "pay_ton":
-        method_text = "💎 *תשלום ב-TON*"
-
-    text = {
-        'he': (
-            f"{method_text}\n\n"
-            "💎 *לאחר התשלום:*\n"
-            "1. שלח צילום מסך של האישור\n"
-            "2. נאשר בתוך זמן קצר\n"
-            "3. תקבל את הנכס הדיגיטלי שלך\n"
-            "4. תוכל להתחיל להפיץ ולהרוויח!\n\n"
-            "*זכור:* אתה רוכש *נכס* - לא רק גישה!"
-        ),
-        'en': (
-            f"{method_text}\n\n"
-            "💎 *After payment:*\n"
-            "1. Send screenshot of confirmation\n"
-            "2. We'll approve shortly\n"
-            "3. You'll receive your digital asset\n"
-            "4. You can start sharing and earning!\n\n"
-            "*Remember:* You're buying an *asset* - not just access!"
-        ),
-        'ru': (
-            f"{method_text}\n\n"
-            "💎 *После оплаты:*\n"
-            "1. Отправьте скриншот подтверждения\n"
-            "2. Мы одобрим в ближайшее время\n"
-            "3. Вы получите ваш цифровой актив\n"
-            "4. Вы можете начать распространять и зарабатывать!\n\n"
-            "*Помните:* Вы покупаете *актив* - не просто доступ!"
-        ),
-        'ar': (
-            f"{method_text}\n\n"
-            "💎 *بعد الدفع:*\n"
-            "1. أرسل لقطة شاشة للتأكيد\n"
-            "2. سنوافق shortly\n"
-            "3. سوف تتلقى أصولك الرقمية\n"
-            "4. يمكنك البدء في المشاركة والربح!\n\n"
-            "*تذكر:* أنت تشتري *أصولًا* - ليس مجرد وصول!"
-        )
-    }
-
-    await query.edit_message_text(
-        text.get(lang, text['he']),
-        parse_mode="Markdown",
-        reply_markup=payment_links_keyboard(lang),
-    )
-
-async def handle_payment_photo(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    message = update.message
-    if not message or not message.photo:
-        return
-
-    user = update.effective_user
-    chat_id = message.chat_id
-    username = f"@{user.username}" if user and user.username else "(ללא username)"
-
-    pay_method = context.user_data.get("last_pay_method", "unknown")
-    pay_method_text = {
-        "bank": "העברה בנקאית",
-        "paybox": "ביט / פייבוקס / PayPal",
-        "ton": "טלגרם (TON)",
-        "unknown": "לא ידוע",
-    }.get(pay_method, "לא ידוע")
-
-    # לוג ל-DB
-    if DB_AVAILABLE:
-        try:
-            log_payment(user.id, username, pay_method_text)
-        except Exception as e:
-            logger.error("Failed to log payment to DB: %s", e)
-
-    # שליחת אישור לקבוצת הלוגים
-    photo = message.photo[-1]
-    file_id = photo.file_id
-
-    payments = get_payments_store(context)
-    payments[user.id] = {
-        "file_id": file_id,
-        "pay_method": pay_method_text,
-        "username": username,
-        "chat_id": chat_id,
-    }
-
-    # הודעת אישור תשלום לקבוצת הלוגים
-    caption_log = (
-        f"{trans_manager.get_text('payment_confirmation', 'he')}\n\n"
-        f"👤 user_id: `{user.id}`\n"
-        f"📛 username: {username}\n"
-        f"💳 שיטת תשלום: {pay_method_text}\n"
-        f"🕐 זמן: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n\n"
-        f"*{trans_manager.get_text('admin_approval_notice', 'he')}*"
-    )
-
-    try:
-        await context.bot.send_photo(
-            chat_id=PAYMENTS_LOG_CHAT_ID,
-            photo=file_id,
-            caption=caption_log,
+        await query.edit_message_text(
+            text.get(lang, text['he']),
             parse_mode="Markdown",
-            reply_markup=admin_approval_keyboard(user.id, 'he'),
+            reply_markup=main_menu_keyboard(lang),
         )
     except Exception as e:
-        logger.error("Failed to send payment to log group: %s", e)
+        logger.error("Error in digital_asset_info: %s", e)
 
-    # הודעת אישור למשתמש
-    user_lang = trans_manager.get_user_language(user.id)
-    confirmation_text = {
-        'he': (
-            "✅ *אישור התשלום התקבל!*\n\n"
-            "האישור נשלח לצוות שלנו לאימות.\n"
-            "תקבל הודעה עם הנכס הדיגיטלי שלך בתוך זמן קצר.\n\n"
-            "💎 *מה תקבל לאחר אישור:*\n"
-            "• לינק אישי להפצה\n"
-            "• גישה לקהילה\n"
-            "• אפשרות למכור נכסים נוספים"
-        ),
-        'en': (
-            "✅ *Payment Confirmation Received!*\n\n"
-            "The confirmation has been sent to our team for verification.\n"
-            "You will receive your digital asset shortly.\n\n"
-            "💎 *What you get after approval:*\n"
-            "• Personal sharing link\n"
-            "• Community access\n"
-            "• Ability to sell additional assets"
-        ),
-        'ru': (
-            "✅ *Подтверждение оплаты получено!*\n\n"
-            "Подтверждение отправлено нашей команде для проверки.\n"
-            "Вы получите ваш цифровой актив в ближайшее время.\n\n"
-            "💎 *Что вы получите после одобрения:*\n"
-            "• Персональная ссылка для распространения\n"
-            "• Доступ к сообществу\n"
-            "• Возможность продавать дополнительные активы"
-        ),
-        'ar': (
-            "✅ *تم استلام تأكيد الدفع!*\n\n"
-            "تم إرسال التأكيد إلى فريقنا للتحقق.\n"
-            "ستستلم أصولك الرقمية قريبًا.\n\n"
-            "💎 *ما الذي تحصل عليه after الموافقة:*\n"
-            "• رابط مشاركة شخصي\n"
-            "• الوصول إلى المجتمع\n"
-            "• القدرة على بيع أصول إضافية"
+async def join_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    try:
+        query = update.callback_query
+        await query.answer()
+        
+        user = update.effective_user
+        lang = trans_manager.get_user_language(user.id) if user else 'he'
+
+        text = {
+            'he': (
+                "🔑 *רכישת הנכס הדיגיטלי - 39₪*\n\n"
+                "בתמורה ל-39₪ תקבל:\n"
+                "• נכס דיגיטלי אישי\n"
+                "• לינק הפצה ייחודי\n"
+                "• גישה לקהילת עסקים\n"
+                "• אפשרות למכור נכסים נוספים\n\n"
+                
+                "🔄 *איך התהליך עובד?*\n"
+                "1. בוחרים אמצעי תשלום\n"
+                "2. משלמים 39₪\n"
+                "3. שולחים אישור תשלום\n"
+                "4. מקבלים אישור + לינק אישי\n"
+                "5. מתחילים להפיץ!\n\n"
+                
+                "💼 *זכור:* אתה קונה *נכס* - לא רק 'גישה'!"
+            ),
+            'en': (
+                "🔑 *Digital Asset Purchase - 39₪*\n\n"
+                "In return for 39₪ you get:\n"
+                "• Personal digital asset\n"
+                "• Unique sharing link\n"
+                "• Access to business community\n"
+                "• Ability to sell additional assets\n\n"
+                
+                "🔄 *How the process works?*\n"
+                "1. Choose payment method\n"
+                "2. Pay 39₪\n"
+                "3. Send payment confirmation\n"
+                "4. Get approval + personal link\n"
+                "5. Start sharing!\n\n"
+                
+                "💼 *Remember:* You're buying an *asset* - not just 'access'!"
+            ),
+            'ru': (
+                "🔑 *Покупка цифрового актива - 39₪*\n\n"
+                "Взамен на 39₪ вы получаете:\n"
+                "• Персональный цифровой актив\n"
+                "• Уникальную ссылку для распространения\n"
+                "• Доступ к бизнес-сообществу\n"
+                "• Возможность продавать дополнительные активы\n\n"
+                
+                "🔄 *Как работает процесс?*\n"
+                "1. Выбираете способ оплаты\n"
+                "2. Платите 39₪\n"
+                "3. Отправляете подтверждение оплаты\n"
+                "4. Получаете одобрение + персональную ссылку\n"
+                "5. Начинаете распространять!\n\n"
+                
+                "💼 *Помните:* Вы покупаете *актив* - не просто 'доступ'!"
+            ),
+            'ar': (
+                "🔑 *شراء الأصول الرقمية - 39₪*\n\n"
+                "في مقابل 39₪ تحصل على:\n"
+                "• الأصول الرقمية الشخصية\n"
+                "• رابط مشاركة فريد\n"
+                "• الوصول إلى مجتمع الأعمال\n"
+                "• القدرة على بيع أصول إضافية\n\n"
+                
+                "🔄 *كيف تعمل العملية؟*\n"
+                "1. اختر طريقة الدفع\n"
+                "2. ادفع 39₪\n"
+                "3. أرسل تأكيد الدفع\n"
+                "4. احصل على الموافقة + الرابط الشخصي\n"
+                "5. ابدأ المشاركة!\n\n"
+                
+                "💼 *تذكر:* أنت تشتري *أصولًا* - ليس مجرد 'وصول'!"
+            )
+        }
+
+        await query.edit_message_text(
+            text.get(lang, text['he']),
+            parse_mode="Markdown",
+            reply_markup=payment_methods_keyboard(lang),
         )
-    }
+    except Exception as e:
+        logger.error("Error in join_callback: %s", e)
 
-    await message.reply_text(
-        confirmation_text.get(user_lang, confirmation_text['he']),
-        parse_mode="Markdown",
-    )
+async def my_area_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    try:
+        query = update.callback_query
+        await query.answer()
+
+        user = update.effective_user
+        if not user:
+            return
+
+        lang = trans_manager.get_user_language(user.id)
+
+        if DB_AVAILABLE:
+            summary = get_promoter_summary(user.id)
+            if summary:
+                personal_link = build_personal_share_link(user.id)
+                bank = summary.get("bank_details") or "לא הוגדר"
+                p_group = summary.get("personal_group_link") or "לא הוגדר"
+                total_ref = summary.get("total_referrals", 0)
+                
+                text = {
+                    'he': (
+                        "👤 *האזור האישי שלך*\n\n"
+                        f"🔗 *לינק אישי:*\n`{personal_link}`\n\n"
+                        f"🏦 *פרטי בנק:*\n{bank}\n\n"
+                        f"👥 *קבוצה אישית:*\n{p_group}\n\n"
+                        f"📊 *הפניות:* {total_ref}\n\n"
+                        "*ניהול נכס:*"
+                    ),
+                    'en': (
+                        "👤 *Your Personal Area*\n\n"
+                        f"🔗 *Personal link:*\n`{personal_link}`\n\n"
+                        f"🏦 *Bank details:*\n{bank}\n\n"
+                        f"👥 *Personal group:*\n{p_group}\n\n"
+                        f"📊 *Referrals:* {total_ref}\n\n"
+                        "*Asset management:*"
+                    ),
+                    'ru': (
+                        "👤 *Ваша личная зона*\n\n"
+                        f"🔗 *Персональная ссылка:*\n`{personal_link}`\n\n"
+                        f"🏦 *Банковские реквизиты:*\n{bank}\n\n"
+                        f"👥 *Персональная группа:*\n{p_group}\n\n"
+                        f"📊 *Рефералы:* {total_ref}\n\n"
+                        "*Управление активом:*"
+                    ),
+                    'ar': (
+                        "👤 *منطقتك الشخصية*\n\n"
+                        f"🔗 *رابط شخصي:*\n`{personal_link}`\n\n"
+                        f"🏦 *تفاصيل البنك:*\n{bank}\n\n"
+                        f"👥 *مجموعة شخصية:*\n{p_group}\n\n"
+                        f"📊 *الإحالات:* {total_ref}\n\n"
+                        "*إدارة الأصول:*"
+                    )
+                }
+            else:
+                text = {
+                    'he': (
+                        "👤 *האזור האישי שלך*\n\n"
+                        "עדיין אין לך נכס דיגיטלי.\n"
+                        "רכש נכס כדי לקבל:\n"
+                        "• לינק אישי להפצה\n"
+                        "• אפשרות למכור נכסים\n"
+                        "• גישה למערכת המלאה"
+                    ),
+                    'en': (
+                        "👤 *Your Personal Area*\n\n"
+                        "You don't have a digital asset yet.\n"
+                        "Purchase an asset to get:\n"
+                        "• Personal sharing link\n"
+                        "• Ability to sell assets\n"
+                        "• Access to full system"
+                    ),
+                    'ru': (
+                        "👤 *Ваша личная зона*\n\n"
+                        "У вас еще нет цифрового актива.\n"
+                        "Приобретите актив, чтобы получить:\n"
+                        "• Персональную ссылку для распространения\n"
+                        "• Возможность продавать активы\n"
+                        "• Доступ к полной системе"
+                    ),
+                    'ar': (
+                        "👤 *منطقتك الشخصية*\n\n"
+                        "ليس لديك أصول رقمية after.\n"
+                        "شراء أصول للحصول على:\n"
+                        "• رابط مشاركة شخصي\n"
+                        "• القدرة على بيع الأصول\n"
+                        "• الوصول إلى النظام الكامل"
+                    )
+                }
+        else:
+            text = {
+                'he': "מערכת הזמנית לא זמינת. נסה שוב מאוחר יותר.",
+                'en': "Temporary system unavailable. Try again later.",
+                'ru': "Временная система недоступна. Попробуйте позже.",
+                'ar': "النظام المؤقت غير متاح. حاول مرة أخرى later."
+            }
+
+        await query.edit_message_text(
+            text.get(lang, text['he']),
+            parse_mode="Markdown",
+            reply_markup=my_area_keyboard(lang),
+        )
+    except Exception as e:
+        logger.error("Error in my_area_callback: %s", e)
+
+async def payment_method_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    try:
+        query = update.callback_query
+        await query.answer()
+        data = query.data
+        
+        user = update.effective_user
+        lang = trans_manager.get_user_language(user.id) if user else 'he'
+
+        method_text = ""
+        if data == "pay_bank":
+            method_text = BANK_DETAILS
+        elif data == "pay_paybox":
+            method_text = "📲 *תשלום בביט / פייבוקס / PayPal*"
+        elif data == "pay_ton":
+            method_text = "💎 *תשלום ב-TON*"
+
+        text = {
+            'he': (
+                f"{method_text}\n\n"
+                "💎 *לאחר התשלום:*\n"
+                "1. שלח צילום מסך של האישור\n"
+                "2. נאשר בתוך זמן קצר\n"
+                "3. תקבל את הנכס הדיגיטלי שלך\n"
+                "4. תוכל להתחיל להפיץ ולהרוויח!\n\n"
+                "*זכור:* אתה רוכש *נכס* - לא רק גישה!"
+            ),
+            'en': (
+                f"{method_text}\n\n"
+                "💎 *After payment:*\n"
+                "1. Send screenshot of confirmation\n"
+                "2. We'll approve shortly\n"
+                "3. You'll receive your digital asset\n"
+                "4. You can start sharing and earning!\n\n"
+                "*Remember:* You're buying an *asset* - not just access!"
+            ),
+            'ru': (
+                f"{method_text}\n\n"
+                "💎 *После оплаты:*\n"
+                "1. Отправьте скриншот подтверждения\n"
+                "2. Мы одобрим в ближайшее время\n"
+                "3. Вы получите ваш цифровой актив\n"
+                "4. Вы можете начать распространять и зарабатывать!\n\n"
+                "*Помните:* Вы покупаете *актив* - не просто доступ!"
+            ),
+            'ar': (
+                f"{method_text}\n\n"
+                "💎 *بعد الدفع:*\n"
+                "1. أرسل لقطة شاشة للتأكيد\n"
+                "2. سنوافق shortly\n"
+                "3. سوف تتلقى أصولك الرقمية\n"
+                "4. يمكنك البدء في المشاركة والربح!\n\n"
+                "*تذكر:* أنت تشتري *أصولًا* - ليس مجرد وصول!"
+            )
+        }
+
+        await query.edit_message_text(
+            text.get(lang, text['he']),
+            parse_mode="Markdown",
+            reply_markup=payment_links_keyboard(lang),
+        )
+    except Exception as e:
+        logger.error("Error in payment_method_callback: %s", e)
+
+async def handle_payment_photo(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    try:
+        message = update.message
+        if not message or not message.photo:
+            return
+
+        user = update.effective_user
+        chat_id = message.chat_id
+        username = f"@{user.username}" if user and user.username else "(ללא username)"
+
+        pay_method = context.user_data.get("last_pay_method", "unknown")
+        pay_method_text = {
+            "bank": "העברה בנקאית",
+            "paybox": "ביט / פייבוקס / PayPal",
+            "ton": "טלגרם (TON)",
+            "unknown": "לא ידוע",
+        }.get(pay_method, "לא ידוע")
+
+        # לוג ל-DB
+        if DB_AVAILABLE:
+            try:
+                log_payment(user.id, username, pay_method_text)
+            except Exception as e:
+                logger.error("Failed to log payment to DB: %s", e)
+
+        # שליחת אישור לקבוצת הלוגים
+        photo = message.photo[-1]
+        file_id = photo.file_id
+
+        payments = get_payments_store(context)
+        payments[user.id] = {
+            "file_id": file_id,
+            "pay_method": pay_method_text,
+            "username": username,
+            "chat_id": chat_id,
+        }
+
+        # הודעת אישור תשלום לקבוצת הלוגים
+        caption_log = (
+            f"{trans_manager.get_text('payment_confirmation', 'he')}\n\n"
+            f"👤 user_id: `{user.id}`\n"
+            f"📛 username: {username}\n"
+            f"💳 שיטת תשלום: {pay_method_text}\n"
+            f"🕐 זמן: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n\n"
+            f"*{trans_manager.get_text('admin_approval_notice', 'he')}*"
+        )
+
+        try:
+            await context.bot.send_photo(
+                chat_id=PAYMENTS_LOG_CHAT_ID,
+                photo=file_id,
+                caption=caption_log,
+                parse_mode="Markdown",
+                reply_markup=admin_approval_keyboard(user.id, 'he'),
+            )
+        except Exception as e:
+            logger.error("Failed to send payment to log group: %s", e)
+
+        # הודעת אישור למשתמש
+        user_lang = trans_manager.get_user_language(user.id)
+        confirmation_text = {
+            'he': (
+                "✅ *אישור התשלום התקבל!*\n\n"
+                "האישור נשלח לצוות שלנו לאימות.\n"
+                "תקבל הודעה עם הנכס הדיגיטלי שלך בתוך זמן קצר.\n\n"
+                "💎 *מה תקבל לאחר אישור:*\n"
+                "• לינק אישי להפצה\n"
+                "• גישה לקהילה\n"
+                "• אפשרות למכור נכסים נוספים"
+            ),
+            'en': (
+                "✅ *Payment Confirmation Received!*\n\n"
+                "The confirmation has been sent to our team for verification.\n"
+                "You will receive your digital asset shortly.\n\n"
+                "💎 *What you get after approval:*\n"
+                "• Personal sharing link\n"
+                "• Community access\n"
+                "• Ability to sell additional assets"
+            ),
+            'ru': (
+                "✅ *Подтверждение оплаты получено!*\n\n"
+                "Подтверждение отправлено нашей команде для проверки.\n"
+                "Вы получите ваш цифровой актив в ближайшее время.\n\n"
+                "💎 *Что вы получите после одобрения:*\n"
+                "• Персональная ссылка для распространения\n"
+                "• Доступ к сообществу\n"
+                "• Возможность продавать дополнительные активы"
+            ),
+            'ar': (
+                "✅ *تم استلام تأكيد الدفع!*\n\n"
+                "تم إرسال التأكيد إلى فريقنا للتحقق.\n"
+                "ستستلم أصولك الرقمية قريبًا.\n\n"
+                "💎 *ما الذي تحصل عليه after الموافقة:*\n"
+                "• رابط مشاركة شخصي\n"
+                "• الوصول إلى المجتمع\n"
+                "• القدرة على بيع أصول إضافية"
+            )
+        }
+
+        await message.reply_text(
+            confirmation_text.get(user_lang, confirmation_text['he']),
+            parse_mode="Markdown",
+        )
+    except Exception as e:
+        logger.error("Error in handle_payment_photo: %s", e)
 
 async def do_approve(target_id: int, context: ContextTypes.DEFAULT_TYPE, source_message) -> None:
-    personal_link = build_personal_share_link(target_id)
-    
-    # הודעת אישור למשתמש
-    user_lang = trans_manager.get_user_language(target_id)
-    approval_text = {
-        'he': (
-            "🎉 *התשלום אושר! ברוך הבא לבעלי הנכסים!*\n\n"
-            
-            "💎 *הנכס הדיגיטלי שלך מוכן:*\n"
-            f"🔗 *לינק אישי:* `{personal_link}`\n\n"
-            
-            "🚀 *מה עכשיו?*\n"
-            "1. שתף את הלינק עם אחרים\n"
-            "2. كل רכישה דרך הלינק שלך מתועדת\n"
-            "3. תוכל למכור נכסים נוספים\n"
-            "4. צבור הכנסה מהפצות\n\n"
-            
-            "👥 *גישה לקהילה:*\n"
-            f"{COMMUNITY_GROUP_LINK}\n\n"
-            
-            "💼 *ניהול הנכס:*\n"
-            "השתמש בכפתור '👤 האזור האישי שלי'\n"
-            "כדי להגדיר פרטי בנק וקבוצות"
-        ),
-        'en': (
-            "🎉 *Payment Approved! Welcome Asset Owner!*\n\n"
-            
-            "💎 *Your digital asset is ready:*\n"
-            f"🔗 *Personal link:* `{personal_link}`\n\n"
-            
-            "🚀 *What now?*\n"
-            "1. Share the link with others\n"
-            "2. Every purchase through your link is recorded\n"
-            "3. You can sell additional assets\n"
-            "4. Accumulate income from sharing\n\n"
-            
-            "👥 *Community access:*\n"
-            f"{COMMUNITY_GROUP_LINK}\n\n"
-            
-            "💼 *Asset management:*\n"
-            "Use the '👤 My Personal Area' button\n"
-            "to set bank details and groups"
-        ),
-        'ru': (
-            "🎉 *Оплата подтверждена! Добро пожаловать, владелец актива!*\n\n"
-            
-            "💎 *Ваш цифровой актив готов:*\n"
-            f"🔗 *Персональная ссылка:* `{personal_link}`\n\n"
-            
-            "🚀 *Что теперь?*\n"
-            "1. Поделитесь ссылкой с другими\n"
-            "2. Каждая покупка по вашей ссылке записывается\n"
-            "3. Вы можете продавать дополнительные активы\n"
-            "4. Накопите доход от распространения\n\n"
-            
-            "👥 *Доступ к сообществу:*\n"
-            f"{COMMUNITY_GROUP_LINK}\n\n"
-            
-            "💼 *Управление активом:*\n"
-            "Используйте кнопку '👤 Моя личная зона'\n"
-            "чтобы установить банковские реквизиты и группы"
-        ),
-        'ar': (
-            "🎉 *تمت الموافقة على الدفع! مرحبًا بك مالک الأصول!*\n\n"
-            
-            "💎 *أصولك الرقمية جاهزة:*\n"
-            f"🔗 *رابط شخصي:* `{personal_link}`\n\n"
-            
-            "🚀 *ماذا now؟*\n"
-            "1. شارك الرابط مع الآخرين\n"
-            "2. يتم تسجيل كل عملية شراء through رابطك\n"
-            "3. يمكنك بيع أصول إضافية\n"
-            "4. تراكم الدخل من المشاركة\n\n"
-            
-            "👥 *الوصول إلى المجتمع:*\n"
-            f"{COMMUNITY_GROUP_LINK}\n\n"
-            
-            "💼 *إدارة الأصول:*\n"
-            "استخدم زر '👤 منطقتي الشخصية'\n"
-            "لتعيين تفاصيل البنك والمجموعات"
-        )
-    }
-
     try:
+        personal_link = build_personal_share_link(target_id)
+        
+        # הודעת אישור למשתמש
+        user_lang = trans_manager.get_user_language(target_id)
+        approval_text = {
+            'he': (
+                "🎉 *התשלום אושר! ברוך הבא לבעלי הנכסים!*\n\n"
+                
+                "💎 *הנכס הדיגיטלי שלך מוכן:*\n"
+                f"🔗 *לינק אישי:* `{personal_link}`\n\n"
+                
+                "🚀 *מה עכשיו?*\n"
+                "1. שתף את הלינק עם אחרים\n"
+                "2. كل רכישה דרך הלינק שלך מתועדת\n"
+                "3. תוכל למכור נכסים נוספים\n"
+                "4. צבור הכנסה מהפצות\n\n"
+                
+                "👥 *גישה לקהילה:*\n"
+                f"{COMMUNITY_GROUP_LINK}\n\n"
+                
+                "💼 *ניהול הנכס:*\n"
+                "השתמש בכפתור '👤 האזור האישי שלי'\n"
+                "כדי להגדיר פרטי בנק וקבוצות"
+            ),
+            'en': (
+                "🎉 *Payment Approved! Welcome Asset Owner!*\n\n"
+                
+                "💎 *Your digital asset is ready:*\n"
+                f"🔗 *Personal link:* `{personal_link}`\n\n"
+                
+                "🚀 *What now?*\n"
+                "1. Share the link with others\n"
+                "2. Every purchase through your link is recorded\n"
+                "3. You can sell additional assets\n"
+                "4. Accumulate income from sharing\n\n"
+                
+                "👥 *Community access:*\n"
+                f"{COMMUNITY_GROUP_LINK}\n\n"
+                
+                "💼 *Asset management:*\n"
+                "Use the '👤 My Personal Area' button\n"
+                "to set bank details and groups"
+            ),
+            'ru': (
+                "🎉 *Оплата подтверждена! Добро пожаловать, владелец актива!*\n\n"
+                
+                "💎 *Ваш цифровой актив готов:*\n"
+                f"🔗 *Персональная ссылка:* `{personal_link}`\n\n"
+                
+                "🚀 *Что теперь?*\n"
+                "1. Поделитесь ссылкой с другими\n"
+                "2. Каждая покупка по вашей ссылке записывается\n"
+                "3. Вы можете продавать дополнительные активы\n"
+                "4. Накопите доход от распространения\n\n"
+                
+                "👥 *Доступ к сообществу:*\n"
+                f"{COMMUNITY_GROUP_LINK}\n\n"
+                
+                "💼 *Управление активом:*\n"
+                "Используйте кнопку '👤 Моя личная зона'\n"
+                "чтобы установить банковские реквизиты и группы"
+            ),
+            'ar': (
+                "🎉 *تمت الموافقة على الدفع! مرحبًا بك مالک الأصول!*\n\n"
+                
+                "💎 *أصولك الرقمية جاهزة:*\n"
+                f"🔗 *رابط شخصي:* `{personal_link}`\n\n"
+                
+                "🚀 *ماذا now؟*\n"
+                "1. شارك الرابط مع الآخرين\n"
+                "2. يتم تسجيل كل عملية شراء through رابطك\n"
+                "3. يمكنك بيع أصول إضافية\n"
+                "4. تراكم الدخل من المشاركة\n\n"
+                
+                "👥 *الوصول إلى المجتمع:*\n"
+                f"{COMMUNITY_GROUP_LINK}\n\n"
+                
+                "💼 *إدارة الأصول:*\n"
+                "استخدم زر '👤 منطقتي الشخصية'\n"
+                "لتعيين تفاصيل البنك والمجموعات"
+            )
+        }
+
         await context.bot.send_message(
             chat_id=target_id, 
             text=approval_text.get(user_lang, approval_text['he']), 
@@ -1492,31 +1541,31 @@ async def do_approve(target_id: int, context: ContextTypes.DEFAULT_TYPE, source_
         logger.error("Failed to send approval: %s", e)
 
 async def do_reject(target_id: int, reason: str, context: ContextTypes.DEFAULT_TYPE, source_message) -> None:
-    user_lang = trans_manager.get_user_language(target_id)
-    rejection_text = {
-        'he': (
-            "❌ *אישור התשלום נדחה*\n\n"
-            f"*סיבה:* {reason}\n\n"
-            "אם לדעתך מדובר בטעות, פנה לתמיכה."
-        ),
-        'en': (
-            "❌ *Payment Approval Rejected*\n\n"
-            f"*Reason:* {reason}\n\n"
-            "If you think this is a mistake, contact support."
-        ),
-        'ru': (
-            "❌ *Подтверждение оплаты отклонено*\n\n"
-            f"*Причина:* {reason}\n\n"
-            "Если вы считаете, что это ошибка, обратитесь в поддержку."
-        ),
-        'ar': (
-            "❌ *تم رفض تأكيد الدفع*\n\n"
-            f"*السبب:* {reason}\n\n"
-            "إذا كنت تعتقد أن هذا خطأ، اتصل بالدعم."
-        )
-    }
-    
     try:
+        user_lang = trans_manager.get_user_language(target_id)
+        rejection_text = {
+            'he': (
+                "❌ *אישור התשלום נדחה*\n\n"
+                f"*סיבה:* {reason}\n\n"
+                "אם לדעתך מדובר בטעות, פנה לתמיכה."
+            ),
+            'en': (
+                "❌ *Payment Approval Rejected*\n\n"
+                f"*Reason:* {reason}\n\n"
+                "If you think this is a mistake, contact support."
+            ),
+            'ru': (
+                "❌ *Подтверждение оплаты отклонено*\n\n"
+                f"*Причина:* {reason}\n\n"
+                "Если вы считаете, что это ошибка, обратитесь в поддержку."
+            ),
+            'ar': (
+                "❌ *تم رفض تأكيد الدفع*\n\n"
+                f"*السبب:* {reason}\n\n"
+                "إذا كنت تعتقد أن هذا خطأ، اتصل بالدعم."
+            )
+        }
+        
         await context.bot.send_message(
             chat_id=target_id, 
             text=rejection_text.get(user_lang, rejection_text['he']), 
@@ -1540,360 +1589,381 @@ async def do_reject(target_id: int, reason: str, context: ContextTypes.DEFAULT_T
 # =========================
 
 async def admin_approve_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    query = update.callback_query
-    await query.answer()
-    admin = query.from_user
-
-    if admin.id not in ADMIN_IDS:
-        await query.answer("אין הרשאה", show_alert=True)
-        return
-
-    data = query.data or ""
     try:
-        _, user_id_str = data.split(":", 1)
-        target_id = int(user_id_str)
-    except Exception:
-        await query.answer("שגיאה", show_alert=True)
-        return
+        query = update.callback_query
+        await query.answer()
+        admin = query.from_user
 
-    await do_approve(target_id, context, query.message)
+        if admin.id not in ADMIN_IDS:
+            await query.answer("אין הרשאה", show_alert=True)
+            return
+
+        data = query.data or ""
+        try:
+            _, user_id_str = data.split(":", 1)
+            target_id = int(user_id_str)
+        except Exception:
+            await query.answer("שגיאה", show_alert=True)
+            return
+
+        await do_approve(target_id, context, query.message)
+    except Exception as e:
+        logger.error("Error in admin_approve_callback: %s", e)
 
 async def admin_reject_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    query = update.callback_query
-    await query.answer()
-    admin = query.from_user
-
-    if admin.id not in ADMIN_IDS:
-        await query.answer("אין הרשאה", show_alert=True)
-        return
-
-    data = query.data or ""
     try:
-        _, user_id_str = data.split(":", 1)
-        target_id = int(user_id_str)
-    except Exception:
-        await query.answer("שגיאה", show_alert=True)
-        return
+        query = update.callback_query
+        await query.answer()
+        admin = query.from_user
 
-    pending = get_pending_rejects(context)
-    pending[admin.id] = target_id
+        if admin.id not in ADMIN_IDS:
+            await query.answer("אין הרשאה", show_alert=True)
+            return
 
-    await query.message.reply_text(
-        f"❌ דחייה למשתמש {target_id}\nשלח סיבה:"
-    )
+        data = query.data or ""
+        try:
+            _, user_id_str = data.split(":", 1)
+            target_id = int(user_id_str)
+        except Exception:
+            await query.answer("שגיאה", show_alert=True)
+            return
+
+        pending = get_pending_rejects(context)
+        pending[admin.id] = target_id
+
+        await query.message.reply_text(
+            f"❌ דחייה למשתמש {target_id}\nשלח סיבה:"
+        )
+    except Exception as e:
+        logger.error("Error in admin_reject_callback: %s", e)
 
 async def admin_reject_reason_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    user = update.effective_user
-    if user is None or user.id not in ADMIN_IDS:
-        return
+    try:
+        user = update.effective_user
+        if user is None or user.id not in ADMIN_IDS:
+            return
 
-    pending = get_pending_rejects(context)
-    if user.id not in pending:
-        return
+        pending = get_pending_rejects(context)
+        if user.id not in pending:
+            return
 
-    target_id = pending.pop(user.id)
-    reason = update.message.text.strip()
-    await do_reject(target_id, reason, context, update.effective_message)
+        target_id = pending.pop(user.id)
+        reason = update.message.text.strip()
+        await do_reject(target_id, reason, context, update.effective_message)
+    except Exception as e:
+        logger.error("Error in admin_reject_reason_handler: %s", e)
 
 # =========================
 # Back handlers
 # =========================
 
 async def back_main_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    query = update.callback_query
-    await query.answer()
-    fake_update = Update(update_id=update.update_id, message=query.message)
-    await start(fake_update, context)
+    try:
+        query = update.callback_query
+        await query.answer()
+        fake_update = Update(update_id=update.update_id, message=query.message)
+        await start(fake_update, context)
+    except Exception as e:
+        logger.error("Error in back_main_callback: %s", e)
 
 async def support_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    query = update.callback_query
-    await query.answer()
+    try:
+        query = update.callback_query
+        await query.answer()
 
-    user = update.effective_user
-    lang = trans_manager.get_user_language(user.id) if user else 'he'
+        user = update.effective_user
+        lang = trans_manager.get_user_language(user.id) if user else 'he'
 
-    text = {
-        'he': (
-            "🆘 *תמיכה ועזרה*\n\n"
-            "בכל שלב אפשר לקבל עזרה באחד הערוצים הבאים:\n\n"
-            f"• קבוצת תמיכה: {SUPPORT_GROUP_LINK}\n"
-            f"• פניה ישירה למתכנת המערכת: `tg://user?id={DEVELOPER_USER_ID}`\n\n"
-            "או חזור לתפריט הראשי:"
-        ),
-        'en': (
-            "🆘 *Support and Help*\n\n"
-            "At any stage you can get help in one of the following channels:\n\n"
-            f"• Support group: {SUPPORT_GROUP_LINK}\n"
-            f"• Direct contact with system developer: `tg://user?id={DEVELOPER_USER_ID}`\n\n"
-            "Or return to main menu:"
-        ),
-        'ru': (
-            "🆘 *Поддержка и помощь*\n\n"
-            "На любом этапе вы можете получить помощь в одном из следующих каналов:\n\n"
-            f"• Группа поддержки: {SUPPORT_GROUP_LINK}\n"
-            f"• Прямой контакт с разработчиком системы: `tg://user?id={DEVELOPER_USER_ID}`\n\n"
-            "Или вернуться в главное меню:"
-        ),
-        'ar': (
-            "🆘 *الدعم والمساعدة*\n\n"
-            "في أي مرحلة يمكنك الحصول على المساعدة في one of القنوات التالية:\n\n"
-            f"• مجموعة الدعم: {SUPPORT_GROUP_LINK}\n"
-            f"• الاتصال المباشر مع مطور النظام: `tg://user?id={DEVELOPER_USER_ID}`\n\n"
-            "أو العودة إلى القائمة الرئيسية:"
+        text = {
+            'he': (
+                "🆘 *תמיכה ועזרה*\n\n"
+                "בכל שלב אפשר לקבל עזרה באחד הערוצים הבאים:\n\n"
+                f"• קבוצת תמיכה: {SUPPORT_GROUP_LINK}\n"
+                f"• פניה ישירה למתכנת המערכת: `tg://user?id={DEVELOPER_USER_ID}`\n\n"
+                "או חזור לתפריט הראשי:"
+            ),
+            'en': (
+                "🆘 *Support and Help*\n\n"
+                "At any stage you can get help in one of the following channels:\n\n"
+                f"• Support group: {SUPPORT_GROUP_LINK}\n"
+                f"• Direct contact with system developer: `tg://user?id={DEVELOPER_USER_ID}`\n\n"
+                "Or return to main menu:"
+            ),
+            'ru': (
+                "🆘 *Поддержка и помощь*\n\n"
+                "На любом этапе вы можете получить помощь в одном из следующих каналов:\n\n"
+                f"• Группа поддержки: {SUPPORT_GROUP_LINK}\n"
+                f"• Прямой контакт с разработчиком системы: `tg://user?id={DEVELOPER_USER_ID}`\n\n"
+                "Или вернуться в главное меню:"
+            ),
+            'ar': (
+                "🆘 *الدعم والمساعدة*\n\n"
+                "في أي مرحلة يمكنك الحصول على المساعدة في one of القنوات التالية:\n\n"
+                f"• مجموعة الدعم: {SUPPORT_GROUP_LINK}\n"
+                f"• الاتصال المباشر مع مطور النظام: `tg://user?id={DEVELOPER_USER_ID}`\n\n"
+                "أو العودة إلى القائمة الرئيسية:"
+            )
+        }
+
+        await query.edit_message_text(
+            text.get(lang, text['he']),
+            parse_mode="Markdown",
+            reply_markup=support_keyboard(lang),
         )
-    }
-
-    await query.edit_message_text(
-        text.get(lang, text['he']),
-        parse_mode="Markdown",
-        reply_markup=support_keyboard(lang),
-    )
+    except Exception as e:
+        logger.error("Error in support_callback: %s", e)
 
 async def share_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    query = update.callback_query
-    await query.answer()
+    try:
+        query = update.callback_query
+        await query.answer()
 
-    user = update.effective_user
-    if not user:
-        return
+        user = update.effective_user
+        if not user:
+            return
 
-    lang = trans_manager.get_user_language(user.id)
+        lang = trans_manager.get_user_language(user.id)
 
-    # בדיקה אם יש למשתמש כבר נכס
-    has_asset = False
-    if DB_AVAILABLE:
-        try:
-            summary = get_promoter_summary(user.id)
-            has_asset = summary is not None
-        except:
-            has_asset = False
+        # בדיקה אם יש למשתמש כבר נכס
+        has_asset = False
+        if DB_AVAILABLE:
+            try:
+                summary = get_promoter_summary(user.id)
+                has_asset = summary is not None
+            except:
+                has_asset = False
 
-    if has_asset:
-        # אם יש לו נכס - הלינק האישי שלו
-        personal_link = build_personal_share_link(user.id)
-        text = {
-            'he': (
-                "🔗 *שתף את שער הקהילה*\n\n"
-                "הלינק האישי שלך להפצה:\n"
-                f"`{personal_link}`\n\n"
-                "מומלץ לשתף בסטורי / סטטוס / קבוצות, ולהוסיף כמה מילים אישיות משלך.\n"
-                "כל מי שייכנס דרך הלינק וילחץ על Start בבוט – יעבור דרך שער הקהילה שלך."
-            ),
-            'en': (
-                "🔗 *Share the Community Gateway*\n\n"
-                "Your personal sharing link:\n"
-                f"`{personal_link}`\n\n"
-                "Recommended to share in stories/status/groups, and add some personal words of your own.\n"
-                "Anyone who enters through the link and clicks Start in the bot - will go through your community gateway."
-            ),
-            'ru': (
-                "🔗 *Поделитесь входом в сообщество*\n\n"
-                "Ваша персональная ссылка для распространения:\n"
-                f"`{personal_link}`\n\n"
-                "Рекомендуется делиться в сторис/статусе/группах и добавлять несколько личных слов от себя.\n"
-                "Любой, кто войдет по ссылке и нажмет Start в боте - пройдет через ваш вход в сообщество."
-            ),
-            'ar': (
-                "🔗 *شارك بوابة المجتمع*\n\n"
-                "رابط المشاركة الشخصي الخاص بك:\n"
-                f"`{personal_link}`\n\n"
-                "يوصى بالمشاركة في القصص/الحالة/المجموعات، وإضافة بعض الكلمات الشخصية من yourself.\n"
-                "أي شخص يدخل through الرابط وينقر على Start في البوت - سيمر through بوابة المجتمع الخاصة بك."
-            )
-        }
-    else:
-        # אם אין לו נכס - הלינק הכללי + הסבר על 39 שיתופים
-        text = {
-            'he': (
-                "🔗 *שתף את שער הקהילה*\n\n"
-                "כדי להזמין חברים לקהילה, אפשר לשלוח להם את הקישור הבא:\n"
-                f"{LANDING_URL}\n\n"
-                
-                "💝 *אפשרות צדקה - 39 שיתופים*\n"
-                "לאחר 39 שיתופים איכותיים של הקישור, תוכל לקבל גישה מלאה לקהילה ללא תשלום!\n"
-                "זו הזדמנות גם למי שידו אינה משגת להצטרף ולצמוח איתנו.\n\n"
-                
-                "📢 *איך לשתף:*\n"
-                "מומלץ לשתף בסטורי / סטטוס / קבוצות\n"
-                "ולהוסיף כמה מילים אישיות משלך.\n\n"
-                
-                "*כל מי שייכנס דרך הלינק וילחץ על Start בבוט - יעבור דרך שער הקהילה.*"
-            ),
-            'en': (
-                "🔗 *Share the Community Gateway*\n\n"
-                "To invite friends to the community, you can send them the following link:\n"
-                f"{LANDING_URL}\n\n"
-                
-                "💝 *Charity option - 39 shares*\n"
-                "After 39 quality shares of the link, you can get full access to the community without payment!\n"
-                "This is an opportunity for those who cannot afford to join and grow with us.\n\n"
-                
-                "📢 *How to share:*\n"
-                "Recommended to share in stories/status/groups\n"
-                "and add some personal words of your own.\n\n"
-                
-                "*Anyone who enters through the link and clicks Start in the bot - will go through the community gateway.*"
-            ),
-            'ru': (
-                "🔗 *Поделитесь входом в сообщество*\n\n"
-                "Чтобы пригласить друзей в сообщество, вы можете отправить им следующую ссылку:\n"
-                f"{LANDING_URL}\n\n"
-                
-                "💝 *Опция благотворительности - 39 репостов*\n"
-                "После 39 качественных репостов ссылки вы можете получить полный доступ к сообществу без оплаты!\n"
-                "Это возможность для тех, кто не может позволить себе присоединиться и расти с нами.\n\n"
-                
-                "📢 *Как делиться:*\n"
-                "Рекомендуется делиться в сторис/статусе/группах\n"
-                "и добавлять несколько личных слов от себя.\n\n"
-                
-                "*Любой, кто войдет по ссылке и нажмет Start в боте - пройдет через вход в сообщество.*"
-            ),
-            'ar': (
-                "🔗 *شارك بوابة المجتمع*\n\n"
-                "للدعوة أصدقاء إلى المجتمع، يمكنك إرسال الرابط التالي لهم:\n"
-                f"{LANDING_URL}\n\n"
-                
-                "💝 *خيار charity - 39 مشاركة*\n"
-                "بعد 39 مشاركة جودة للرابط، يمكنك الحصول على وصول كامل إلى المجتمع without دفع!\n"
-                "هذه فرصة لأولئك الذين لا يستطيعون تحمل costs للانضمام والنمو معنا.\n\n"
-                
-                "📢 *كيفية المشاركة:*\n"
-                "يوصى بالمشاركة في القصص/الحالة/المجموعات\n"
-                "وإضافة بعض الكلمات الشخصية من yourself.\n\n"
-                
-                "*أي شخص يدخل through الرابط وينقر على Start في البوت - سيمر through بوابة المجتمع.*"
-            )
-        }
+        if has_asset:
+            # אם יש לו נכס - הלינק האישי שלו
+            personal_link = build_personal_share_link(user.id)
+            text = {
+                'he': (
+                    "🔗 *שתף את שער הקהילה*\n\n"
+                    "הלינק האישי שלך להפצה:\n"
+                    f"`{personal_link}`\n\n"
+                    "מומלץ לשתף בסטורי / סטטוס / קבוצות, ולהוסיף כמה מילים אישיות משלך.\n"
+                    "כל מי שייכנס דרך הלינק וילחץ על Start בבוט – יעבור דרך שער הקהילה שלך."
+                ),
+                'en': (
+                    "🔗 *Share the Community Gateway*\n\n"
+                    "Your personal sharing link:\n"
+                    f"`{personal_link}`\n\n"
+                    "Recommended to share in stories/status/groups, and add some personal words of your own.\n"
+                    "Anyone who enters through the link and clicks Start in the bot - will go through your community gateway."
+                ),
+                'ru': (
+                    "🔗 *Поделитесь входом в сообщество*\n\n"
+                    "Ваша персональная ссылка для распространения:\n"
+                    f"`{personal_link}`\n\n"
+                    "Рекомендуется делиться в сторис/статусе/группах и добавлять несколько личных слов от себя.\n"
+                    "Любой, кто войдет по ссылке и нажмет Start в боте - пройдет через ваш вход в сообщество."
+                ),
+                'ar': (
+                    "🔗 *شارك بوابة المجتمع*\n\n"
+                    "رابط المشاركة الشخصي الخاص بك:\n"
+                    f"`{personal_link}`\n\n"
+                    "يوصى بالمشاركة في القصص/الحالة/المجموعات، وإضافة بعض الكلمات الشخصية من yourself.\n"
+                    "أي شخص يدخل through الرابط وينقر على Start في البوت - سيمر through بوابة المجتمع الخاصة بك."
+                )
+            }
+        else:
+            # אם אין לו נכס - הלינק הכללי + הסבר על 39 שיתופים
+            text = {
+                'he': (
+                    "🔗 *שתף את שער הקהילה*\n\n"
+                    "כדי להזמין חברים לקהילה, אפשר לשלוח להם את הקישור הבא:\n"
+                    f"{LANDING_URL}\n\n"
+                    
+                    "💝 *אפשרות צדקה - 39 שיתופים*\n"
+                    "לאחר 39 שיתופים איכותיים של הקישור, תוכל לקבל גישה מלאה לקהילה ללא תשלום!\n"
+                    "זו הזדמנות גם למי שידו אינה משגת להצטרף ולצמוח איתנו.\n\n"
+                    
+                    "📢 *איך לשתף:*\n"
+                    "מומלץ לשתף בסטורי / סטטוס / קבוצות\n"
+                    "ולהוסיף כמה מילים אישיות משלך.\n\n"
+                    
+                    "*כל מי שייכנס דרך הלינק וילחץ על Start בבוט - יעבור דרך שער הקהילה.*"
+                ),
+                'en': (
+                    "🔗 *Share the Community Gateway*\n\n"
+                    "To invite friends to the community, you can send them the following link:\n"
+                    f"{LANDING_URL}\n\n"
+                    
+                    "💝 *Charity option - 39 shares*\n"
+                    "After 39 quality shares of the link, you can get full access to the community without payment!\n"
+                    "This is an opportunity for those who cannot afford to join and grow with us.\n\n"
+                    
+                    "📢 *How to share:*\n"
+                    "Recommended to share in stories/status/groups\n"
+                    "and add some personal words of your own.\n\n"
+                    
+                    "*Anyone who enters through the link and clicks Start in the bot - will go through the community gateway.*"
+                ),
+                'ru': (
+                    "🔗 *Поделитесь входом в сообщество*\n\n"
+                    "Чтобы пригласить друзей в сообщество, вы можете отправить им следующую ссылку:\n"
+                    f"{LANDING_URL}\n\n"
+                    
+                    "💝 *Опция благотворительности - 39 репостов*\n"
+                    "После 39 качественных репостов ссылки вы можете получить полный доступ к сообществу без оплаты!\n"
+                    "Это возможность для тех, кто не может позволить себе присоединиться и расти с нами.\n\n"
+                    
+                    "📢 *Как делиться:*\n"
+                    "Рекомендуется делиться в сторис/статусе/группах\n"
+                    "и добавлять несколько личных слов от себя.\n\n"
+                    
+                    "*Любой, кто войдет по ссылке и нажмет Start в боте - пройдет через вход в сообщество.*"
+                ),
+                'ar': (
+                    "🔗 *شارك بوابة المجتمع*\n\n"
+                    "للدعوة أصدقاء إلى المجتمع، يمكنك إرسال الرابط التالي لهم:\n"
+                    f"{LANDING_URL}\n\n"
+                    
+                    "💝 *خيار charity - 39 مشاركة*\n"
+                    "بعد 39 مشاركة جودة للرابط، يمكنك الحصول على وصول كامل إلى المجتمع without دفع!\n"
+                    "هذه فرصة لأولئك الذين لا يستطيعون تحمل costs للانضمام والنمو معنا.\n\n"
+                    
+                    "📢 *كيفية المشاركة:*\n"
+                    "يوصى بالمشاركة في القصص/الحالة/المجموعات\n"
+                    "وإضافة بعض الكلمات الشخصية من yourself.\n\n"
+                    
+                    "*أي شخص يدخل through الرابط وينقر على Start في البوت - سيمر through بوابة المجتمع.*"
+                )
+            }
 
-    await query.message.reply_text(
-        text.get(lang, text['he']),
-        parse_mode="Markdown",
-    )
+        await query.message.reply_text(
+            text.get(lang, text['he']),
+            parse_mode="Markdown",
+        )
+    except Exception as e:
+        logger.error("Error in share_callback: %s", e)
 
 async def vision_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    query = update.callback_query
-    await query.answer()
+    try:
+        query = update.callback_query
+        await query.answer()
 
-    user = update.effective_user
-    lang = trans_manager.get_user_language(user.id) if user else 'he'
+        user = update.effective_user
+        lang = trans_manager.get_user_language(user.id) if user else 'he'
 
-    text = {
-        'he': (
-            "🌟 *Human Capital Protocol - SLH*\n\n"
-            
-            "💫 *מה זה SLH במשפט אחד?*\n"
-            "SLH הוא פרוטוקול הון אנושי שמחבר בין משפחות, קהילות ומומחים לרשת כלכלית אחת "
-            "– עם בוטים, חנויות, טוקן SLH, אקדמיה, משחק, ו־Exchange – כך שכל אדם יכול להפוך "
-            "לעסק, למומחה ולצומת כלכלי, מתוך הטלפון שלו.\n\n"
-            
-            "🎯 *החזון ארוך־טווח:*\n"
-            "• להפוך כל אדם ומשפחה ליחידת כלכלה עצמאית\n"
-            "• לבנות רשת מסחר גלובלית מבוזרת\n"
-            "• ליצור Meta-Economy: שכבת־על טכנולוגית\n"
-            "• להפוך את SLH לסטנדרט עולמי למדידת מומחיות\n\n"
-            
-            "🏗 *האקו־סיסטם המלא:*\n"
-            "• 🤖 Bots Layer - בוטי טלגרם\n"
-            "• 🛒 Commerce Layer - חנויות ומרקטפלייס\n"
-            "• ⛓️ Blockchain Layer - BSC + TON\n"
-            "• 🎓 Expertise Layer - Pi Index\n"
-            "• 🎮 Academy Layer - למידה ומשחק\n"
-            "• 💱 Exchange Layer - מסחר ונזילות\n\n"
-            
-            "🚀 *Human Capital Protocol*\n"
-            "SLH אינו עוד 'אפליקציה' אלא Meta-Protocol: כמו HTTP / Email לכלכלת משפחה וקהילה. "
-            "אנשים הם האלגוריתם, המערכת רק מודדת ומתגמלת.\n\n"
-            "*ידע = הון | משפחות = נכסים | קהילות = רשתות | אנשים = פרוטוקול*"
-        ),
-        'en': (
-            "🌟 *Human Capital Protocol - SLH*\n\n"
-            
-            "💫 *What is SLH in one sentence?*\n"
-            "SLH is a human capital protocol that connects families, communities and experts into one economic network "
-            "- with bots, shops, SLH token, academy, gaming, and Exchange - so that every person can become "
-            "a business, an expert and an economic node, from their phone.\n\n"
-            
-            "🎯 *The long-term vision:*\n"
-            "• Turn every person and family into an independent economic unit\n"
-            "• Build a decentralized global trade network\n"
-            "• Create Meta-Economy: technological overlay layer\n"
-            "• Make SLH a global standard for measuring expertise\n\n"
-            
-            "🏗 *The complete ecosystem:*\n"
-            "• 🤖 Bots Layer - Telegram bots\n"
-            "• 🛒 Commerce Layer - shops and marketplace\n"
-            "• ⛓️ Blockchain Layer - BSC + TON\n"
-            "• 🎓 Expertise Layer - Pi Index\n"
-            "• 🎮 Academy Layer - learning and gaming\n"
-            "• 💱 Exchange Layer - trading and liquidity\n\n"
-            
-            "🚀 *Human Capital Protocol*\n"
-            "SLH is not another 'app' but a Meta-Protocol: like HTTP/Email for family and community economy. "
-            "People are the algorithm, the system only measures and rewards.\n\n"
-            "*Knowledge = Capital | Families = Assets | Communities = Networks | People = Protocol*"
-        ),
-        'ru': (
-            "🌟 *Протокол человеческого капитала - SLH*\n\n"
-            
-            "💫 *Что такое SLH в одном предложении?*\n"
-            "SLH - это протокол человеческого капитала, который соединяет семьи, сообщества и экспертов в одну экономическую сеть "
-            "- с ботами, магазинами, токеном SLH, академией, играми и Exchange - так что каждый человек может стать "
-            "бизнесом, экспертом и экономическим узлом, со своего телефона.\n\n"
-            
-            "🎯 *Долгосрочное видение:*\n"
-            "• Превратить каждого человека и семью в независимую экономическую единицу\n"
-            "• Построить децентрализованную глобальную торговую сеть\n"
-            "• Создать Meta-Economy: технологический overlay-слой\n"
-            "• Сделать SLH глобальным стандартом для измерения экспертизы\n\n"
-            
-            "🏗 *Полная экосистема:*\n"
-            "• 🤖 Bots Layer - Telegram боты\n"
-            "• 🛒 Commerce Layer - магазины и маркетплейс\n"
-            "• ⛓️ Blockchain Layer - BSC + TON\n"
-            "• 🎓 Expertise Layer - Pi Index\n"
-            "• 🎮 Academy Layer - обучение и игры\n"
-            "• 💱 Exchange Layer - торговля и ликвидность\n\n"
-            
-            "🚀 *Протокол человеческого капитала*\n"
-            "SLH - это не просто 'приложение', а Meta-Protocol: как HTTP/Email для семейной и общественной экономики. "
-            "Люди - это алгоритм, система только измеряет и вознаграждает.\n\n"
-            "*Знание = Капитал | Семьи = Активы | Сообщества = Сети | Люди = Протокол*"
-        ),
-        'ar': (
-            "🌟 *بروتوكول رأس المال البشري - SLH*\n\n"
-            
-            "💫 *ما هو SLH في جملة واحدة؟*\n"
-            "SLH هو بروتوكول رأس المال البشري الذي يربط العائلات والمجتمعات والخبراء في شبكة اقتصادية واحدة "
-            "- مع البوتات والمتاجر ورمز SLH والأكاديمية والألعاب والتبادل - so that كل شخص can يصبح "
-            "عمل وخبير وعقدة اقتصادية، من هاتفه.\n\n"
-            
-            "🎯 *الرؤية طويلة المدى:*\n"
-            "• تحويل كل شخص وعائلة إلى وحدة اقتصادية مستقلة\n"
-            "• بناء شبكة تجارية عالمية لامركزية\n"
-            "• إنشاء Meta-Economy: طبقة تقنية overlay\n"
-            "• جعل SLH معيارًا عالميًا لقياس الخبرة\n\n"
-            
-            "🏗 *النظام البيئي الكامل:*\n"
-            "• 🤖 Bots Layer - بوتات Telegram\n"
-            "• 🛒 Commerce Layer - المتاجر والسوق\n"
-            "• ⛓️ Blockchain Layer - BSC + TON\n"
-            "• 🎓 Expertise Layer - Pi Index\n"
-            "• 🎮 Academy Layer - التعلم والألعاب\n"
-            "• 💱 Exchange Layer - التداول والسيولة\n\n"
-            
-            "🚀 *بروتوكول رأس المال البشري*\n"
-            "SLH ليس مجرد 'تطبيق' but بروتوكول Meta: مثل HTTP/Email لاقتصاد الأسرة والمجتمع. "
-            "الناس هم الخوارزمية، النظام only يقيس and يكافئ.\n\n"
-            "*المعرفة = رأس المال | العائلات = الأصول | المجتمعات = الشبكات | الناس = البروتوكول*"
+        text = {
+            'he': (
+                "🌟 *Human Capital Protocol - SLH*\n\n"
+                
+                "💫 *מה זה SLH במשפט אחד?*\n"
+                "SLH הוא פרוטוקול הון אנושי שמחבר בין משפחות, קהילות ומומחים לרשת כלכלית אחת "
+                "– עם בוטים, חנויות, טוקן SLH, אקדמיה, משחק, ו־Exchange – כך שכל אדם יכול להפוך "
+                "לעסק, למומחה ולצומת כלכלי, מתוך הטלפון שלו.\n\n"
+                
+                "🎯 *החזון ארוך־טווח:*\n"
+                "• להפוך כל אדם ומשפחה ליחידת כלכלה עצמאית\n"
+                "• לבנות רשת מסחר גלובלית מבוזרת\n"
+                "• ליצור Meta-Economy: שכבת־על טכנולוגית\n"
+                "• להפוך את SLH לסטנדרט עולמי למדידת מומחיות\n\n"
+                
+                "🏗 *האקו־סיסטם המלא:*\n"
+                "• 🤖 Bots Layer - בוטי טלגרם\n"
+                "• 🛒 Commerce Layer - חנויות ומרקטפלייס\n"
+                "• ⛓️ Blockchain Layer - BSC + TON\n"
+                "• 🎓 Expertise Layer - Pi Index\n"
+                "• 🎮 Academy Layer - למידה ומשחק\n"
+                "• 💱 Exchange Layer - מסחר ונזילות\n\n"
+                
+                "🚀 *Human Capital Protocol*\n"
+                "SLH אינו עוד 'אפליקציה' אלא Meta-Protocol: כמו HTTP / Email לכלכלת משפחה וקהילה. "
+                "אנשים הם האלגוריתם, המערכת רק מודדת ומתגמלת.\n\n"
+                "*ידע = הון | משפחות = נכסים | קהילות = רשתות | אנשים = פרוטוקול*"
+            ),
+            'en': (
+                "🌟 *Human Capital Protocol - SLH*\n\n"
+                
+                "💫 *What is SLH in one sentence?*\n"
+                "SLH is a human capital protocol that connects families, communities and experts into one economic network "
+                "- with bots, shops, SLH token, academy, gaming, and Exchange - so that every person can become "
+                "a business, an expert and an economic node, from their phone.\n\n"
+                
+                "🎯 *The long-term vision:*\n"
+                "• Turn every person and family into an independent economic unit\n"
+                "• Build a decentralized global trade network\n"
+                "• Create Meta-Economy: technological overlay layer\n"
+                "• Make SLH a global standard for measuring expertise\n\n"
+                
+                "🏗 *The complete ecosystem:*\n"
+                "• 🤖 Bots Layer - Telegram bots\n"
+                "• 🛒 Commerce Layer - shops and marketplace\n"
+                "• ⛓️ Blockchain Layer - BSC + TON\n"
+                "• 🎓 Expertise Layer - Pi Index\n"
+                "• 🎮 Academy Layer - learning and gaming\n"
+                "• 💱 Exchange Layer - trading and liquidity\n\n"
+                
+                "🚀 *Human Capital Protocol*\n"
+                "SLH is not another 'app' but a Meta-Protocol: like HTTP/Email for family and community economy. "
+                "People are the algorithm, the system only measures and rewards.\n\n"
+                "*Knowledge = Capital | Families = Assets | Communities = Networks | People = Protocol*"
+            ),
+            'ru': (
+                "🌟 *Протокол человеческого капитала - SLH*\n\n"
+                
+                "💫 *Что такое SLH в одном предложении?*\n"
+                "SLH - это протокол человеческого капитала, который соединяет семьи, сообщества и экспертов в одну экономическую сеть "
+                "- с ботами, магазинами, токеном SLH, академией, играми и Exchange - так что каждый человек может стать "
+                "бизнесом, экспертом и экономическим узлом, со своего телефона.\n\n"
+                
+                "🎯 *Долгосрочное видение:*\n"
+                "• Превратить каждого человека и семью в независимую экономическую единицу\n"
+                "• Построить децентрализованную глобальную торговую сеть\n"
+                "• Создать Meta-Economy: технологический overlay-слой\n"
+                "• Сделать SLH глобальным стандартом для измерения экспертизы\n\n"
+                
+                "🏗 *Полная экосистема:*\n"
+                "• 🤖 Bots Layer - Telegram боты\n"
+                "• 🛒 Commerce Layer - магазины и маркетплейс\n"
+                "• ⛓️ Blockchain Layer - BSC + TON\n"
+                "• 🎓 Expertise Layer - Pi Index\n"
+                "• 🎮 Academy Layer - обучение и игры\n"
+                "• 💱 Exchange Layer - торговля и ликвидность\n\n"
+                
+                "🚀 *Протокол человеческого капитала*\n"
+                "SLH - это не просто 'приложение', а Meta-Protocol: как HTTP/Email для семейной и общественной экономики. "
+                "Люди - это алгоритм, система только измеряет и вознаграждает.\n\n"
+                "*Знание = Капитал | Семьи = Активы | Сообщества = Сети | Люди = Протокол*"
+            ),
+            'ar': (
+                "🌟 *بروتوكول رأس المال البشري - SLH*\n\n"
+                
+                "💫 *ما هو SLH في جملة واحدة؟*\n"
+                "SLH هو بروتوكول رأس المال البشري الذي يربط العائلات والمجتمعات والخبراء في شبكة اقتصادية واحدة "
+                "- مع البوتات والمتاجر ورمز SLH والأكاديمية والألعاب والتبادل - so that كل شخص can يصبح "
+                "عمل وخبير وعقدة اقتصادية، من هاتفه.\n\n"
+                
+                "🎯 *الرؤية طويلة المدى:*\n"
+                "• تحويل كل شخص وعائلة إلى وحدة اقتصادية مستقلة\n"
+                "• بناء شبكة تجارية عالمية لامركزية\n"
+                "• إنشاء Meta-Economy: طبقة تقنية overlay\n"
+                "• جعل SLH معيارًا عالميًا لقياس الخبرة\n\n"
+                
+                "🏗 *النظام البيئي الكامل:*\n"
+                "• 🤖 Bots Layer - بوتات Telegram\n"
+                "• 🛒 Commerce Layer - المتاجر والسوق\n"
+                "• ⛓️ Blockchain Layer - BSC + TON\n"
+                "• 🎓 Expertise Layer - Pi Index\n"
+                "• 🎮 Academy Layer - التعلم والألعاب\n"
+                "• 💱 Exchange Layer - التداول والسيولة\n\n"
+                
+                "🚀 *بروتوكول رأس المال البشري*\n"
+                "SLH ليس مجرد 'تطبيق' but بروتوكول Meta: مثل HTTP/Email لاقتصاد الأسرة والمجتمع. "
+                "الناس هم الخوارزمية، النظام only يقيس and يكافئ.\n\n"
+                "*المعرفة = رأس المال | العائلات = الأصول | المجتمعات = الشبكات | الناس = البروتوكول*"
+            )
+        }
+
+        await query.edit_message_text(
+            text.get(lang, text['he']),
+            parse_mode="Markdown",
+            reply_markup=main_menu_keyboard(lang),
         )
-    }
-
-    await query.edit_message_text(
-        text.get(lang, text['he']),
-        parse_mode="Markdown",
-        reply_markup=main_menu_keyboard(lang),
-    )
+    except Exception as e:
+        logger.error("Error in vision_callback: %s", e)
 
 # =========================
 # Additional command handlers
@@ -1901,94 +1971,100 @@ async def vision_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
 
 async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """עזרה בסיסית"""
-    message = update.message or update.effective_message
-    if not message:
-        return
+    try:
+        message = update.message or update.effective_message
+        if not message:
+            return
 
-    user = update.effective_user
-    lang = trans_manager.get_user_language(user.id) if user else 'he'
+        user = update.effective_user
+        lang = trans_manager.get_user_language(user.id) if user else 'he'
 
-    text = {
-        'he': (
-            "/start – התחלה מחדש ותפריט ראשי\n"
-            "/help – עזרה\n\n"
-            "אחרי ביצוע תשלום – שלח צילום מסך של האישור לבוט.\n\n"
-            "לשיתוף שער הקהילה: כפתור '🔗 שתף את שער הקהילה' בתפריט הראשי.\n\n"
-            "למארגנים / אדמינים:\n"
-            "/admin – תפריט אדמין\n"
-            "/leaderboard – לוח מפנים (Top 10)\n"
-            "/payments_stats – סטטיסטיקות תשלומים\n"
-            "/reward_slh <user_id> <points> <reason> – יצירת Reward ל-SLH\n"
-            "/approve <user_id> – אישור תשלום\n"
-            "/reject <user_id> <סיבה> – דחיית תשלום\n"
-            "או שימוש בכפתורי האישור/דחייה ליד כל תשלום בלוגים."
-        ),
-        'en': (
-            "/start – Restart and main menu\n"
-            "/help – Help\n\n"
-            "After making payment – send screenshot of confirmation to bot.\n\n"
-            "For sharing community gateway: '🔗 Share Community Gateway' button in main menu.\n\n"
-            "For organizers/admins:\n"
-            "/admin – Admin menu\n"
-            "/leaderboard – Referrers board (Top 10)\n"
-            "/payments_stats – Payment statistics\n"
-            "/reward_slh <user_id> <points> <reason> – Create Reward for SLH\n"
-            "/approve <user_id> – Approve payment\n"
-            "/reject <user_id> <reason> – Reject payment\n"
-            "Or use approval/rejection buttons next to each payment in logs."
-        ),
-        'ru': (
-            "/start – Перезапуск и главное меню\n"
-            "/help – Помощь\n\n"
-            "После совершения оплаты – отправьте скриншот подтверждения боту.\n\n"
-            "Для распространения входа в сообщество: кнопка '🔗 Поделиться входом в сообщество' в главном меню.\n\n"
-            "Для организаторов/админов:\n"
-            "/admin – Меню админа\n"
-            "/leaderboard – Доска рефереров (Топ 10)\n"
-            "/payments_stats – Статистика платежей\n"
-            "/reward_slh <user_id> <points> <reason> – Создать Reward для SLH\n"
-            "/approve <user_id> – Одобрить платеж\n"
-            "/reject <user_id> <причина> – Отклонить платеж\n"
-            "Или используйте кнопки одобрения/отклонения рядом с каждым платежом в логах."
-        ),
-        'ar': (
-            "/start – إعادة البدء والقائمة الرئيسية\n"
-            "/help – مساعدة\n\n"
-            "بعد إجراء الدفع – أرسل لقطة شاشة للتأكيد إلى البوت.\n\n"
-            "لمشاركة بوابة المجتمع: زر '🔗 مشاركة بوابة المجتمع' في القائمة الرئيسية.\n\n"
-            "للمنظمين/المسؤولين:\n"
-            "/admin – قائمة المسؤول\n"
-            "/leaderboard – لوحة المحيلين (أعلى 10)\n"
-            "/payments_stats – إحصائيات الدفع\n"
-            "/reward_slh <user_id> <points> <reason> – إنشاء مكافأة لـ SLH\n"
-            "/approve <user_id> – الموافقة على الدفع\n"
-            "/reject <user_id> <السبب> – رفض الدفع\n"
-            "أو use أزرار الموافقة/الرفض بجانب each دفعة in السجلات."
-        )
-    }
+        text = {
+            'he': (
+                "/start – התחלה מחדש ותפריט ראשי\n"
+                "/help – עזרה\n\n"
+                "אחרי ביצוע תשלום – שלח צילום מסך של האישור לבוט.\n\n"
+                "לשיתוף שער הקהילה: כפתור '🔗 שתף את שער הקהילה' בתפריט הראשי.\n\n"
+                "למארגנים / אדמינים:\n"
+                "/admin – תפריט אדמין\n"
+                "/leaderboard – לוח מפנים (Top 10)\n"
+                "/payments_stats – סטטיסטיקות תשלומים\n"
+                "/reward_slh <user_id> <points> <reason> – יצירת Reward ל-SLH\n"
+                "/approve <user_id> – אישור תשלום\n"
+                "/reject <user_id> <סיבה> – דחיית תשלום\n"
+                "או שימוש בכפתורי האישור/דחייה ליד כל תשלום בלוגים."
+            ),
+            'en': (
+                "/start – Restart and main menu\n"
+                "/help – Help\n\n"
+                "After making payment – send screenshot of confirmation to bot.\n\n"
+                "For sharing community gateway: '🔗 Share Community Gateway' button in main menu.\n\n"
+                "For organizers/admins:\n"
+                "/admin – Admin menu\n"
+                "/leaderboard – Referrers board (Top 10)\n"
+                "/payments_stats – Payment statistics\n"
+                "/reward_slh <user_id> <points> <reason> – Create Reward for SLH\n"
+                "/approve <user_id> – Approve payment\n"
+                "/reject <user_id> <reason> – Reject payment\n"
+                "Or use approval/rejection buttons next to each payment in logs."
+            ),
+            'ru': (
+                "/start – Перезапуск и главное меню\n"
+                "/help – Помощь\n\n"
+                "После совершения оплаты – отправьте скриншот подтверждения боту.\n\n"
+                "Для распространения входа в сообщество: кнопка '🔗 Поделиться входом в сообщество' в главном меню.\n\n"
+                "Для организаторов/админов:\n"
+                "/admin – Меню админа\n"
+                "/leaderboard – Доска рефереров (Топ 10)\n"
+                "/payments_stats – Статистика платежей\n"
+                "/reward_slh <user_id> <points> <reason> – Создать Reward для SLH\n"
+                "/approve <user_id> – Одобрить платеж\n"
+                "/reject <user_id> <причина> – Отклонить платеж\n"
+                "Или используйте кнопки одобрения/отклонения рядом с каждым платежом в логах."
+            ),
+            'ar': (
+                "/start – إعادة البدء والقائمة الرئيسية\n"
+                "/help – مساعدة\n\n"
+                "بعد إجراء الدفع – أرسل لقطة شاشة للتأكيد إلى البوت.\n\n"
+                "لمشاركة بوابة المجتمع: زر '🔗 مشاركة بوابة المجتمع' في القائمة الرئيسية.\n\n"
+                "للمنظمين/المسؤولين:\n"
+                "/admin – قائمة المسؤول\n"
+                "/leaderboard – لوحة المحيلين (أعلى 10)\n"
+                "/payments_stats – إحصائيات الدفع\n"
+                "/reward_slh <user_id> <points> <reason> – إنشاء مكافأة لـ SLH\n"
+                "/approve <user_id> – الموافقة على الدفع\n"
+                "/reject <user_id> <السبب> – رفض الدفع\n"
+                "أو use أزرار الموافقة/الرفض بجانب each دفعة in السجلات."
+            )
+        }
 
-    await message.reply_text(text.get(lang, text['he']))
+        await message.reply_text(text.get(lang, text['he']))
+    except Exception as e:
+        logger.error("Error in help_command: %s", e)
 
 async def language_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """פקודת בחירת שפה"""
-    message = update.message or update.effective_message
-    if not message:
-        return
+    try:
+        message = update.message or update.effective_message
+        if not message:
+            return
 
-    user = update.effective_user
-    lang = trans_manager.get_user_language(user.id) if user else 'he'
+        user = update.effective_user
+        lang = trans_manager.get_user_language(user.id) if user else 'he'
 
-    prompt_text = {
-        'he': "🌐 *בחר שפה:*",
-        'en': "🌐 *Choose language:*",
-        'ru': "🌐 *Выберите язык:*", 
-        'ar': "🌐 *اختر اللغة:*"
-    }
+        prompt_text = {
+            'he': "🌐 *בחר שפה:*",
+            'en': "🌐 *Choose language:*",
+            'ru': "🌐 *Выберите язык:*", 
+            'ar': "🌐 *اختر اللغة:*"
+        }
 
-    await message.reply_text(
-        prompt_text.get(lang, prompt_text['he']),
-        reply_markup=language_keyboard()
-    )
+        await message.reply_text(
+            prompt_text.get(lang, prompt_text['he']),
+            reply_markup=language_keyboard()
+        )
+    except Exception as e:
+        logger.error("Error in language_command: %s", e)
 
 # =========================
 # Handler for stable keyboard text messages
@@ -1996,50 +2072,88 @@ async def language_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -
 
 async def handle_stable_keyboard_text(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """מטפל בהודעות טקסט מהמקלדת היציבה"""
-    message = update.message
-    if not message or not message.text:
-        return
-
-    user = update.effective_user
-    lang = trans_manager.get_user_language(user.id) if user else 'he'
-    
-    text = message.text
-    
-    # מיפוי טקסט הכפתורים לפעולות
-    button_actions = {
-        trans_manager.get_text("join_community", lang): join_callback,
-        trans_manager.get_text("digital_asset_info", lang): digital_asset_info,
-        trans_manager.get_text("share_gateway", lang): share_callback,
-        trans_manager.get_text("slh_vision", lang): vision_callback,
-        trans_manager.get_text("my_area", lang): my_area_callback,
-        trans_manager.get_text("support", lang): support_callback,
-    }
-    
-    # חיפוש הפעולה המתאימה
-    for button_text, action in button_actions.items():
-        if text == button_text:
-            # יצירת callback query מדומה
-            fake_query = type('obj', (object,), {
-                'data': action.__name__.replace('_callback', ''),
-                'answer': lambda: None,
-                'message': message,
-                'edit_message_text': message.reply_text,
-                'from_user': user
-            })
-            fake_update = Update(update_id=update.update_id, callback_query=fake_query)
-            await action(fake_update, context)
+    try:
+        message = update.message
+        if not message or not message.text:
             return
-    
-    # אם לא נמצאה פעולה - שליחת הודעת ברירת מחדל
-    await message.reply_text(
-        trans_manager.get_text("main_menu", lang),
-        reply_markup=get_stable_keyboard(lang)
-    )
+
+        user = update.effective_user
+        lang = trans_manager.get_user_language(user.id) if user else 'he'
+        
+        text = message.text
+        
+        # מיפוי טקסט הכפתורים לפעולות
+        button_actions = {
+            trans_manager.get_text("join_community", lang): "join",
+            trans_manager.get_text("digital_asset_info", lang): "digital_asset_info", 
+            trans_manager.get_text("share_gateway", lang): "share",
+            trans_manager.get_text("slh_vision", lang): "vision",
+            trans_manager.get_text("my_area", lang): "my_area",
+            trans_manager.get_text("support", lang): "support",
+        }
+        
+        # חיפוש הפעולה המתאימה
+        action_key = None
+        for button_text, action in button_actions.items():
+            if text == button_text:
+                action_key = action
+                break
+        
+        if action_key:
+            # יצירת callback query מדומה
+            class FakeQuery:
+                def __init__(self, data, message, user):
+                    self.data = data
+                    self.message = message
+                    self.from_user = user
+                
+                async def answer(self):
+                    pass
+                
+                async def edit_message_text(self, text, parse_mode=None, reply_markup=None):
+                    await self.message.reply_text(text, parse_mode=parse_mode, reply_markup=reply_markup)
+
+            fake_query = FakeQuery(action_key, message, user)
+            
+            # מיפוי handlers לפי action
+            handlers = {
+                "join": join_callback,
+                "digital_asset_info": digital_asset_info,
+                "share": share_callback, 
+                "vision": vision_callback,
+                "my_area": my_area_callback,
+                "support": support_callback,
+            }
+            
+            if action_key in handlers:
+                fake_update = Update(update_id=update.update_id, callback_query=fake_query)
+                await handlers[action_key](fake_update, context)
+                return
+        
+        # אם לא נמצאה פעולה - שליחת הודעת ברירת מחדל
+        await message.reply_text(
+            trans_manager.get_text("main_menu", lang),
+            reply_markup=get_stable_keyboard(lang)
+        )
+        
+    except Exception as e:
+        logger.error("Error in stable keyboard handler: %s", e)
+        try:
+            await update.message.reply_text(
+                "❌ אירעה שגיאה בעיבוד הבקשה. נסה שוב.",
+                reply_markup=get_stable_keyboard('he')
+            )
+        except:
+            pass
 
 # =========================
 # רישום handlers
 # =========================
 
+# הוסף error handler ראשון
+ptb_app.add_error_handler(error_handler)
+
+# שאר ה-handlers
 ptb_app.add_handler(CommandHandler("start", start))
 ptb_app.add_handler(CommandHandler("help", help_command))
 ptb_app.add_handler(CommandHandler("language", language_command))
