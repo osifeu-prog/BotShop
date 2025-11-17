@@ -365,8 +365,6 @@ async def staking(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     )
     await chat.send_message(text=text)
 
-application.add_handler(CommandHandler("investor", investor))
-application.add_handler(CommandHandler("staking", staking))
 
 
 
@@ -530,5 +528,4 @@ app.include_router(public_api_router)
 app.include_router(social_router)
 app.include_router(slhnet_extra_router)
 app.include_router(slh_core_router)
-
 
