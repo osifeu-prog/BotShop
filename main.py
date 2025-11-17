@@ -29,11 +29,16 @@ from telegram.ext import (
 # =========================
 # לוגינג בסיסי
 # =========================
+
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
 )
 logger = logging.getLogger("gateway-bot")
+
+# צמצום לוגים של httpx כדי שלא יוצגו URLs מלאים עם טוקן
+httpx_logger = logging.getLogger("httpx")
+httpx_logger.setLevel(logging.WARNING)
 
 # =========================
 # DB אופציונלי (db.py)
@@ -295,7 +300,7 @@ COMMUNITY_GROUP_LINK = os.environ.get("COMMUNITY_GROUP_LINK", "https://t.me/+HIz
 SUPPORT_GROUP_LINK = os.environ.get("SUPPORT_GROUP_LINK", "https://t.me/+1ANn25HeVBoxNmRk")
 DEVELOPER_USER_ID = 224223270
 
-# ניתן להגדיר קבוצות לוגים דרך משתני סביבה (מחרוזת של chat_id)
+# ניתן להגדיר קבוצות לוגים דרך משתני סביבה (מחרוזות של chat_id)
 PAYMENTS_LOG_CHAT_ID = int(os.environ.get("PAYMENTS_LOG_CHAT_ID", "-1001748319682"))
 SUPPORT_LOG_CHAT_ID = int(os.environ.get("SUPPORT_LOG_CHAT_ID", str(PAYMENTS_LOG_CHAT_ID)))
 
@@ -363,51 +368,39 @@ def get_pending_rejects(context: ContextTypes.DEFAULT_TYPE) -> Dict[int, int]:
 # פונקציות ליצירת בוטים חדשים
 # =========================
 
+
 async def create_new_bot_for_user(user_id: int, username: str = None) -> Dict[str, Any]:
     """
-    יוצר בוט חדש אמיתי למשתמש
+    "בוט אישי" לוגי למשתמש – בלי דיבור עם BotFather.
+    בפועל:
+    - מייצרים רשומת user_bots ב-DB (אם זמין)
+    - יוצרים לינק אישי (deep-link) לבוט הראשי
+    - מחזירים מידע שמאפשר להודיע למשתמש מה קיבל
     """
-    try:
-        # יצירת בוט אמיתי דרך BotFather
-        bot_data = bot_creator.create_new_bot(user_id, username)
-        
-        if not bot_data.get('token'):
-            raise Exception("Failed to get bot token from BotFather")
-        
-        # בניית webhook URL
-        base_webhook_url = WEBHOOK_URL.replace('/webhook', '')
-        webhook_url = f"{base_webhook_url}/user_bot/{bot_data['token']}"
-        
-        # שמירה ב-DB
-        bot_id = -1
-        if DB_AVAILABLE:
-            bot_id = create_user_bot(user_id, bot_data['token'], bot_data['username'], webhook_url)
-            bot_data['db_id'] = bot_id
-        
-        # הגדרת webhook ופקודות
+    personal_link = build_personal_share_link(user_id)
+    bot_username = BOT_USERNAME or "Buy_My_Shop_bot"
+    bot_token = BOT_TOKEN or ""
+
+    bot_id = -1
+    if DB_AVAILABLE:
         try:
-            # הגדרת webhook
-            success = bot_creator.set_webhook(bot_data['token'], webhook_url)
-            if success:
-                logger.info(f"Webhook set for bot @{bot_data['username']}")
-            
-            # הגדרת פקודות
-            commands = [
-                {"command": "start", "description": "התחל שיחה"},
-                {"command": "help", "description": "עזרה"},
-                {"command": "my_assets", "description": "הנכסים שלי"}
-            ]
-            bot_creator.set_bot_commands(bot_data['token'], commands)
-            
+            bot_id = create_user_bot(
+                user_id=user_id,
+                bot_token=bot_token,
+                bot_username=bot_username,
+                bot_name=personal_link,
+                price=39.0,  # מחיר ברירת מחדל – ניתן לשינוי בעתיד
+            )
         except Exception as e:
-            logger.error(f"Failed to configure bot: {e}")
-        
-        logger.info(f"Created new REAL bot for user {user_id}: @{bot_data['username']}")
-        return bot_data
-        
-    except Exception as e:
-        logger.error(f"Failed to create bot for user {user_id}: {e}")
-        raise
+            logger.error(f"Failed to create logical user_bot record: {e}")
+
+    return {
+        "token": bot_token,
+        "username": bot_username,
+        "personal_link": personal_link,
+        "db_id": bot_id,
+    }
+
 
 # =========================
 # אפליקציית Telegram
@@ -487,8 +480,7 @@ async def admin_stats(token: str = ""):
 
     try:
         stats = get_approval_stats()
-        # חודשים אחרונים (ברירת מחדל: 6 חודשים)
-        monthly = get_monthly_payments()
+        monthly = get_monthly_payments(datetime.utcnow().year, datetime.utcnow().month)
         top_ref = get_top_referrers(5)
         active_bots = get_all_active_bots()
     except Exception as e:
@@ -502,29 +494,6 @@ async def admin_stats(token: str = ""):
         "top_referrers": top_ref,
         "active_bots_count": len(active_bots),
     }
-
-
-@app.get("/stats/summary")
-async def stats_summary():
-    """
-    תקציר סטטיסטיקות בסיסי (לקריאה בלבד, ללא הרשאת אדמין).
-    """
-    if not DB_AVAILABLE:
-        return {"db": "disabled"}
-
-    try:
-        total_starts = get_metric("total_starts") if DB_AVAILABLE else 0
-        approval = get_approval_stats()
-    except Exception as e:
-        logger.error("Failed to get stats summary: %s", e)
-        raise HTTPException(status_code=500, detail="DB error")
-
-    return {
-        "db": "enabled",
-        "total_starts": total_starts,
-        "approval_stats": approval,
-    }
-
 
 @app.post("/webhook")
 async def telegram_webhook(request: Request) -> Response:
@@ -1150,37 +1119,55 @@ async def handle_payment_photo(update: Update, context: ContextTypes.DEFAULT_TYP
         parse_mode="Markdown",
     )
 
+
 async def do_approve(target_id: int, context: ContextTypes.DEFAULT_TYPE, source_message) -> None:
-    """מאשר תשלום ויוצר בוט אישי אמיתי למשתמש"""
+    """מאשר תשלום ומסיים את תהליך הרכישה עבור המשתמש."""
     try:
-        # יצירת בוט אישי אמיתי למשתמש
-        user = get_user(target_id)
-        username = user.get('username') if user else None
-        
+        # שליפת משתמש מה-DB (אם קיים)
+        user = get_user(target_id) if DB_AVAILABLE else None
+        username = user.get("username") if user else None
+
+        # "יצירת" בוט לוגי במערכת (רשומה + לינק אישי)
         bot_data = await create_new_bot_for_user(target_id, username)
-        personal_link = build_personal_share_link(target_id)
-        
-        # הודעת אישור למשתמש - רק קישור לבוט
+        personal_link = bot_data.get("personal_link") or build_personal_share_link(target_id)
+
+        # הודעת אישור למשתמש – בלי להבטיח בוט נפרד, אלא נכס + לינק אישי
         approval_text = (
-            "🎉 *התשלום אושר! ברוך הבא לבעלי הנכסים!*\n\n"
-            
-            "🤖 *הבוט האישי שלך נוצר!*\n"
-            f"👤 @{bot_data['username']}\n\n"
-            
-            "🔗 *כדי להתחיל, פתח את הבוט האישי שלך:*\n"
-            f"https://t.me/{bot_data['username']}\n\n"
-            
-            "*בבוט האישי שלך תמצא:*\n"
-            "• כל המידע על הנכס הדיגיטלי\n"
-            "• הלינק האישי שלך להפצה\n"
-            "• כלים למכירה ושיווק\n"
-            "• ניהול לקוחות ומכירות\n\n"
-            
-            "🚀 *התחל בעבודה עם הבוט האישי שלך!*"
+            "🎉 *התשלום אושר! ברוך הבא לבעלי הנכסים!*
+
+"
+            "💎 *הנכס הדיגיטלי שלך מוכן!*
+
+"
+            "🔗 *הלינק האישי שלך להפצה:*
+"
+            f"{personal_link}
+
+"
+            "📲 *איך משתמשים בלינק?*
+"
+            "• שלח את הלינק לחברים, לקוחות ועוקבים
+"
+            "• כל מי שייכנס דרך הלינק יירשם תחתיך
+"
+            "• כל מכירה תיזקף לזכותך במערכת
+
+"
+            "👥 *גישה לקהילה:*
+"
+            f"{COMMUNITY_GROUP_LINK}
+
+"
+            "💼 *לאזור האישי שלך:*
+"
+            f"פתח את @{BOT_USERNAME or 'Buy_My_Shop_bot'} ושלח /start – המערכת תזהה אותך כבעל נכס.
+
+"
+            "🚀 *מכאן מתחילים לעבוד – שתף את הלינק והתחל למכור!*"
         )
 
         await context.bot.send_message(chat_id=target_id, text=approval_text, parse_mode="Markdown")
-        
+
         # עדכון DB
         if DB_AVAILABLE:
             try:
@@ -1192,13 +1179,14 @@ async def do_approve(target_id: int, context: ContextTypes.DEFAULT_TYPE, source_
                 logger.error("Failed to update DB: %s", e)
 
         if source_message:
-            await source_message.reply_text(f"✅ אושר למשתמש {target_id} - נוצר בוט אישי: @{bot_data['username']}")
-            
+            await source_message.reply_text(
+                f"✅ אושר למשתמש {target_id} - הופעל נכס דיגיטלי ולינק אישי נוצר."
+            )
+
     except Exception as e:
         logger.error("Failed to send approval: %s", e)
         if source_message:
             await source_message.reply_text(f"❌ שגיאה באישור למשתמש {target_id}: {e}")
-
 async def do_reject(target_id: int, reason: str, context: ContextTypes.DEFAULT_TYPE, source_message) -> None:
     rejection_text = (
         "❌ *אישור התשלום נדחה*\n\n"
@@ -1586,6 +1574,9 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
 
 
 
+
+
+
 async def chatid_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """
     מחזיר את ה-chat_id של כל צ'אט (פרטי / קבוצה / סופר-קבוצה) שבו הבוט נמצא.
@@ -1599,16 +1590,16 @@ async def chatid_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     chat_type = getattr(chat, "type", "unknown")
     title = getattr(chat, "title", None)
 
-    text = (
-        "📡 *פרטי הצ'אט הזה:*\n"
-        f"🆔 chat_id: `{chat.id}`\n"
-        f"📂 type: `{chat_type}`\n"
-    )
+    text_lines = [
+        "📡 פרטי הצ'אט הזה:",
+        f"🆔 chat_id: {chat.id}",
+        f"📂 type: {chat_type}",
+    ]
     if title:
-        text += f"🏷 title: {title}\n"
+        text_lines.append(f"🏷 title: {title}")
 
-    await message.reply_text(text, parse_mode="Markdown")
-
+    await message.reply_text("
+".join(text_lines))
 async def admin_menu_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """פקודת /admin – תפריט אדמין"""
     if update.effective_user is None or update.effective_user.id not in ADMIN_IDS:
