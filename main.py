@@ -6,6 +6,7 @@ from datetime import datetime, timedelta
 from http import HTTPStatus
 from typing import Deque, Set, Literal, Optional, Dict, Any, List
 import json
+import uuid
 
 from fastapi import FastAPI, Request, Response, HTTPException
 from fastapi.responses import FileResponse, HTMLResponse
@@ -61,13 +62,76 @@ try:
         get_user_language,
         update_user_language,
         get_pending_payments_count,
-        get_user
+        get_user,
+        get_social_posts,
+        get_token_sales
     )
     DB_AVAILABLE = True
     logger.info("DB module loaded successfully, DB logging enabled.")
 except Exception as e:
     logger.warning("DB not available (missing db.py or error loading it): %s", e)
     DB_AVAILABLE = False
+
+    # יצירת פונקציות דמה במקרה שאין DB
+    def init_schema():
+        pass
+
+    def log_payment(user_id: int, username: str, payment_method: str):
+        logger.info(f"Payment logged - User: {user_id}, Method: {payment_method}")
+
+    def update_payment_status(user_id: int, status: str, reason: str = None):
+        logger.info(f"Payment status updated - User: {user_id}, Status: {status}")
+
+    def store_user(user_id: int, username: str = None, first_name: str = None, last_name: str = None):
+        logger.info(f"User stored - ID: {user_id}, Username: {username}")
+
+    def add_referral(referrer_id: int, referred_id: int, source: str = "bot_start"):
+        logger.info(f"Referral added - From: {referrer_id}, To: {referred_id}")
+
+    def get_top_referrers(limit: int = 10):
+        return []
+
+    def get_monthly_payments(year: int, month: int):
+        return []
+
+    def get_approval_stats():
+        return {"total": 0, "approved": 0, "pending": 0, "rejected": 0}
+
+    def create_reward(user_id: int, points: float, reason: str, reward_type: str = "slh_points"):
+        logger.info(f"Reward created - User: {user_id}, Points: {points}")
+
+    def ensure_promoter(user_id: int):
+        logger.info(f"Promoter ensured - User: {user_id}")
+
+    def update_promoter_settings(user_id: int, bank_details: str = None, personal_group_link: str = None):
+        logger.info(f"Promoter settings updated - User: {user_id}")
+
+    def get_promoter_summary(user_id: int):
+        return None
+
+    def incr_metric(metric_name: str, value: int = 1):
+        logger.info(f"Metric incremented - {metric_name}: {value}")
+
+    def get_metric(metric_name: str):
+        return 0
+
+    def get_user_language(user_id: int):
+        return 'he'
+
+    def update_user_language(user_id: int, language: str):
+        logger.info(f"User language updated - User: {user_id}, Language: {language}")
+
+    def get_pending_payments_count(user_id: int):
+        return 0
+
+    def get_user(user_id: int):
+        return None
+
+    def get_social_posts(limit: int = 20):
+        return []
+
+    def get_token_sales(limit: int = 50):
+        return []
 
 # =========================
 # משתני סביבה חיוניים
@@ -118,6 +182,11 @@ SUPPORT_GROUP_LINK = os.environ.get("SUPPORT_GROUP_LINK", "https://t.me/+1ANn25H
 DEVELOPER_USER_ID = 224223270
 PAYMENTS_LOG_CHAT_ID = -1001748319682
 
+# הגדרות TON
+TON_WALLET = os.environ.get("TON_WALLET", "UQCr743gEr_nqV_0SBkSp3CtYS_15R3LDLBvLmKeEv7XdGvp")
+TON_DISCOUNT_PERCENT = 10  # 10% הנחה
+TON_DISCOUNTED_PRICE = 35  # מחיר לאחר הנחה
+
 def build_personal_share_link(user_id: int) -> str:
     base_username = BOT_USERNAME or "Buy_My_Shop_bot"
     return f"https://t.me/{base_username}?start=ref_{user_id}"
@@ -138,6 +207,33 @@ BANK_DETAILS = (
     "חשבון 73462\n"
     "המוטב: קאופמן צביקה\n\n"
     "סכום: *39 ש\"ח*\n"
+)
+
+# פרטי TON
+TON_DETAILS = (
+    f"💎 *תשלום ב-TON עם {TON_DISCOUNT_PERCENT}% הנחה!*\n\n"
+    
+    f"🏦 *פרטי הארנק:*\n"
+    f"`{TON_WALLET}`\n\n"
+    
+    f"💰 *מחיר רגיל:* 39 ₪\n"
+    f"💰 *מחיר לאחר הנחה:* {TON_DISCOUNTED_PRICE} ₪\n"
+    f"🎁 *הנחה:* {TON_DISCOUNT_PERCENT}%\n\n"
+    
+    f"📋 *איך משלמים?*\n"
+    f"1. פתחו את ארנק TON שלכם\n"
+    f"2. שלחו את הסכום לארנק למעלה\n"
+    f"3. שמרו צילום מסך של ההעברה\n"
+    f"4. שלחו את הצילום לבוט\n\n"
+    
+    f"⚡ *יתרונות תשלום ב-TON:*\n"
+    f"• הנחה {TON_DISCOUNT_PERCENT}%\n"
+    f"• העברה מיידית\n"
+    f"• עמלות נמוכות\n"
+    f"• ביטחון גבוה\n"
+    f"• תמיכה ברשת מתקדמת\n\n"
+    
+    f"🚀 *הצטרף לקהילה המתקדמת עם טכנולוגיית TON!*"
 )
 
 ADMIN_IDS = {DEVELOPER_USER_ID}
@@ -179,12 +275,26 @@ class TranslationManager:
             "reject": "❌ דחה תשלום",
             "bank_transfer": "🏦 העברה בנקאית",
             "bit_paybox": "📲 ביט / פייבוקס / PayPal",
-            "ton_payment": "💎 טלגרם (TON)",
+            "ton_payment": f"💎 טלגרם (TON) - {TON_DISCOUNT_PERCENT}% הנחה!",
             
             # הודעות מערכת
             "new_user_start": "🚀 *הפעלת בוט חדשה - Buy_My_Shop*",
             "payment_confirmation": "💰 *אישור תשלום חדש התקבל!*",
-            "admin_approval_notice": "👤 *נדרשת אישור מנהל*"
+            "admin_approval_notice": "👤 *נדרשת אישור מנהל*",
+            
+            # TON
+            "ton_discount": f"🎊 *קבל {TON_DISCOUNT_PERCENT}% הנחה כאשר אתה משלם באמצעות TON!*",
+            "ton_wallet": f"💎 *ארנק TON:* `{TON_WALLET}`",
+            "ton_instructions": TON_DETAILS,
+            "ton_payment_benefits": (
+                f"🎯 *למה לשלם ב-TON?*\n\n"
+                f"• 💰 *הנחה {TON_DISCOUNT_PERCENT}%* - חוסך לך כסף\n"
+                f"• ⚡ *מהירות* - העברה מיידית\n"
+                f"• 🔒 *בטיחות* - טכנולוגיה מתקדמת\n"
+                f"• 💎 *עתידי* - רשת TON היא העתיד\n"
+                f"• 🌐 *גלובלי* - מתאים לכל העולם\n\n"
+                f"*הוזל מחיר מיוחד למשתמשי TON!*"
+            )
         }
     
     def _english_translations(self):
@@ -208,11 +318,49 @@ class TranslationManager:
             "reject": "❌ Reject Payment",
             "bank_transfer": "🏦 Bank Transfer",
             "bit_paybox": "📲 Bit / Paybox / PayPal",
-            "ton_payment": "💎 Telegram (TON)",
+            "ton_payment": f"💎 Telegram (TON) - {TON_DISCOUNT_PERCENT}% discount!",
             
             "new_user_start": "🚀 *New Bot Activation - Buy_My_Shop*",
             "payment_confirmation": "💰 *New Payment Confirmation Received!*",
-            "admin_approval_notice": "👤 *Admin Approval Required*"
+            "admin_approval_notice": "👤 *Admin Approval Required*",
+            
+            # TON
+            "ton_discount": f"🎊 *Get {TON_DISCOUNT_PERCENT}% discount when you pay with TON!*",
+            "ton_wallet": f"💎 *TON Wallet:* `{TON_WALLET}`",
+            "ton_instructions": (
+                f"💎 *Payment with TON - {TON_DISCOUNT_PERCENT}% Discount!*\n\n"
+                
+                f"🏦 *Wallet Details:*\n"
+                f"`{TON_WALLET}`\n\n"
+                
+                f"💰 *Regular Price:* 39 ₪\n"
+                f"💰 *Discounted Price:* {TON_DISCOUNTED_PRICE} ₪\n"
+                f"🎁 *Discount:* {TON_DISCOUNT_PERCENT}%\n\n"
+                
+                f"📋 *How to pay?*\n"
+                f"1. Open your TON wallet\n"
+                f"2. Send the amount to the wallet above\n"
+                f"3. Save a screenshot of the transfer\n"
+                f"4. Send the screenshot to the bot\n\n"
+                
+                f"⚡ *TON Payment Benefits:*\n"
+                f"• {TON_DISCOUNT_PERCENT}% discount\n"
+                f"• Instant transfer\n"
+                f"• Low fees\n"
+                f"• High security\n"
+                f"• Advanced network support\n\n"
+                
+                f"🚀 *Join the advanced community with TON technology!*"
+            ),
+            "ton_payment_benefits": (
+                f"🎯 *Why pay with TON?*\n\n"
+                f"• 💰 *{TON_DISCOUNT_PERCENT}% Discount* - Saves you money\n"
+                f"• ⚡ *Speed* - Instant transfer\n"
+                f"• 🔒 *Security* - Advanced technology\n"
+                f"• 💎 *Future-proof* - TON network is the future\n"
+                f"• 🌐 *Global* - Suitable for the whole world\n\n"
+                f"*Special discounted price for TON users!*"
+            )
         }
     
     def _russian_translations(self):
@@ -236,11 +384,49 @@ class TranslationManager:
             "reject": "❌ Отклонить оплату",
             "bank_transfer": "🏦 Банковский перевод",
             "bit_paybox": "📲 Bit / Paybox / PayPal",
-            "ton_payment": "💎 Telegram (TON)",
+            "ton_payment": f"💎 Telegram (TON) - {TON_DISCOUNT_PERCENT}% скидка!",
             
             "new_user_start": "🚀 *Новая активация бота - Buy_My_Shop*",
             "payment_confirmation": "💰 *Получено новое подтверждение оплаты!*",
-            "admin_approval_notice": "👤 *Требуется подтверждение администратора*"
+            "admin_approval_notice": "👤 *Требуется подтверждение администратора*",
+            
+            # TON
+            "ton_discount": f"🎊 *Получите {TON_DISCOUNT_PERCENT}% скидку при оплате через TON!*",
+            "ton_wallet": f"💎 *TON кошелек:* `{TON_WALLET}`",
+            "ton_instructions": (
+                f"💎 *Оплата через TON - {TON_DISCOUNT_PERCENT}% Скидка!*\n\n"
+                
+                f"🏦 *Детали кошелька:*\n"
+                f"`{TON_WALLET}`\n\n"
+                
+                f"💰 *Обычная цена:* 39 ₪\n"
+                f"💰 *Цена со скидкой:* {TON_DISCOUNTED_PRICE} ₪\n"
+                f"🎁 *Скидка:* {TON_DISCOUNT_PERCENT}%\n\n"
+                
+                f"📋 *Как оплатить?*\n"
+                f"1. Откройте ваш TON кошелек\n"
+                f"2. Отправьте сумму на кошелек выше\n"
+                f"3. Сохраните скриншот перевода\n"
+                f"4. Отправьте скриншот боту\n\n"
+                
+                f"⚡ *Преимущества оплаты TON:*\n"
+                f"• Скидка {TON_DISCOUNT_PERCENT}%\n"
+                f"• Мгновенный перевод\n"
+                f"• Низкие комиссии\n"
+                f"• Высокая безопасность\n"
+                f"• Поддержка передовой сети\n\n"
+                
+                f"🚀 *Присоединяйтесь к передовому сообществу с технологией TON!*"
+            ),
+            "ton_payment_benefits": (
+                f"🎯 *Почему оплачивать через TON?*\n\n"
+                f"• 💰 *{TON_DISCOUNT_PERCENT}% Скидка* - Экономит вам деньги\n"
+                f"• ⚡ *Скорость* - Мгновенный перевод\n"
+                f"• 🔒 *Безопасность* - Передовая технология\n"
+                f"• 💎 *Будущее* - Сеть TON это будущее\n"
+                f"• 🌐 *Глобальный* - Подходит для всего мира\n\n"
+                f"*Специальная дисконтная цена для пользователей TON!*"
+            )
         }
     
     def _arabic_translations(self):
@@ -264,11 +450,49 @@ class TranslationManager:
             "reject": "❌ رفض الدفع",
             "bank_transfer": "🏦 تحويل بنكي",
             "bit_paybox": "📲 بت / Paybox / PayPal",
-            "ton_payment": "💎 Telegram (TON)",
+            "ton_payment": f"💎 Telegram (TON) - {TON_DISCOUNT_PERCENT}% خصم!",
             
             "new_user_start": "🚀 *تفعيل بوت جديد - Buy_My_Shop*",
             "payment_confirmation": "💰 *تم استلام تأكيد دفع جديد!*",
-            "admin_approval_notice": "👤 *مطلوب موافقة المسؤول*"
+            "admin_approval_notice": "👤 *مطلوب موافقة المسؤول*",
+            
+            # TON
+            "ton_discount": f"🎊 *احصل على خصم {TON_DISCOUNT_PERCENT}% عند الدفع باستخدام TON!*",
+            "ton_wallet": f"💎 *محفظة TON:* `{TON_WALLET}`",
+            "ton_instructions": (
+                f"💎 *الدفع باستخدام TON - {TON_DISCOUNT_PERCENT}% خصم!*\n\n"
+                
+                f"🏦 *تفاصيل المحفظة:*\n"
+                f"`{TON_WALLET}`\n\n"
+                
+                f"💰 *السعر العادي:* 39 ₪\n"
+                f"💰 *السعر بعد الخصم:* {TON_DISCOUNTED_PRICE} ₪\n"
+                f"🎁 *الخصم:* {TON_DISCOUNT_PERCENT}%\n\n"
+                
+                f"📋 *كيف تدفع؟*\n"
+                f"1. افتح محفظة TON الخاصة بك\n"
+                f"2. أرسل المبلغ إلى المحفظة أعلاه\n"
+                f"3. احفظ لقطة شاشة للتحويل\n"
+                f"4. أرسل لقطة الشاشة إلى البوت\n\n"
+                
+                f"⚡ *مزايا الدفع بـ TON:*\n"
+                f"• خصم {TON_DISCOUNT_PERCENT}%\n"
+                f"• تحويل فوري\n"
+                f"• رسوم منخفضة\n"
+                f"• أمان عالي\n"
+                f"• دعم شبكة متقدمة\n\n"
+                
+                f"🚀 *انضم إلى المجتمع المتقدم مع تقنية TON!*"
+            ),
+            "ton_payment_benefits": (
+                f"🎯 *لماذا تدفع بـ TON؟*\n\n"
+                f"• 💰 *خصم {TON_DISCOUNT_PERCENT}%* - يوفر لك المال\n"
+                f"• ⚡ *السرعة* - تحويل فوري\n"
+                f"• 🔒 *الأمان* - تقنية متقدمة\n"
+                f"• 💎 *مستقبلي* - شبكة TON هي المستقبل\n"
+                f"• 🌐 *عالمي* - مناسب للعالم أجمع\n\n"
+                f"*سعر مخفض خاص لمستخدمي TON!*"
+            )
         }
     
     def get_text(self, key: str, lang: str = 'he') -> str:
@@ -406,7 +630,6 @@ async def get_posts(limit: int = 20):
         return {"items": []}
     
     try:
-        from db import get_social_posts
         posts = get_social_posts(limit)
         return {"items": posts}
     except Exception as e:
@@ -420,7 +643,6 @@ async def get_token_sales(limit: int = 50):
         return {"items": []}
     
     try:
-        from db import get_token_sales
         sales = get_token_sales(limit)
         return {"items": sales}
     except Exception as e:
@@ -441,10 +663,13 @@ async def get_public_config():
     """API להגדרות ציבוריות"""
     return {
         "slh_nis": 39,
+        "ton_discounted_price": TON_DISCOUNTED_PRICE,
+        "ton_discount_percent": TON_DISCOUNT_PERCENT,
         "business_group_link": os.environ.get("COMMUNITY_GROUP_LINK", "https://t.me/+HIzvM8sEgh1kNWY0"),
         "paybox_url": os.environ.get("PAYBOX_URL"),
         "bit_url": os.environ.get("BIT_URL"),
-        "paypal_url": os.environ.get("PAYPAL_URL")
+        "paypal_url": os.environ.get("PAYPAL_URL"),
+        "ton_wallet": TON_WALLET
     }
 
 @app.get("/admin/dashboard")
@@ -495,7 +720,6 @@ async def handle_telegram_login(user_data: dict):
         # כאן תוכל לשמור את המשתמש ב-DB
         if DB_AVAILABLE:
             try:
-                from db import store_user
                 store_user(
                     user_id=user_data['id'],
                     username=user_data.get('username'),
@@ -539,6 +763,8 @@ async def health():
         "status": "ok",
         "service": "telegram-gateway-community-bot",
         "db": "enabled" if DB_AVAILABLE else "disabled",
+        "ton_discount": f"{TON_DISCOUNT_PERCENT}%",
+        "version": "2.0.0"
     }
 
 @app.get("/admin/stats")
@@ -566,6 +792,11 @@ async def admin_stats(token: str = ""):
         "payments_stats": stats,
         "monthly_breakdown": monthly,
         "top_referrers": top_ref,
+        "system": {
+            "ton_discount": TON_DISCOUNT_PERCENT,
+            "ton_wallet": TON_WALLET,
+            "version": "2.0.0"
+        }
     }
 
 # =========================
@@ -619,6 +850,19 @@ def payment_links_keyboard(lang: str = 'he') -> InlineKeyboardMarkup:
     ]
     return InlineKeyboardMarkup(buttons)
 
+def ton_payment_keyboard(lang: str = 'he') -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup([
+        [
+            InlineKeyboardButton("💎 שלח תשלום TON", url=f"ton://transfer/{TON_WALLET}"),
+        ],
+        [
+            InlineKeyboardButton("📖 מדריך TON", url="https://ton.org/learn"),
+        ],
+        [
+            InlineKeyboardButton(trans_manager.get_text("back", lang), callback_data="join"),
+        ],
+    ])
+
 def my_area_keyboard(lang: str = 'he') -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup([
         [
@@ -629,6 +873,9 @@ def my_area_keyboard(lang: str = 'he') -> InlineKeyboardMarkup:
         ],
         [
             InlineKeyboardButton("📊 הצג נכס דיגיטלי", callback_data="show_asset"),
+        ],
+        [
+            InlineKeyboardButton("💎 TON & הנחות", callback_data="ton_info"),
         ],
         [
             InlineKeyboardButton(trans_manager.get_text("back", lang), callback_data="back_main"),
@@ -642,6 +889,9 @@ def support_keyboard(lang: str = 'he') -> InlineKeyboardMarkup:
         ],
         [
             InlineKeyboardButton("פניה למתכנת", url=f"tg://user?id={DEVELOPER_USER_ID}"),
+        ],
+        [
+            InlineKeyboardButton("💎 תמיכה ב-TON", callback_data="ton_support"),
         ],
         [
             InlineKeyboardButton(trans_manager.get_text("back", lang), callback_data="back_main"),
@@ -768,8 +1018,10 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
                 "• גישה לקבוצת משחק כללית\n"
                 "• מערכת הפניות מתגמלת\n\n"
                 
+                f"🎊 *הנחה מיוחדת!* {TON_DISCOUNT_PERCENT}% הנחה לתשלום ב-TON\n\n"
+                
                 "🔄 *איך זה עובד?*\n"
-                "1. רוכשים נכס ב-39₪\n"
+                "1. רוכשים נכס ב-39₪ (או פחות ב-TON)\n"
                 "2. מקבלים לינק אישי\n"
                 "3. מפיצים - כל רכישה דרך הלינק שלך מתועדת\n"
                 "4. מרוויחים מהפצות נוספות\n\n"
@@ -779,7 +1031,8 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
                 "✅ נכס דיגיטלי אישי\n"
                 "✅ לינק הפצה ייחודי\n"
                 "✅ אפשרות מכירה חוזרת\n"
-                "✅ מערכת הפניות שקופה\n\n"
+                "✅ מערכת הפניות שקופה\n"
+                f"✅ {TON_DISCOUNT_PERCENT}% הנחה בתשלומי TON\n\n"
                 
                 "💼 *הנכס שלך - העסק שלך!*"
             ),
@@ -793,8 +1046,10 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
                 "• Access to general community group\n"
                 "• Rewarding referral system\n\n"
                 
+                f"🎊 *Special discount!* {TON_DISCOUNT_PERCENT}% discount for TON payment\n\n"
+                
                 "🔄 *How it works?*\n"
-                "1. Buy an asset for 39₪\n"
+                "1. Buy an asset for 39₪ (or less with TON)\n"
                 "2. Get personal link\n"
                 "3. Share - every purchase through your link is recorded\n"
                 "4. Earn from additional referrals\n\n"
@@ -804,7 +1059,8 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
                 "✅ Personal digital asset\n"
                 "✅ Unique sharing link\n"
                 "✅ Resale option\n"
-                "✅ Transparent referral system\n\n"
+                "✅ Transparent referral system\n"
+                f"✅ {TON_DISCOUNT_PERCENT}% discount on TON payments\n\n"
                 
                 "💼 *Your Asset - Your Business!*"
             ),
@@ -818,8 +1074,10 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
                 "• Доступ к общей группе сообщества\n"
                 "• Вознаграждающую реферальную систему\n\n"
                 
+                f"🎊 *Специальная скидка!* {TON_DISCOUNT_PERCENT}% скидка за оплату TON\n\n"
+                
                 "🔄 *Как это работает?*\n"
-                "1. Покупаете актив за 39₪\n"
+                "1. Покупаете актив за 39₪ (или меньше с TON)\n"
                 "2. Получаете персональную ссылку\n"
                 "3. Распространяете - каждая покупка по вашей ссылке записывается\n"
                 "4. Зарабатываете на дополнительных рефералах\n\n"
@@ -829,7 +1087,8 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
                 "✅ Персональный цифровой актив\n"
                 "✅ Уникальную ссылку для распространения\n"
                 "✅ Опцию перепродажи\n"
-                "✅ Прозрачную реферальную систему\n\n"
+                "✅ Прозрачную реферальную систему\n"
+                f"✅ {TON_DISCOUNT_PERCENT}% скидка на оплату TON\n\n"
                 
                 "💼 *Ваш актив - Ваш бизнес!*"
             ),
@@ -843,8 +1102,10 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
                 "• الوصول إلى مجموعة المجتمع العامة\n"
                 "• نظام إحالة مجزي\n\n"
                 
+                f"🎊 *خصم خاص!* {TON_DISCOUNT_PERCENT}% خصم للدفع بـ TON\n\n"
+                
                 "🔄 *كيف يعمل؟*\n"
-                "1. شراء أصل بـ 39₪\n"
+                "1. شراء أصل بـ 39₪ (أو أقل مع TON)\n"
                 "2. الحصول على رابط شخصي\n"
                 "3. شارك - يتم تسجيل كل عملية شراء through رابطك\n"
                 "4. اربح من الإحالات الإضافية\n\n"
@@ -854,7 +1115,8 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
                 "✅ الأصول الرقمية الشخصية\n"
                 "✅ رابط مشاركة فريد\n"
                 "✅ خيار إعادة البيع\n"
-                "✅ نظام إحالة شفاف\n\n"
+                "✅ نظام إحالة شفاف\n"
+                f"✅ {TON_DISCOUNT_PERCENT}% خصم على مدفوعات TON\n\n"
                 
                 "💼 *أصولك - عملك!*"
             )
@@ -939,13 +1201,17 @@ async def digital_asset_info(update: Update, context: ContextTypes.DEFAULT_TYPE)
                 "💎 *הנכס הדיגיטלי - ההזדמנות העסקית שלך!*\n\n"
                 
                 "🏗 *מה זה בעצם?*\n"
-                "נכס דיגיטלי הוא 'שער כניסה' אישי שאתה קונה פעם אחת ב-39₪ ומקבל:\n"
+                "נכס דיגיטלי הוא 'שער כניסה' אישי שאתה קונה פעם אחת ומקבל:\n"
                 "• לינק אישי משלך\n"
                 "• זכות למכור נכסים נוספים\n"
                 "• גישה למערכת שלמה\n\n"
                 
+                f"💰 *מחירים:*\n"
+                f"• מחיר רגיל: 39₪\n"
+                f"• מחיר TON: {TON_DISCOUNTED_PRICE}₪ ({TON_DISCOUNT_PERCENT}% הנחה!)\n\n"
+                
                 "💸 *איך מרוויחים?*\n"
-                "1. אתה רוכש נכס ב-39₪\n"
+                "1. אתה רוכש נכס\n"
                 "2. מקבל לינק אישי להפצה\n"
                 "3 *כל אדם* שקונה דרך הלינק שלך - הרכישה מתועדת לזכותך\n"
                 "4. הנכס שלך ממשיך להניב הכנסות\n\n"
@@ -959,21 +1225,26 @@ async def digital_asset_info(update: Update, context: ContextTypes.DEFAULT_TYPE)
                 "• הכנסה פסיבית מהפצות\n"
                 "• נכס ששווה יותר עם הזמן\n"
                 "• קהילה תומכת\n"
-                "• שקיפות מלאה\n\n"
+                "• שקיפות מלאה\n"
+                f"• {TON_DISCOUNT_PERCENT}% הנחה בתשלומי TON\n\n"
                 
-                "🎯 *המטרה:* ליצור רשת עסקית where everyone wins!"
+                "🎯 *המטרה:* ליצור רשת עסקית בה כולם מרוויחים!"
             ),
             'en': (
                 "💎 *The Digital Asset - Your Business Opportunity!*\n\n"
                 
                 "🏗 *What is it actually?*\n"
-                "A digital asset is a personal 'gateway' that you buy once for 39₪ and get:\n"
+                "A digital asset is a personal 'gateway' that you buy once and get:\n"
                 "• Your personal link\n"
                 "• Right to sell additional assets\n"
                 "• Access to complete system\n\n"
                 
+                f"💰 *Prices:*\n"
+                f"• Regular price: 39₪\n"
+                f"• TON price: {TON_DISCOUNTED_PRICE}₪ ({TON_DISCOUNT_PERCENT}% discount!)\n\n"
+                
                 "💸 *How to earn?*\n"
-                "1. You buy an asset for 39₪\n"
+                "1. You buy an asset\n"
                 "2. Get personal sharing link\n"
                 "3 *Every person* who buys through your link - purchase recorded to your credit\n"
                 "4. Your asset continues to generate income\n\n"
@@ -987,7 +1258,8 @@ async def digital_asset_info(update: Update, context: ContextTypes.DEFAULT_TYPE)
                 "• Passive income from sharing\n"
                 "• Asset that gains value over time\n"
                 "• Supportive community\n"
-                "• Full transparency\n\n"
+                "• Full transparency\n"
+                f"• {TON_DISCOUNT_PERCENT}% discount on TON payments\n\n"
                 
                 "🎯 *The goal:* Create business network where everyone wins!"
             ),
@@ -995,13 +1267,17 @@ async def digital_asset_info(update: Update, context: ContextTypes.DEFAULT_TYPE)
                 "💎 *Цифровой актив - Ваша бизнес-возможность!*\n\n"
                 
                 "🏗 *Что это на самом деле?*\n"
-                "Цифровой актив - это персональный 'вход', который вы покупаете один раз за 39₪ и получаете:\n"
+                "Цифровой актив - это персональный 'вход', который вы покупаете один раз и получаете:\n"
                 "• Вашу персональную ссылку\n"
                 "• Право продавать дополнительные активы\n"
                 "• Доступ к полной системе\n\n"
                 
+                f"💰 *Цены:*\n"
+                f"• Обычная цена: 39₪\n"
+                f"• Цена TON: {TON_DISCOUNTED_PRICE}₪ ({TON_DISCOUNT_PERCENT}% скидка!)\n\n"
+                
                 "💸 *Как заработать?*\n"
-                "1. Вы покупаете актив за 39₪\n"
+                "1. Вы покупаете актив\n"
                 "2. Получаете персональную ссылку для распространения\n"
                 "3 *Каждый человек*, который покупает по вашей ссылке - покупка записывается в ваш зачет\n"
                 "4. Ваш актив продолжает генерировать доход\n\n"
@@ -1015,7 +1291,8 @@ async def digital_asset_info(update: Update, context: ContextTypes.DEFAULT_TYPE)
                 "• Пассивный доход от распространения\n"
                 "• Актив, который со временем растет в цене\n"
                 "• Поддерживающее сообщество\n"
-                "• Полная прозрачность\n\n"
+                "• Полная прозрачность\n"
+                f"• {TON_DISCOUNT_PERCENT}% скидка на оплату TON\n\n"
                 
                 "🎯 *Цель:* Создать бизнес-сеть, где выигрывают все!"
             ),
@@ -1023,13 +1300,17 @@ async def digital_asset_info(update: Update, context: ContextTypes.DEFAULT_TYPE)
                 "💎 *الأصول الرقمية - فرصة عملك!*\n\n"
                 
                 "🏗 *ما هو في الواقع؟*\n"
-                "الأصل الرقمي هو 'بوابة' شخصية تشتريها once بـ 39₪ وتحصل على:\n"
+                "الأصل الرقمي هو 'بوابة' شخصية تشتريها once وتحصل على:\n"
                 "• رابطك الشخصي\n"
                 "• الحق في بيع أصول إضافية\n"
                 "• الوصول إلى النظام الكامل\n\n"
                 
+                f"💰 *الأسعار:*\n"
+                f"• السعر العادي: 39₪\n"
+                f"• سعر TON: {TON_DISCOUNTED_PRICE}₪ ({TON_DISCOUNT_PERCENT}% خصم!)\n\n"
+                
                 "💸 *كيف تربح؟*\n"
-                "1. تشتري أصلًا بـ 39₪\n"
+                "1. تشتري أصلًا\n"
                 "2. احصل على رابط مشاركة شخصي\n"
                 "3 *كل شخص* يشتري through رابطك - يتم تسجيل الشراء لرصيدك\n"
                 "4. أصولك تستمر في تحقيق الدخل\n\n"
@@ -1043,7 +1324,8 @@ async def digital_asset_info(update: Update, context: ContextTypes.DEFAULT_TYPE)
                 "• دخل سلبي من المشاركة\n"
                 "• الأصول التي تكتسب قيمة over time\n"
                 "• مجتمع داعم\n"
-                "• شفافية كاملة\n\n"
+                "• شفافية كاملة\n"
+                f"• {TON_DISCOUNT_PERCENT}% خصم على مدفوعات TON\n\n"
                 
                 "🎯 *الهدف:* إنشاء شبكة أعمال where everyone wins!"
             )
@@ -1067,16 +1349,22 @@ async def join_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
 
         text = {
             'he': (
-                "🔑 *רכישת הנכס הדיגיטלי - 39₪*\n\n"
-                "בתמורה ל-39₪ תקבל:\n"
+                "🔑 *רכישת הנכס הדיגיטלי*\n\n"
+                f"💰 *מחירים:*\n"
+                f"• מחיר רגיל: 39₪\n"
+                f"• מחיר TON: {TON_DISCOUNTED_PRICE}₪ ({TON_DISCOUNT_PERCENT}% הנחה!)\n\n"
+                
+                "בתמורה תקבל:\n"
                 "• נכס דיגיטלי אישי\n"
                 "• לינק הפצה ייחודי\n"
                 "• גישה לקהילת עסקים\n"
                 "• אפשרות למכור נכסים נוספים\n\n"
                 
+                f"🎊 *הנחה מיוחדת!* {TON_DISCOUNT_PERCENT}% הנחה לתשלום ב-TON\n\n"
+                
                 "🔄 *איך התהליך עובד?*\n"
                 "1. בוחרים אמצעי תשלום\n"
-                "2. משלמים 39₪\n"
+                "2. משלמים (39₪ או פחות ב-TON)\n"
                 "3. שולחים אישור תשלום\n"
                 "4. מקבלים אישור + לינק אישי\n"
                 "5. מתחילים להפיץ!\n\n"
@@ -1084,16 +1372,22 @@ async def join_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
                 "💼 *זכור:* אתה קונה *נכס* - לא רק 'גישה'!"
             ),
             'en': (
-                "🔑 *Digital Asset Purchase - 39₪*\n\n"
-                "In return for 39₪ you get:\n"
+                "🔑 *Digital Asset Purchase*\n\n"
+                f"💰 *Prices:*\n"
+                f"• Regular price: 39₪\n"
+                f"• TON price: {TON_DISCOUNTED_PRICE}₪ ({TON_DISCOUNT_PERCENT}% discount!)\n\n"
+                
+                "In return you get:\n"
                 "• Personal digital asset\n"
                 "• Unique sharing link\n"
                 "• Access to business community\n"
                 "• Ability to sell additional assets\n\n"
                 
+                f"🎊 *Special discount!* {TON_DISCOUNT_PERCENT}% discount for TON payment\n\n"
+                
                 "🔄 *How the process works?*\n"
                 "1. Choose payment method\n"
-                "2. Pay 39₪\n"
+                "2. Pay (39₪ or less with TON)\n"
                 "3. Send payment confirmation\n"
                 "4. Get approval + personal link\n"
                 "5. Start sharing!\n\n"
@@ -1101,16 +1395,22 @@ async def join_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
                 "💼 *Remember:* You're buying an *asset* - not just 'access'!"
             ),
             'ru': (
-                "🔑 *Покупка цифрового актива - 39₪*\n\n"
-                "Взамен на 39₪ вы получаете:\n"
+                "🔑 *Покупка цифрового актива*\n\n"
+                f"💰 *Цены:*\n"
+                f"• Обычная цена: 39₪\n"
+                f"• Цена TON: {TON_DISCOUNTED_PRICE}₪ ({TON_DISCOUNT_PERCENT}% скидка!)\n\n"
+                
+                "Взамен вы получаете:\n"
                 "• Персональный цифровой актив\n"
                 "• Уникальную ссылку для распространения\n"
                 "• Доступ к бизнес-сообществу\n"
                 "• Возможность продавать дополнительные активы\n\n"
                 
+                f"🎊 *Специальная скидка!* {TON_DISCOUNT_PERCENT}% скидка за оплату TON\n\n"
+                
                 "🔄 *Как работает процесс?*\n"
                 "1. Выбираете способ оплаты\n"
-                "2. Платите 39₪\n"
+                "2. Платите (39₪ или меньше с TON)\n"
                 "3. Отправляете подтверждение оплаты\n"
                 "4. Получаете одобрение + персональную ссылку\n"
                 "5. Начинаете распространять!\n\n"
@@ -1118,16 +1418,22 @@ async def join_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
                 "💼 *Помните:* Вы покупаете *актив* - не просто 'доступ'!"
             ),
             'ar': (
-                "🔑 *شراء الأصول الرقمية - 39₪*\n\n"
-                "في مقابل 39₪ تحصل على:\n"
+                "🔑 *شراء الأصول الرقمية*\n\n"
+                f"💰 *الأسعار:*\n"
+                f"• السعر العادي: 39₪\n"
+                f"• سعر TON: {TON_DISCOUNTED_PRICE}₪ ({TON_DISCOUNT_PERCENT}% خصم!)\n\n"
+                
+                "في مقابل تحصل على:\n"
                 "• الأصول الرقمية الشخصية\n"
                 "• رابط مشاركة فريد\n"
                 "• الوصول إلى مجتمع الأعمال\n"
                 "• القدرة على بيع أصول إضافية\n\n"
                 
+                f"🎊 *خصم خاص!* {TON_DISCOUNT_PERCENT}% خصم للدفع بـ TON\n\n"
+                
                 "🔄 *كيف تعمل العملية؟*\n"
                 "1. اختر طريقة الدفع\n"
-                "2. ادفع 39₪\n"
+                "2. ادفع (39₪ أو أقل مع TON)\n"
                 "3. أرسل تأكيد الدفع\n"
                 "4. احصل على الموافقة + الرابط الشخصي\n"
                 "5. ابدأ المشاركة!\n\n"
@@ -1170,6 +1476,7 @@ async def my_area_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -
                         f"🏦 *פרטי בנק:*\n{bank}\n\n"
                         f"👥 *קבוצה אישית:*\n{p_group}\n\n"
                         f"📊 *הפניות:* {total_ref}\n\n"
+                        f"💎 *הנחות TON:* {TON_DISCOUNT_PERCENT}% הנחה\n\n"
                         "*ניהול נכס:*"
                     ),
                     'en': (
@@ -1178,6 +1485,7 @@ async def my_area_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -
                         f"🏦 *Bank details:*\n{bank}\n\n"
                         f"👥 *Personal group:*\n{p_group}\n\n"
                         f"📊 *Referrals:* {total_ref}\n\n"
+                        f"💎 *TON Discounts:* {TON_DISCOUNT_PERCENT}% discount\n\n"
                         "*Asset management:*"
                     ),
                     'ru': (
@@ -1186,6 +1494,7 @@ async def my_area_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -
                         f"🏦 *Банковские реквизиты:*\n{bank}\n\n"
                         f"👥 *Персональная группа:*\n{p_group}\n\n"
                         f"📊 *Рефералы:* {total_ref}\n\n"
+                        f"💎 *Скидки TON:* {TON_DISCOUNT_PERCENT}% скидка\n\n"
                         "*Управление активом:*"
                     ),
                     'ar': (
@@ -1194,6 +1503,7 @@ async def my_area_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -
                         f"🏦 *تفاصيل البنك:*\n{bank}\n\n"
                         f"👥 *مجموعة شخصية:*\n{p_group}\n\n"
                         f"📊 *الإحالات:* {total_ref}\n\n"
+                        f"💎 *خصومات TON:* {TON_DISCOUNT_PERCENT}% خصم\n\n"
                         "*إدارة الأصول:*"
                     )
                 }
@@ -1205,7 +1515,8 @@ async def my_area_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -
                         "רכש נכס כדי לקבל:\n"
                         "• לינק אישי להפצה\n"
                         "• אפשרות למכור נכסים\n"
-                        "• גישה למערכת המלאה"
+                        "• גישה למערכת המלאה\n"
+                        f"• {TON_DISCOUNT_PERCENT}% הנחה בתשלומי TON"
                     ),
                     'en': (
                         "👤 *Your Personal Area*\n\n"
@@ -1213,7 +1524,8 @@ async def my_area_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -
                         "Purchase an asset to get:\n"
                         "• Personal sharing link\n"
                         "• Ability to sell assets\n"
-                        "• Access to full system"
+                        "• Access to full system\n"
+                        f"• {TON_DISCOUNT_PERCENT}% discount on TON payments"
                     ),
                     'ru': (
                         "👤 *Ваша личная зона*\n\n"
@@ -1221,7 +1533,8 @@ async def my_area_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -
                         "Приобретите актив, чтобы получить:\n"
                         "• Персональную ссылку для распространения\n"
                         "• Возможность продавать активы\n"
-                        "• Доступ к полной системе"
+                        "• Доступ к полной системе\n"
+                        f"• {TON_DISCOUNT_PERCENT}% скидка на оплату TON"
                     ),
                     'ar': (
                         "👤 *منطقتك الشخصية*\n\n"
@@ -1229,7 +1542,8 @@ async def my_area_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -
                         "شراء أصول للحصول على:\n"
                         "• رابط مشاركة شخصي\n"
                         "• القدرة على بيع الأصول\n"
-                        "• الوصول إلى النظام الكامل"
+                        "• الوصول إلى النظام الكامل\n"
+                        f"• {TON_DISCOUNT_PERCENT}% خصم على مدفوعات TON"
                     )
                 }
         else:
@@ -1257,13 +1571,25 @@ async def payment_method_callback(update: Update, context: ContextTypes.DEFAULT_
         user = update.effective_user
         lang = trans_manager.get_user_language(user.id) if user else 'he'
 
+        if data == "pay_ton":
+            # טיפול מיוחד בתשלום TON
+            ton_instructions = trans_manager.get_text("ton_instructions", lang)
+            ton_benefits = trans_manager.get_text("ton_payment_benefits", lang)
+            
+            full_message = f"{ton_instructions}\n\n{ton_benefits}"
+            
+            await query.edit_message_text(
+                full_message,
+                parse_mode="Markdown",
+                reply_markup=ton_payment_keyboard(lang),
+            )
+            return
+
         method_text = ""
         if data == "pay_bank":
             method_text = BANK_DETAILS
         elif data == "pay_paybox":
             method_text = "📲 *תשלום בביט / פייבוקס / PayPal*"
-        elif data == "pay_ton":
-            method_text = "💎 *תשלום ב-TON*"
 
         text = {
             'he': (
@@ -1326,7 +1652,7 @@ async def handle_payment_photo(update: Update, context: ContextTypes.DEFAULT_TYP
         pay_method_text = {
             "bank": "העברה בנקאית",
             "paybox": "ביט / פייבוקס / PayPal",
-            "ton": "טלגרם (TON)",
+            "ton": f"טלגרם (TON) - {TON_DISCOUNT_PERCENT}% הנחה",
             "unknown": "לא ידוע",
         }.get(pay_method, "לא ידוע")
 
@@ -1380,7 +1706,8 @@ async def handle_payment_photo(update: Update, context: ContextTypes.DEFAULT_TYP
                 "💎 *מה תקבל לאחר אישור:*\n"
                 "• לינק אישי להפצה\n"
                 "• גישה לקהילה\n"
-                "• אפשרות למכור נכסים נוספים"
+                "• אפשרות למכור נכסים נוספים\n"
+                f"• {TON_DISCOUNT_PERCENT}% הנחה בהפצות נוספות"
             ),
             'en': (
                 "✅ *Payment Confirmation Received!*\n\n"
@@ -1389,7 +1716,8 @@ async def handle_payment_photo(update: Update, context: ContextTypes.DEFAULT_TYP
                 "💎 *What you get after approval:*\n"
                 "• Personal sharing link\n"
                 "• Community access\n"
-                "• Ability to sell additional assets"
+                "• Ability to sell additional assets\n"
+                f"• {TON_DISCOUNT_PERCENT}% discount on additional distributions"
             ),
             'ru': (
                 "✅ *Подтверждение оплаты получено!*\n\n"
@@ -1398,7 +1726,8 @@ async def handle_payment_photo(update: Update, context: ContextTypes.DEFAULT_TYP
                 "💎 *Что вы получите после одобрения:*\n"
                 "• Персональная ссылка для распространения\n"
                 "• Доступ к сообществу\n"
-                "• Возможность продавать дополнительные активы"
+                "• Возможность продавать дополнительные активы\n"
+                f"• {TON_DISCOUNT_PERCENT}% скидка на дополнительные распространения"
             ),
             'ar': (
                 "✅ *تم استلام تأكيد الدفع!*\n\n"
@@ -1407,7 +1736,8 @@ async def handle_payment_photo(update: Update, context: ContextTypes.DEFAULT_TYP
                 "💎 *ما الذي تحصل عليه after الموافقة:*\n"
                 "• رابط مشاركة شخصي\n"
                 "• الوصول إلى المجتمع\n"
-                "• القدرة على بيع أصول إضافية"
+                "• القدرة على بيع أصول إضافية\n"
+                f"• {TON_DISCOUNT_PERCENT}% خصم على التوزيعات الإضافية"
             )
         }
 
@@ -1435,7 +1765,8 @@ async def do_approve(target_id: int, context: ContextTypes.DEFAULT_TYPE, source_
                 "1. שתף את הלינק עם אחרים\n"
                 "2. كل רכישה דרך הלינק שלך מתועדת\n"
                 "3. תוכל למכור נכסים נוספים\n"
-                "4. צבור הכנסה מהפצות\n\n"
+                "4. צבור הכנסה מהפצות\n"
+                f"5. קבל {TON_DISCOUNT_PERCENT}% הנחה בהפצות נוספות\n\n"
                 
                 "👥 *גישה לקהילה:*\n"
                 f"{COMMUNITY_GROUP_LINK}\n\n"
@@ -1454,7 +1785,8 @@ async def do_approve(target_id: int, context: ContextTypes.DEFAULT_TYPE, source_
                 "1. Share the link with others\n"
                 "2. Every purchase through your link is recorded\n"
                 "3. You can sell additional assets\n"
-                "4. Accumulate income from sharing\n\n"
+                "4. Accumulate income from sharing\n"
+                f"5. Get {TON_DISCOUNT_PERCENT}% discount on additional distributions\n\n"
                 
                 "👥 *Community access:*\n"
                 f"{COMMUNITY_GROUP_LINK}\n\n"
@@ -1473,7 +1805,8 @@ async def do_approve(target_id: int, context: ContextTypes.DEFAULT_TYPE, source_
                 "1. Поделитесь ссылкой с другими\n"
                 "2. Каждая покупка по вашей ссылке записывается\n"
                 "3. Вы можете продавать дополнительные активы\n"
-                "4. Накопите доход от распространения\n\n"
+                "4. Накопите доход от распространения\n"
+                f"5. Получите {TON_DISCOUNT_PERCENT}% скидку на дополнительные распространения\n\n"
                 
                 "👥 *Доступ к сообществу:*\n"
                 f"{COMMUNITY_GROUP_LINK}\n\n"
@@ -1492,7 +1825,8 @@ async def do_approve(target_id: int, context: ContextTypes.DEFAULT_TYPE, source_
                 "1. شارك الرابط مع الآخرين\n"
                 "2. يتم تسجيل كل عملية شراء through رابطك\n"
                 "3. يمكنك بيع أصول إضافية\n"
-                "4. تراكم الدخل من المشاركة\n\n"
+                "4. تراكم الدخل من المشاركة\n"
+                f"5. احصل على {TON_DISCOUNT_PERCENT}% خصم على التوزيعات الإضافية\n\n"
                 
                 "👥 *الوصول إلى المجتمع:*\n"
                 f"{COMMUNITY_GROUP_LINK}\n\n"
@@ -1679,28 +2013,32 @@ async def support_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -
                 "🆘 *תמיכה ועזרה*\n\n"
                 "בכל שלב אפשר לקבל עזרה באחד הערוצים הבאים:\n\n"
                 f"• קבוצת תמיכה: {SUPPORT_GROUP_LINK}\n"
-                f"• פניה ישירה למתכנת המערכת: `tg://user?id={DEVELOPER_USER_ID}`\n\n"
+                f"• פניה ישירה למתכנת המערכת: `tg://user?id={DEVELOPER_USER_ID}`\n"
+                f"• תמיכה בתשלומי TON: לחץ על הכפתור למטה\n\n"
                 "או חזור לתפריט הראשי:"
             ),
             'en': (
                 "🆘 *Support and Help*\n\n"
                 "At any stage you can get help in one of the following channels:\n\n"
                 f"• Support group: {SUPPORT_GROUP_LINK}\n"
-                f"• Direct contact with system developer: `tg://user?id={DEVELOPER_USER_ID}`\n\n"
+                f"• Direct contact with system developer: `tg://user?id={DEVELOPER_USER_ID}`\n"
+                f"• TON payment support: Click the button below\n\n"
                 "Or return to main menu:"
             ),
             'ru': (
                 "🆘 *Поддержка и помощь*\n\n"
                 "На любом этапе вы можете получить помощь в одном из следующих каналов:\n\n"
                 f"• Группа поддержки: {SUPPORT_GROUP_LINK}\n"
-                f"• Прямой контакт с разработчиком системы: `tg://user?id={DEVELOPER_USER_ID}`\n\n"
+                f"• Прямой контакт с разработчиком системы: `tg://user?id={DEVELOPER_USER_ID}`\n"
+                f"• Поддержка оплаты TON: Нажмите кнопку ниже\n\n"
                 "Или вернуться в главное меню:"
             ),
             'ar': (
                 "🆘 *الدعم والمساعدة*\n\n"
                 "في أي مرحلة يمكنك الحصول على المساعدة في one of القنوات التالية:\n\n"
                 f"• مجموعة الدعم: {SUPPORT_GROUP_LINK}\n"
-                f"• الاتصال المباشر مع مطور النظام: `tg://user?id={DEVELOPER_USER_ID}`\n\n"
+                f"• الاتصال المباشر مع مطور النظام: `tg://user?id={DEVELOPER_USER_ID}`\n"
+                f"• دعم الدفع بـ TON: انقر على الزر أدناه\n\n"
                 "أو العودة إلى القائمة الرئيسية:"
             )
         }
@@ -1742,28 +2080,32 @@ async def share_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
                     "הלינק האישי שלך להפצה:\n"
                     f"`{personal_link}`\n\n"
                     "מומלץ לשתף בסטורי / סטטוס / קבוצות, ולהוסיף כמה מילים אישיות משלך.\n"
-                    "כל מי שייכנס דרך הלינק וילחץ על Start בבוט – יעבור דרך שער הקהילה שלך."
+                    "כל מי שייכנס דרך הלינק וילחץ על Start בבוט – יעבור דרך שער הקהילה שלך.\n\n"
+                    f"💎 *טיפ:* הזכירו על {TON_DISCOUNT_PERCENT}% הנחה בתשלומי TON!"
                 ),
                 'en': (
                     "🔗 *Share the Community Gateway*\n\n"
                     "Your personal sharing link:\n"
                     f"`{personal_link}`\n\n"
                     "Recommended to share in stories/status/groups, and add some personal words of your own.\n"
-                    "Anyone who enters through the link and clicks Start in the bot - will go through your community gateway."
+                    "Anyone who enters through the link and clicks Start in the bot - will go through your community gateway.\n\n"
+                    f"💎 *Tip:* Mention the {TON_DISCOUNT_PERCENT}% discount on TON payments!"
                 ),
                 'ru': (
                     "🔗 *Поделитесь входом в сообщество*\n\n"
                     "Ваша персональная ссылка для распространения:\n"
                     f"`{personal_link}`\n\n"
                     "Рекомендуется делиться в сторис/статусе/группах и добавлять несколько личных слов от себя.\n"
-                    "Любой, кто войдет по ссылке и нажмет Start в боте - пройдет через ваш вход в сообщество."
+                    "Любой, кто войдет по ссылке и нажмет Start в боте - пройдет через ваш вход в сообщество.\n\n"
+                    f"💎 *Совет:* Упомяните {TON_DISCOUNT_PERCENT}% скидку на оплату TON!"
                 ),
                 'ar': (
                     "🔗 *شارك بوابة المجتمع*\n\n"
                     "رابط المشاركة الشخصي الخاص بك:\n"
                     f"`{personal_link}`\n\n"
                     "يوصى بالمشاركة في القصص/الحالة/المجموعات، وإضافة بعض الكلمات الشخصية من yourself.\n"
-                    "أي شخص يدخل through الرابط وينقر على Start في البوت - سيمر through بوابة المجتمع الخاصة بك."
+                    "أي شخص يدخل through الرابط وينقر على Start في البوت - سيمر through بوابة المجتمع الخاصة بك.\n\n"
+                    f"💎 *نصيحة:* اذكر خصم {TON_DISCOUNT_PERCENT}% على مدفوعات TON!"
                 )
             }
         else:
@@ -1777,6 +2119,8 @@ async def share_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
                     "💝 *אפשרות צדקה - 39 שיתופים*\n"
                     "לאחר 39 שיתופים איכותיים של הקישור, תוכל לקבל גישה מלאה לקהילה ללא תשלום!\n"
                     "זו הזדמנות גם למי שידו אינה משגת להצטרף ולצמוח איתנו.\n\n"
+                    
+                    f"💎 *הנחת TON:* {TON_DISCOUNT_PERCENT}% הנחה למשלמים ב-TON\n\n"
                     
                     "📢 *איך לשתף:*\n"
                     "מומלץ לשתף בסטורי / סטטוס / קבוצות\n"
@@ -1793,6 +2137,8 @@ async def share_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
                     "After 39 quality shares of the link, you can get full access to the community without payment!\n"
                     "This is an opportunity for those who cannot afford to join and grow with us.\n\n"
                     
+                    f"💎 *TON Discount:* {TON_DISCOUNT_PERCENT}% discount for TON payers\n\n"
+                    
                     "📢 *How to share:*\n"
                     "Recommended to share in stories/status/groups\n"
                     "and add some personal words of your own.\n\n"
@@ -1808,6 +2154,8 @@ async def share_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
                     "После 39 качественных репостов ссылки вы можете получить полный доступ к сообществу без оплаты!\n"
                     "Это возможность для тех, кто не может позволить себе присоединиться и расти с нами.\n\n"
                     
+                    f"💎 *Скидка TON:* {TON_DISCOUNT_PERCENT}% скидка для плательщиков TON\n\n"
+                    
                     "📢 *Как делиться:*\n"
                     "Рекомендуется делиться в сторис/статусе/группах\n"
                     "и добавлять несколько личных слов от себя.\n\n"
@@ -1822,6 +2170,8 @@ async def share_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
                     "💝 *خيار charity - 39 مشاركة*\n"
                     "بعد 39 مشاركة جودة للرابط، يمكنك الحصول على وصول كامل إلى المجتمع without دفع!\n"
                     "هذه فرصة لأولئك الذين لا يستطيعون تحمل costs للانضمام والنمو معنا.\n\n"
+                    
+                    f"💎 *خصم TON:* {TON_DISCOUNT_PERCENT}% خصم لدفعات TON\n\n"
                     
                     "📢 *كيفية المشاركة:*\n"
                     "يوصى بالمشاركة في القصص/الحالة/المجموعات\n"
@@ -1855,6 +2205,8 @@ async def vision_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
                 "– עם בוטים, חנויות, טוקן SLH, אקדמיה, משחק, ו־Exchange – כך שכל אדם יכול להפוך "
                 "לעסק, למומחה ולצומת כלכלי, מתוך הטלפון שלו.\n\n"
                 
+                f"💎 *חדש!* תמיכה מלאה ב-TON עם {TON_DISCOUNT_PERCENT}% הנחה\n\n"
+                
                 "🎯 *החזון ארוך־טווח:*\n"
                 "• להפוך כל אדם ומשפחה ליחידת כלכלה עצמאית\n"
                 "• לבנות רשת מסחר גלובלית מבוזרת\n"
@@ -1881,6 +2233,8 @@ async def vision_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
                 "SLH is a human capital protocol that connects families, communities and experts into one economic network "
                 "- with bots, shops, SLH token, academy, gaming, and Exchange - so that every person can become "
                 "a business, an expert and an economic node, from their phone.\n\n"
+                
+                f"💎 *New!* Full TON support with {TON_DISCOUNT_PERCENT}% discount\n\n"
                 
                 "🎯 *The long-term vision:*\n"
                 "• Turn every person and family into an independent economic unit\n"
@@ -1909,6 +2263,8 @@ async def vision_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
                 "- с ботами, магазинами, токеном SLH, академией, играми и Exchange - так что каждый человек может стать "
                 "бизнесом, экспертом и экономическим узлом, со своего телефона.\n\n"
                 
+                f"💎 *Новое!* Полная поддержка TON с {TON_DISCOUNT_PERCENT}% скидкой\n\n"
+                
                 "🎯 *Долгосрочное видение:*\n"
                 "• Превратить каждого человека и семью в независимую экономическую единицу\n"
                 "• Построить децентрализованную глобальную торговую сеть\n"
@@ -1935,6 +2291,8 @@ async def vision_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
                 "SLH هو بروتوكول رأس المال البشري الذي يربط العائلات والمجتمعات والخبراء في شبكة اقتصادية واحدة "
                 "- مع البوتات والمتاجر ورمز SLH والأكاديمية والألعاب والتبادل - so that كل شخص can يصبح "
                 "عمل وخبير وعقدة اقتصادية، من هاتفه.\n\n"
+                
+                f"💎 *جديد!* دعم كامل لـ TON مع {TON_DISCOUNT_PERCENT}% خصم\n\n"
                 
                 "🎯 *الرؤية طويلة المدى:*\n"
                 "• تحويل كل شخص وعائلة إلى وحدة اقتصادية مستقلة\n"
@@ -1966,6 +2324,221 @@ async def vision_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
         logger.error("Error in vision_callback: %s", e)
 
 # =========================
+# TON handlers
+# =========================
+
+async def ton_info_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    try:
+        query = update.callback_query
+        await query.answer()
+
+        user = update.effective_user
+        lang = trans_manager.get_user_language(user.id) if user else 'he'
+
+        text = {
+            'he': (
+                f"💎 *מידע על TON והנחות*\n\n"
+                
+                f"🎊 *הנחה מיוחדת:* {TON_DISCOUNT_PERCENT}% הנחה\n"
+                f"💰 *מחיר רגיל:* 39₪\n"
+                f"💰 *מחיר TON:* {TON_DISCOUNTED_PRICE}₪\n\n"
+                
+                f"🏦 *ארנק TON:*\n"
+                f"`{TON_WALLET}`\n\n"
+                
+                f"📋 *איך משלמים ב-TON?*\n"
+                f"1. פתחו את ארנק TON שלכם\n"
+                f"2. שלחו {TON_DISCOUNTED_PRICE}₪ לארנק למעלה\n"
+                f"3. שמרו צילום מסך\n"
+                f"4. שלחו את הצילום לבוט\n\n"
+                
+                f"⚡ *יתרונות TON:*\n"
+                f"• הנחה {TON_DISCOUNT_PERCENT}%\n"
+                f"• העברה מיידית\n"
+                f"• עמלות נמוכות\n"
+                f"• ביטחון גבוה\n"
+                f"• טכנולוגיה מתקדמת\n\n"
+                
+                f"🚀 *הצטרפו למהפכת TON!*"
+            ),
+            'en': (
+                f"💎 *TON Information & Discounts*\n\n"
+                
+                f"🎊 *Special discount:* {TON_DISCOUNT_PERCENT}% discount\n"
+                f"💰 *Regular price:* 39₪\n"
+                f"💰 *TON price:* {TON_DISCOUNTED_PRICE}₪\n\n"
+                
+                f"🏦 *TON Wallet:*\n"
+                f"`{TON_WALLET}`\n\n"
+                
+                f"📋 *How to pay with TON?*\n"
+                f"1. Open your TON wallet\n"
+                f"2. Send {TON_DISCOUNTED_PRICE}₪ to the wallet above\n"
+                f"3. Save a screenshot\n"
+                f"4. Send the screenshot to the bot\n\n"
+                
+                f"⚡ *TON Advantages:*\n"
+                f"• {TON_DISCOUNT_PERCENT}% discount\n"
+                f"• Instant transfer\n"
+                f"• Low fees\n"
+                f"• High security\n"
+                f"• Advanced technology\n\n"
+                
+                f"🚀 *Join the TON revolution!*"
+            ),
+            'ru': (
+                f"💎 *Информация о TON и скидках*\n\n"
+                
+                f"🎊 *Специальная скидка:* {TON_DISCOUNT_PERCENT}% скидка\n"
+                f"💰 *Обычная цена:* 39₪\n"
+                f"💰 *Цена TON:* {TON_DISCOUNTED_PRICE}₪\n\n"
+                
+                f"🏦 *TON кошелек:*\n"
+                f"`{TON_WALLET}`\n\n"
+                
+                f"📋 *Как оплатить через TON?*\n"
+                f"1. Откройте ваш TON кошелек\n"
+                f"2. Отправьте {TON_DISCOUNTED_PRICE}₪ на кошелек выше\n"
+                f"3. Сохраните скриншот\n"
+                f"4. Отправьте скриншот боту\n\n"
+                
+                f"⚡ *Преимущества TON:*\n"
+                f"• {TON_DISCOUNT_PERCENT}% скидка\n"
+                f"• Мгновенный перевод\n"
+                f"• Низкие комиссии\n"
+                f"• Высокая безопасность\n"
+                f"• Передовая технология\n\n"
+                
+                f"🚀 *Присоединяйтесь к революции TON!*"
+            ),
+            'ar': (
+                f"💎 *معلومات TON والخصومات*\n\n"
+                
+                f"🎊 *خصم خاص:* {TON_DISCOUNT_PERCENT}% خصم\n"
+                f"💰 *السعر العادي:* 39₪\n"
+                f"💰 *سعر TON:* {TON_DISCOUNTED_PRICE}₪\n\n"
+                
+                f"🏦 *محفظة TON:*\n"
+                f"`{TON_WALLET}`\n\n"
+                
+                f"📋 *كيف تدفع بـ TON؟*\n"
+                f"1. افتح محفظة TON الخاصة بك\n"
+                f"2. أرسل {TON_DISCOUNTED_PRICE}₪ إلى المحفظة أعلاه\n"
+                f"3. احفظ لقطة شاشة\n"
+                f"4. أرسل لقطة الشاشة إلى البوت\n\n"
+                
+                f"⚡ *مزايا TON:*\n"
+                f"• {TON_DISCOUNT_PERCENT}% خصم\n"
+                f"• تحويل فوري\n"
+                f"• رسوم منخفضة\n"
+                f"• أمان عالي\n"
+                f"• تقنية متقدمة\n\n"
+                
+                f"🚀 *انضم إلى ثورة TON!*"
+            )
+        }
+
+        await query.edit_message_text(
+            text.get(lang, text['he']),
+            parse_mode="Markdown",
+            reply_markup=ton_payment_keyboard(lang),
+        )
+    except Exception as e:
+        logger.error("Error in ton_info_callback: %s", e)
+
+async def ton_support_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    try:
+        query = update.callback_query
+        await query.answer()
+
+        user = update.effective_user
+        lang = trans_manager.get_user_language(user.id) if user else 'he'
+
+        text = {
+            'he': (
+                "💎 *תמיכה בתשלומי TON*\n\n"
+                
+                f"🏦 *ארנק TON:*\n"
+                f"`{TON_WALLET}`\n\n"
+                
+                "📚 *מדריכים:*\n"
+                "• [מדריך TON למתחילים](https://ton.org/learn)\n"
+                "• [איך להשתמש בארנק TON?](https://ton.org/wallets)\n"
+                "• [שאלות נפוצות](https://ton.org/faq)\n\n"
+                
+                "🆘 *בעיות בתשלום?*\n"
+                "אם נתקלת בבעיה בתשלום TON:\n"
+                "1. ודא שהעברת את הסכום הנכון\n"
+                "2. שלח צילום מסך של ההעברה\n"
+                "3. פנה לתמיכה הטכנית\n\n"
+                f"📞 *תמיכה:* {SUPPORT_GROUP_LINK}"
+            ),
+            'en': (
+                "💎 *TON Payment Support*\n\n"
+                
+                f"🏦 *TON Wallet:*\n"
+                f"`{TON_WALLET}`\n\n"
+                
+                "📚 *Guides:*\n"
+                "• [TON Guide for Beginners](https://ton.org/learn)\n"
+                "• [How to Use TON Wallet?](https://ton.org/wallets)\n"
+                "• [Frequently Asked Questions](https://ton.org/faq)\n\n"
+                
+                "🆘 *Payment Issues?*\n"
+                "If you encounter TON payment issues:\n"
+                "1. Make sure you sent the correct amount\n"
+                "2. Send a screenshot of the transfer\n"
+                "3. Contact technical support\n\n"
+                f"📞 *Support:* {SUPPORT_GROUP_LINK}"
+            ),
+            'ru': (
+                "💎 *Поддержка оплаты TON*\n\n"
+                
+                f"🏦 *TON кошелек:*\n"
+                f"`{TON_WALLET}`\n\n"
+                
+                "📚 *Руководства:*\n"
+                "• [Руководство TON для начинающих](https://ton.org/learn)\n"
+                "• [Как использовать кошелек TON?](https://ton.org/wallets)\n"
+                "• [Часто задаваемые вопросы](https://ton.org/faq)\n\n"
+                
+                "🆘 *Проблемы с оплатой?*\n"
+                "Если у вас возникли проблемы с оплатой TON:\n"
+                "1. Убедитесь, что вы отправили правильную сумму\n"
+                "2. Отправьте скриншот перевода\n"
+                "3. Обратитесь в техническую поддержку\n\n"
+                f"📞 *Поддержка:* {SUPPORT_GROUP_LINK}"
+            ),
+            'ar': (
+                "💎 *دعم الدفع بـ TON*\n\n"
+                
+                f"🏦 *محفظة TON:*\n"
+                f"`{TON_WALLET}`\n\n"
+                
+                "📚 *أدلة:*\n"
+                "• [دليل TON للمبتدئين](https://ton.org/learn)\n"
+                "• [كيفية استخدام محفظة TON؟](https://ton.org/wallets)\n"
+                "• [الأسئلة الشائعة](https://ton.org/faq)\n\n"
+                
+                "🆘 *مشاكل في الدفع؟*\n"
+                "إذا واجهت مشاكل في الدفع بـ TON:\n"
+                "1. تأكد من إرسال المبلغ الصحيح\n"
+                "2. أرسل لقطة شاشة للتحويل\n"
+                "3. اتصل بالدعم الفني\n\n"
+                f"📞 *الدعم:* {SUPPORT_GROUP_LINK}"
+            )
+        }
+
+        await query.edit_message_text(
+            text.get(lang, text['he']),
+            parse_mode="Markdown",
+            disable_web_page_preview=True,
+            reply_markup=support_keyboard(lang),
+        )
+    except Exception as e:
+        logger.error("Error in ton_support_callback: %s", e)
+
+# =========================
 # Additional command handlers
 # =========================
 
@@ -1984,6 +2557,7 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
                 "/start – התחלה מחדש ותפריט ראשי\n"
                 "/help – עזרה\n\n"
                 "אחרי ביצוע תשלום – שלח צילום מסך של האישור לבוט.\n\n"
+                f"💎 *הנחת TON:* {TON_DISCOUNT_PERCENT}% הנחה\n\n"
                 "לשיתוף שער הקהילה: כפתור '🔗 שתף את שער הקהילה' בתפריט הראשי.\n\n"
                 "למארגנים / אדמינים:\n"
                 "/admin – תפריט אדמין\n"
@@ -1998,6 +2572,7 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
                 "/start – Restart and main menu\n"
                 "/help – Help\n\n"
                 "After making payment – send screenshot of confirmation to bot.\n\n"
+                f"💎 *TON Discount:* {TON_DISCOUNT_PERCENT}% discount\n\n"
                 "For sharing community gateway: '🔗 Share Community Gateway' button in main menu.\n\n"
                 "For organizers/admins:\n"
                 "/admin – Admin menu\n"
@@ -2012,6 +2587,7 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
                 "/start – Перезапуск и главное меню\n"
                 "/help – Помощь\n\n"
                 "После совершения оплаты – отправьте скриншот подтверждения боту.\n\n"
+                f"💎 *Скидка TON:* {TON_DISCOUNT_PERCENT}% скидка\n\n"
                 "Для распространения входа в сообщество: кнопка '🔗 Поделиться входом в сообщество' в главном меню.\n\n"
                 "Для организаторов/админов:\n"
                 "/admin – Меню админа\n"
@@ -2026,6 +2602,7 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
                 "/start – إعادة البدء والقائمة الرئيسية\n"
                 "/help – مساعدة\n\n"
                 "بعد إجراء الدفع – أرسل لقطة شاشة للتأكيد إلى البوت.\n\n"
+                f"💎 *خصم TON:* {TON_DISCOUNT_PERCENT}% خصم\n\n"
                 "لمشاركة بوابة المجتمع: زر '🔗 مشاركة بوابة المجتمع' في القائمة الرئيسية.\n\n"
                 "للمنظمين/المسؤولين:\n"
                 "/admin – قائمة المسؤول\n"
@@ -2171,6 +2748,8 @@ ptb_app.add_handler(CallbackQueryHandler(payment_method_callback, pattern="^pay_
 ptb_app.add_handler(CallbackQueryHandler(my_area_callback, pattern="^my_area$"))
 ptb_app.add_handler(CallbackQueryHandler(admin_approve_callback, pattern="^adm_approve:"))
 ptb_app.add_handler(CallbackQueryHandler(admin_reject_callback, pattern="^adm_reject:"))
+ptb_app.add_handler(CallbackQueryHandler(ton_info_callback, pattern="^ton_info$"))
+ptb_app.add_handler(CallbackQueryHandler(ton_support_callback, pattern="^ton_support$"))
 
 # הוספת handler למקלדת יציבה
 ptb_app.add_handler(MessageHandler(filters.TEXT & filters.ChatType.PRIVATE, handle_stable_keyboard_text))
