@@ -525,8 +525,3 @@ async def notify_admin_new_user_on_start(update: Update, context: ContextTypes.D
     """
     await notify_admin_new_user(update, context)
 
-# === Routers registration (added by PowerShell script) ===
-app.include_router(public_api_router)
-app.include_router(social_router)
-app.include_router(slhnet_extra_router)
-app.include_router(slh_core_router)
