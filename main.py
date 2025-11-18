@@ -19,7 +19,7 @@ from telegram.ext import Application, CommandHandler, ContextTypes
 
 from slh_public_api import router as public_router
 from social_api import router as social_router
-from slh_core_api import router as core_router  # API ליבה לרפרלים
+from slh_core_api import core_router  # API ליבה לרפרלים
 
 # =========================
 # בסיס לוגינג
@@ -530,4 +530,3 @@ app.include_router(public_api_router)
 app.include_router(social_router)
 app.include_router(slhnet_extra_router)
 app.include_router(slh_core_router)
-
