@@ -576,6 +576,47 @@ def get_metric(key: str) -> int:
         row = cur.fetchone()
         return int(row["value"]) if row else 0
 
+def get_start_stats() -> Dict[str, Any]:
+    """
+    מחזיר סטטיסטיקות בסיסיות על /start מהטבלת metrics.
+    total_starts      – כל הלחיצות על /start
+    starts_direct     – /start בלי ref_ (כניסה ישירה)
+    starts_with_ref   – /start עם ref_ (כניסות מקמפיינים / ממליצים)
+    """
+    return {
+        "total": get_metric("total_starts"),
+        "direct": get_metric("starts_direct"),
+        "with_ref": get_metric("starts_with_ref"),
+    }
+
+
+
+def log_blockchain_tx(
+    user_id: int,
+    network: str,
+    token_symbol: Optional[str],
+    token_address: Optional[str],
+    tx_hash: str,
+    amount: Optional[float],
+    status: str = "pending",
+) -> None:
+    """
+    רושם טרנזקציית בלוקצ'יין לטבלת blockchain_txs (לשימוש עתידי בחיבור ל-BNB/SLH).
+    כרגע רק לוג, בלי לוגיקה נוספת.
+    """
+    with db_cursor() as (conn, cur):
+        if cur is None:
+            logger.warning("log_blockchain_tx called without DB.")
+            return
+        cur.execute(
+            """
+            INSERT INTO blockchain_txs
+                (user_id, network, token_symbol, token_address, tx_hash, amount, status)
+            VALUES (%s, %s, %s, %s, %s, %s, %s)
+            ON CONFLICT (tx_hash) DO NOTHING;
+            """,
+            (user_id, network, token_symbol, token_address, tx_hash, amount, status),
+        )
 
 # === Website / docs tables for integrated payments system ===
 def ensure_website_tables():
@@ -624,6 +665,20 @@ def ensure_website_tables():
 
         # site_metrics
         cur.execute("""
+# blockchain_txs – רישום עסקאות בלוקצ'יין (לשלב BNB/SLH)
+cur.execute("""
+    CREATE TABLE IF NOT EXISTS blockchain_txs (
+        id SERIAL PRIMARY KEY,
+        user_id BIGINT NOT NULL,
+        network TEXT NOT NULL,             -- למשל 'BSC', 'TON'
+        token_symbol TEXT,                 -- SLH, BNB וכו'
+        token_address TEXT,
+        tx_hash TEXT UNIQUE,
+        amount NUMERIC,
+        status TEXT DEFAULT 'pending',     -- pending/confirmed/failed
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+""")
             CREATE TABLE IF NOT EXISTS site_metrics (
                 id SERIAL PRIMARY KEY,
                 date DATE UNIQUE,

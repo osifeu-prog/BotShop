@@ -53,7 +53,9 @@ try:
         get_top_referrers,
         get_monthly_payments,
         get_approval_stats,
+        get_start_stats,
         create_reward,
+        log_blockchain_tx,
         ensure_promoter,
         update_promoter_settings,
         get_promoter_summary,
@@ -114,6 +116,12 @@ except Exception as e:
 
     def get_metric(metric_name: str):
         return 0
+
+def get_start_stats():
+    return {"total": 0, "direct": 0, "with_ref": 0}
+
+def log_blockchain_tx(user_id, network, token_symbol, token_address, tx_hash, amount, status="pending"):
+    logger.info(f"Blockchain TX logged (stub) - user={user_id}, network={network}, tx={tx_hash}, amount={amount}")
 
     def get_user_language(user_id: int):
         return 'he'
@@ -697,11 +705,25 @@ async def admin_dashboard(token: str = ""):
             fetch('/admin/stats?token=' + new URLSearchParams(window.location.search).get('token'))
                 .then(r => r.json())
                 .then(data => {
+                    const ps = data.payments_stats || {};
+                    const ss = data.start_stats || {};
+                    const top = data.top_referrers || [];
+                    const topList = top.map(r => 
+                        `<li>${r.username || r.referrer_id} – ${r.total_referrals} הפניות (${r.total_points || 0} נק')</li>`
+                    ).join('');
+
                     document.getElementById('stats').innerHTML = `
                         <div class="stats">
-                            <div class="card">משתמשים: ${data.payments_stats?.total || 0}</div>
-                            <div class="card">אושרו: ${data.payments_stats?.approved || 0}</div>
-                            <div class="card">ממתינים: ${data.payments_stats?.pending || 0}</div>
+                            <div class="card">משתמשים משלמים (payments): ${ps.total || 0}</div>
+                            <div class="card">תשלומים שאושרו: ${ps.approved || 0}</div>
+                            <div class="card">תשלומים ממתינים: ${ps.pending || 0}</div>
+                            <div class="card">כל לחיצות /start: ${ss.total || 0}</div>
+                            <div class="card">כניסות ישירות (/start בלי ref): ${ss.direct || 0}</div>
+                            <div class="card">כניסות מקמפיינים (/start עם ref): ${ss.with_ref || 0}</div>
+                            <div class="card">
+                                <strong>ממליצים מובילים (Top Referrers)</strong>
+                                <ul>${topList || '<li>אין עדיין נתונים</li>'}</ul>
+                            </div>
                         </div>
                     `;
                 });
@@ -781,6 +803,7 @@ async def admin_stats(token: str = ""):
 
     try:
         stats = get_approval_stats()
+        start_stats = get_start_stats()
         monthly = get_monthly_payments(datetime.utcnow().year, datetime.utcnow().month)
         top_ref = get_top_referrers(5)
     except Exception as e:
@@ -790,6 +813,7 @@ async def admin_stats(token: str = ""):
     return {
         "db": "enabled",
         "payments_stats": stats,
+        "start_stats": start_stats,
         "monthly_breakdown": monthly,
         "top_referrers": top_ref,
         "system": {
@@ -971,38 +995,56 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
             except Exception as e:
                 logger.error("Failed to check user status: %s", e)
 
-        # לוג לקבוצת התשלומים רק למשתמשים חדשים או תהליך תקוע
-        if (is_new_user or has_stuck_payment) and PAYMENTS_LOG_CHAT_ID and update.effective_user:
-            try:
-                user = update.effective_user
-                username_str = f"@{user.username}" if user.username else "(ללא username)"
-                status_note = "🆕 משתמש חדש" if is_new_user else "⚠️ תהליך תקוע"
-                
-                log_text = (
-                    f"{trans_manager.get_text('new_user_start', 'he')}\n\n"
-                    f"👤 user_id: `{user.id}`\n"
-                    f"📛 username: {username_str}\n"
-                    f"💬 chat_id: `{update.effective_chat.id}`\n"
-                    f"📊 סטטוס: {status_note}\n"
-                    f"🕐 זמן: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n"
-                )
-                await context.bot.send_message(
-                    chat_id=PAYMENTS_LOG_CHAT_ID,
-                    text=log_text,
-                    parse_mode="Markdown",
-                )
-            except Exception as e:
-                logger.error("Failed to send /start log to payments group: %s", e)
+# לוג לקבוצת התשלומים על כל /start (משתמש חדש, תהליך תקוע או משתמש חוזר)
+if PAYMENTS_LOG_CHAT_ID and update.effective_user:
+    try:
+        user = update.effective_user
+        username_str = f"@{user.username}" if user.username else "(ללא username)"
+        if is_new_user:
+            status_note = "🆕 משתמש חדש"
+        elif has_stuck_payment:
+            status_note = "⚠️ תהליך תקוע"
+        else:
+            status_note = "🔁 משתמש חוזר / לחיצה נוספת"
 
-        # טיפול ב-referral
-        if message.text and message.text.startswith("/start") and user:
-            parts = message.text.split()
-            if len(parts) > 1 and parts[1].startswith("ref_"):
-                try:
-                    referrer_id = int(parts[1].split("ref_")[1])
-                    if DB_AVAILABLE and referrer_id != user.id:
-                        add_referral(referrer_id, user.id, source="bot_start")
-                        logger.info("Referral added: %s -> %s", referrer_id, user.id)
+        log_text = (
+            f"{trans_manager.get_text('new_user_start', 'he')}" "\n\n"
+            f"👤 user_id: `{user.id}`\n"
+            f"📛 username: {username_str}\n"
+            f"💬 chat_id: `{update.effective_chat.id}`\n"
+            f"📊 סטטוס: {status_note}\n"
+            f"🕐 זמן: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n"
+        )
+        await context.bot.send_message(
+            chat_id=PAYMENTS_LOG_CHAT_ID,
+            text=log_text,
+            parse_mode="Markdown",
+        )
+    except Exception as e:
+        logger.error("Failed to send /start log to payments group: %s", e)
+
+# טיפול ב-referral + סטטיסטיקות קמפיין (/start)
+if message.text and message.text.startswith("/start") and user:
+    parts = message.text.split()
+    has_ref = False
+    if len(parts) > 1 and parts[1].startswith("ref_"):
+        has_ref = True
+        try:
+            referrer_id = int(parts[1].split("ref_")[1])
+            if DB_AVAILABLE and referrer_id != user.id:
+                add_referral(referrer_id, user.id, source="bot_start")
+                logger.info("Referral added: %s -> %s", referrer_id, user.id)
+        except Exception as e:
+            logger.error("Failed to add referral: %s", e)
+
+    # מונה /start לפי מקור התנועה (ישיר / קמפיין עם ref)
+    try:
+        if has_ref:
+            incr_metric("starts_with_ref")
+        else:
+            incr_metric("starts_direct")
+    except Exception as e:
+        logger.error("Failed to update start metrics: %s", e)
                 except Exception as e:
                     logger.error("Failed to add referral: %s", e)
 
