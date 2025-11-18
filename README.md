@@ -51,15 +51,3 @@ export BOT_TOKEN="123:ABC"
 export WEBHOOK_URL="https://your-public-url/webhook"
 
 uvicorn main:app --host 0.0.0.0 --port 8000
-
-
-## Admin Dashboard & Campaign Stats
-
-- נתיב דשבורד HTML: `/admin/dashboard?token=ADMIN_DASH_TOKEN`
-- נתיב API JSON: `/admin/stats?token=ADMIN_DASH_TOKEN`
-
-הדשבורד מציג:
-- סה"כ תשלומים, מאושרים, ממתינים
-- ספירת כל לחיצות /start
-- פילוח כניסות ישירות מול כניסות עם `ref_` (קמפיינים)
-- רשימת ממליצים מובילים (Top Referrers) לפי מספר הפניות ונקודות.
