@@ -5,6 +5,8 @@ import logging
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, InputFile
 from pathlib import Path
 from typing import Optional, Dict, Any
+from datetime import datetime
+from zoneinfo import ZoneInfo
 
 from fastapi import FastAPI, Request, HTTPException
 from fastapi.responses import JSONResponse, HTMLResponse
@@ -491,6 +493,7 @@ async def notify_admin_new_user(update: Update, context: ContextTypes.DEFAULT_TY
     שליחת התראה לקבוצת אדמינים על משתמש חדש שנכנס לבוט.
     דורש ADMIN_ALERT_CHAT_ID (int) כמשתנה סביבה.
     """
+    now_il = datetime.now(ZoneInfo("Asia/Jerusalem"))
     if not ADMIN_ALERT_CHAT_ID:
         return
 
@@ -500,6 +503,7 @@ async def notify_admin_new_user(update: Update, context: ContextTypes.DEFAULT_TY
     lines = [
         "👤 משתמש חדש נכנס לבוט Buy_My_Shop",
         "",
+        f"time: {now_il.strftime('%Y-%m-%d %H:%M:%S')} (Asia/Jerusalem)",
         f"user_id: {user.id}",
         f"username: @{user.username}" if user.username else "username: —",
         f"name: {user.full_name}",
@@ -524,4 +528,3 @@ async def notify_admin_new_user_on_start(update: Update, context: ContextTypes.D
     בלי להפריע ל-CommandHandler("start") הקיים.
     """
     await notify_admin_new_user(update, context)
-
