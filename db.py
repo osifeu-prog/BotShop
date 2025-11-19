@@ -726,30 +726,23 @@ except Exception as e:
 from typing import List, Dict, Any, Optional
 
 def ensure_extra_tables(conn):
-    """Create SLHNET extra tables if they don't exist"""
+    \"\"\"Create SLHNET extra tables if they don't exist\"\"\"
     with conn.cursor() as cur:
         # פוסטים מהרשת החברתית
-        cur.execute("""
+        cur.execute(\"\"\"\
         CREATE TABLE IF NOT EXISTS slh_posts (
             id SERIAL PRIMARY KEY,
             user_id BIGINT,
             username TEXT,
             title TEXT NOT NULL,
             content TEXT NOT NULL,
-            image_url TEXT,
+            share_url TEXT,
             created_at TIMESTAMPTZ DEFAULT NOW(),
             is_published BOOLEAN DEFAULT TRUE
         );
-
-        CREATE TABLE IF NOT EXISTS slh_wallets (
-            id SERIAL PRIMARY KEY,
-            user_id BIGINT,
-            username TEXT,
-            wallet_address TEXT NOT NULL,
-            network TEXT NOT NULL,
-            created_at TIMESTAMPTZ DEFAULT NOW()
-        );
-
+        \"\"\")
+        # מכירות SLH שתועדו דרך המערכת
+        cur.execute(\"\"\"\
         CREATE TABLE IF NOT EXISTS slh_token_sales (
             id SERIAL PRIMARY KEY,
             user_id BIGINT,
@@ -761,28 +754,26 @@ def ensure_extra_tables(conn):
             tx_hash TEXT,
             created_at TIMESTAMPTZ DEFAULT NOW()
         );
-        """)
+        \"\"\")
     conn.commit()
 
 
-
-
 def fetch_posts(limit: int = 20) -> List[Dict[str, Any]]:
-    """Get recent published posts for SLHNET Social"""
-    conn = get_conn()
+    \"\"\"Get recent published posts for SLHNET Social\"\"\"
+    from .db import get_conn if False else None  # type: ignore
     conn = get_conn()
     # נוודא שהטבלאות קיימות (לייזי, לא נוגעים בסכימה הקיימת)
     ensure_extra_tables(conn)
     with conn:
         with conn.cursor() as cur:
             cur.execute(
-                """
+                \"\"\"\
                 SELECT id, user_id, username, title, content, share_url, created_at
                 FROM slh_posts
                 WHERE is_published = TRUE
                 ORDER BY created_at DESC
                 LIMIT %s;
-                """, (limit,)
+                \"\"\", (limit,)
             )
             rows = cur.fetchall()
     posts: List[Dict[str, Any]] = []
@@ -806,18 +797,18 @@ def insert_post(
     content: str,
     share_url: Optional[str] = None
 ) -> int:
-    """Insert a new SLHNET post"""
-    conn = get_conn()
+    \"\"\"Insert a new SLHNET post\"\"\"
+    from .db import get_conn if False else None  # type: ignore
     conn = get_conn()
     ensure_extra_tables(conn)
     with conn:
         with conn.cursor() as cur:
             cur.execute(
-                """
+                \"\"\"\
                 INSERT INTO slh_posts (user_id, username, title, content, share_url)
                 VALUES (%s, %s, %s, %s, %s)
                 RETURNING id;
-                """,
+                \"\"\",
                 (user_id, username, title, content, share_url)
             )
             post_id = cur.fetchone()[0]
@@ -825,20 +816,20 @@ def insert_post(
 
 
 def fetch_token_sales(limit: int = 50) -> List[Dict[str, Any]]:
-    """Get recent SLH token sales for the public board"""
-    conn = get_conn()
+    \"\"\"Get recent SLH token sales for the public board\"\"\"
+    from .db import get_conn if False else None  # type: ignore
     conn = get_conn()
     ensure_extra_tables(conn)
     with conn:
         with conn.cursor() as cur:
             cur.execute(
-                """
+                \"\"\"\
                 SELECT id, user_id, username, wallet_address,
                        amount_slh, price_nis, status, tx_hash, created_at
                 FROM slh_token_sales
                 ORDER BY created_at DESC
                 LIMIT %s;
-                """, (limit,),
+                \"\"\", (limit,)
             )
             rows = cur.fetchall()
     sales: List[Dict[str, Any]] = []
@@ -855,4 +846,3 @@ def fetch_token_sales(limit: int = 50) -> List[Dict[str, Any]]:
             "created_at": r[8].isoformat() if r[8] else None,
         })
     return sales
-

@@ -1,4 +1,4 @@
-from telegram.ext import MessageHandler, filters, CallbackQueryHandler
+﻿from telegram.ext import MessageHandler, filters, CallbackQueryHandler
 import os
 import json
 import logging
@@ -6,7 +6,7 @@ from telegram import InlineKeyboardButton, InlineKeyboardMarkup, InputFile
 from pathlib import Path
 from typing import Optional, Dict, Any, List
 
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, Request, HTTPException
 from fastapi.responses import JSONResponse, HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
@@ -14,19 +14,23 @@ from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel
 
 from telegram import Update
-from slh.slh_public_api import router as public_router
+from slh_public_api import router as public_router
 from social_api import router as social_router
-from SLH.slh_core_api import router as core_router
-from slh.slhnet_extra import router as slhnet_extra_router
+from slh_core_api import router as core_router
+from slhnet_extra import router as slhnet_extra_router
 
 from telegram.ext import CommandHandler, ContextTypes, Application
 
 # =========================
-# Logging
+# קונפיגורציית לוגינג משופרת
 # =========================
 logging.basicConfig(
     level=logging.INFO,
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.StreamHandler(),
+        logging.FileHandler("slhnet_bot.log", encoding='utf-8')
+    ]
 )
 logger = logging.getLogger("slhnet")
 
@@ -34,578 +38,33 @@ logger = logging.getLogger("slhnet")
 # FastAPI app
 # =========================
 app = FastAPI(
-    title="SLHNET BotShop / Buy_My_Shop",
-    description="SLH BotShop – Telegram bot + API",
-    version="1.0.0",
+    title="SLHNET Gateway Bot",
+    description="בוט קהילה ושער API עבור SLHNET",
+    version="2.0.0"
 )
 
 BASE_DIR = Path(__file__).resolve().parent
 
-static_dir = BASE_DIR / "static"
-static_dir.mkdir(exist_ok=True)
-app.mount("/static", StaticFiles(directory=static_dir), name="static")
-
-templates = Jinja2Templates(directory=str(BASE_DIR / "templates"))
-
-# =========================
-# Config
-# =========================
-class Config:
-    BOT_TOKEN: str = os.getenv("BOT_TOKEN", "")
-    BOT_USERNAME: str = os.getenv("BOT_USERNAME", "")
-    WEBHOOK_URL: str = os.getenv("WEBHOOK_URL", "")
-
-    COMMUNITY_GROUP_LINK: str = os.getenv("COMMUNITY_GROUP_LINK", "")
-    SUPPORT_GROUP_LINK: str = os.getenv("SUPPORT_GROUP_LINK", "")
-
-    PAYBOX_URL: str = os.getenv("PAYBOX_URL", "")
-    BIT_URL: str = os.getenv("BIT_URL", "")
-    PAYPAL_URL: str = os.getenv("PAYPAL_URL", "")
-
-    LANDING_URL: str = os.getenv("LANDING_URL", "")
-
-    START_IMAGE_PATH: str = os.getenv("START_IMAGE_PATH", "assets/start_banner.jpg")
-
-    DATABASE_URL: str = os.getenv("DATABASE_URL", "")
-
-    TON_WALLET_ADDRESS: str = os.getenv("TON_WALLET_ADDRESS", "")
-
-    ADMIN_ALERT_CHAT_ID: int = int(os.getenv("ADMIN_ALERT_CHAT_ID", "0") or "0")
-    ADMIN_OWNER_IDS: List[int] = [
-        int(x.strip())
-        for x in os.getenv("ADMIN_OWNER_IDS", "").split(",")
-        if x.strip().isdigit()
-    ]
-
-
-logger.info("Loaded Config: BOT_USERNAME=%s, WEBHOOK_URL=%s", Config.BOT_USERNAME, Config.WEBHOOK_URL)
-logger.info("ADMIN_OWNER_IDS=%s, ADMIN_ALERT_CHAT_ID=%s", Config.ADMIN_OWNER_IDS, Config.ADMIN_ALERT_CHAT_ID)
-
-# =========================
-# Bot texts
-# =========================
-class BotTexts:
-    start_text: str = (
-        "ברוך הבא לשער הקהילה העסקית של SLH.\n"
-        "כרטיס כניסה חד-פעמי: 39₪ כולל גישה לבוטים, לקהילה ולאקדמיה."
-    )
-    investor_text: str = (
-        "ברוך הבא למסלול המשקיעים של SLH.\n"
-        "כאן מרוכזים עדכונים ותוכניות השקעה."
-    )
-
-    @classmethod
-    def load_from_file(cls, path: Path) -> None:
-        if not path.exists():
-            logger.warning("bot messages file not found: %s", path)
-            return
-        try:
-            raw = path.read_text(encoding="utf-8")
-        except Exception as e:
-            logger.error("failed reading bot messages file: %s", e)
-            return
-
-        def extract_block(tag: str) -> Optional[str]:
-            start_tag = f"[{tag.upper()}]"
-            end_tag = f"[END_{tag.upper()}]"
-            if start_tag not in raw or end_tag not in raw:
-                return None
-            try:
-                part = raw.split(start_tag, 1)[1].split(end_tag, 1)[0]
-                return part.strip()
-            except Exception:
-                return None
-
-        start_block = extract_block("START")
-        investor_block = extract_block("INVESTOR")
-
-        if start_block:
-            cls.start_text = start_block
-        if investor_block:
-            cls.investor_text = investor_block
-
-        logger.info("bot messages loaded from file")
-
-
-BotTexts.load_from_file(BASE_DIR / "bot_messages_slhnet.txt")
-
-
-# =========================
-# DB layer – safe adapter around db.py
-# =========================
-DB_AVAILABLE = False
-
+# סטטיק וטמפלטס עם הגנות
 try:
-    import db as _db
-
-    def init_schema() -> None:
-        try:
-            _db.init_schema()
-        except Exception as e:
-            logger.error("DB init_schema error: %s", e)
-
-    def log_payment(user_id: int, username: Optional[str], pay_method: str) -> None:
-        try:
-            _db.log_payment(user_id, username, pay_method)
-        except Exception as e:
-            logger.error("DB log_payment error: %s", e)
-
-    def update_payment_status(user_id: int, status: str) -> None:
-        try:
-            _db.update_payment_status(user_id, status)
-        except Exception as e:
-            logger.error("DB update_payment_status error: %s", e)
-
-    def ensure_user(user_id: int, username: Optional[str]) -> None:
-        try:
-            _db.store_user(user_id, username)
-        except Exception as e:
-            logger.error("DB store_user error: %s", e)
-
-    def add_referral(referrer_id: int, referred_id: int, source: str) -> None:
-        try:
-            _db.add_referral(referrer_id, referred_id, source)
-        except Exception as e:
-            logger.error("DB add_referral error: %s", e)
-
-    def get_top_referrers(limit: int = 10):
-        try:
-            return _db.get_top_referrers(limit=limit)
-        except Exception as e:
-            logger.error("DB get_top_referrers error: %s", e)
-            return []
-
-    def increment_metric(key: str, amount: int = 1) -> None:
-        try:
-            _db.increment_metric(key, amount)
-        except Exception as e:
-            logger.error("DB increment_metric error: %s", e)
-
-    def get_metric(key: str) -> int:
-        try:
-            return _db.get_metric(key)
-        except Exception as e:
-            logger.error("DB get_metric error: %s", e)
-            return 0
-
-    def list_sales(limit: int = 50, offset: int = 0):
-        try:
-            return _db.list_token_sales(limit=limit, offset=offset)
-        except Exception as e:
-            logger.error("DB list_token_sales error: %s", e)
-            return []
-
-    DB_AVAILABLE = True
-    logger.info("DB adapter loaded successfully")
+    static_dir = BASE_DIR / "static"
+    templates_dir = BASE_DIR / "templates"
+    
+    if static_dir.exists():
+        app.mount("/static", StaticFiles(directory=str(static_dir)), name="static")
+    else:
+        logger.warning("Static directory not found, skipping static files")
+    
+    if templates_dir.exists():
+        templates = Jinja2Templates(directory=str(templates_dir))
+    else:
+        logger.warning("Templates directory not found, Jinja2 templates disabled")
+        templates = None
 except Exception as e:
-    logger.error("DB adapter initialization failed: %s", e)
+    logger.error(f"Error setting up static/templates: {e}")
+    templates = None
 
-# =========================
-# Telegram Application holder
-# =========================
-class TelegramAppHolder:
-    _instance: Optional[Application] = None
-    _initialized: bool = False
-    _started: bool = False
-
-    @classmethod
-    def get_app(cls) -> Application:
-        if cls._instance is None:
-            if not Config.BOT_TOKEN:
-                raise RuntimeError("BOT_TOKEN is not configured")
-            cls._instance = Application.builder().token(Config.BOT_TOKEN).build()
-            logger.info("Telegram Application instance created")
-        return cls._instance
-
-    @classmethod
-    def init_handlers(cls) -> None:
-        if cls._initialized:
-            return
-        app_instance = cls.get_app()
-        app_instance.add_handler(CommandHandler("start", start_command))
-        app_instance.add_handler(CommandHandler("whoami", whoami_command))
-        app_instance.add_handler(CommandHandler("chatinfo", chatinfo_command))
-        app_instance.add_handler(CommandHandler("stats", stats_command))
-        app_instance.add_handler(CallbackQueryHandler(callback_query_handler))
-        app_instance.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, text_message_handler))
-        app_instance.add_handler(MessageHandler(filters.COMMAND, unknown_command))
-        cls._initialized = True
-        logger.info("Telegram handlers initialized")
-
-    @classmethod
-    async def async_start(cls) -> None:
-        app_instance = cls.get_app()
-        cls.init_handlers()
-        if not cls._started:
-            await app_instance.initialize()
-            if Config.WEBHOOK_URL:
-                try:
-                    await app_instance.bot.set_webhook(Config.WEBHOOK_URL)
-                    logger.info("Webhook set to %s", Config.WEBHOOK_URL)
-                except Exception as e:
-                    logger.error("Failed to set webhook: %s", e)
-            await app_instance.start()
-            cls._started = True
-            logger.info("Telegram Application started")
-
-    @classmethod
-    async def async_stop(cls) -> None:
-        if cls._instance and cls._started:
-            await cls._instance.stop()
-            await cls._instance.shutdown()
-            cls._started = False
-            logger.info("Telegram Application stopped")
-
-# =========================
-# Logging helper
-# =========================
-async def send_log_message(text: str) -> None:
-    if not Config.ADMIN_ALERT_CHAT_ID:
-        logger.warning("ADMIN_ALERT_CHAT_ID not set; log only: %s", text)
-        return
-    try:
-        app_instance = TelegramAppHolder.get_app()
-        await app_instance.bot.send_message(chat_id=Config.ADMIN_ALERT_CHAT_ID, text=text)
-    except Exception as e:
-        logger.error("failed to send log message: %s", e)
-
-# =========================
-# Helpers
-# =========================
-def get_start_image_path() -> Optional[Path]:
-    """
-    מחפש קודם כל את הנתיב שהוגדר ב-START_IMAGE_PATH (יחסי ל-BASE_DIR אם צריך),
-    ואם לא קיים – ינסה להשתמש ב-assets/start_banner.jpg.
-    """
-    if Config.START_IMAGE_PATH:
-        p = Path(Config.START_IMAGE_PATH)
-        if not p.is_absolute():
-            p = BASE_DIR / p
-        if p.exists():
-            return p
-
-    p2 = BASE_DIR / "assets" / "start_banner.jpg"
-    if p2.exists():
-        return p2
-
-    return None
-
-
-def get_ton_address() -> str:
-    if Config.TON_WALLET_ADDRESS:
-        return Config.TON_WALLET_ADDRESS
-    return "UQCr743gEr_nqV_0SBkSp3CtYS_15R3LDLBvLmKeEv7XdGvp"
-
-# =========================
-# Bot commands
-# =========================
-async def send_start_screen(update: Update, context: ContextTypes.DEFAULT_TYPE, referrer: Optional[int] = None):
-    chat = update.effective_chat
-    user = update.effective_user
-
-    if user:
-        ensure_user(user.id, user.username, user.full_name)
-
-    # כפתורים – רק תשלום/מידע, לא קישור לקהילה לפני אישור
-    buttons = []
-
-    if Config.PAYBOX_URL:
-        buttons.append([InlineKeyboardButton("💳 תשלום 39₪ – PayBox", url=Config.PAYBOX_URL)])
-    if Config.BIT_URL:
-        buttons.append([InlineKeyboardButton("💰 תשלום ב-Bit", url=Config.BIT_URL)])
-    if Config.PAYPAL_URL:
-        buttons.append([InlineKeyboardButton("🌍 תשלום PayPal", url=Config.PAYPAL_URL)])
-    if Config.LANDING_URL:
-        buttons.append([InlineKeyboardButton("🌐 דף נחיתה מלא באתר", url=Config.LANDING_URL)])
-
-    keyboard = InlineKeyboardMarkup(buttons) if buttons else None
-
-    ton_address = get_ton_address()
-
-    # שליחה: קודם תמונה עם כותרת קצרה, ואז טקסט ארוך + כפתורים
-    caption = "🎯 ברוך הבא לשער הקהילה של SLH"
-
-    long_text = (
-        "🎯 *ברוך הבא לשער הקהילה של SLH*\n\n"
-        "זהו בוט שנועד לייצר לך *מקור הכנסה אישי*.\n"
-        "אתה רוכש פעם אחת כניסה ב־*39₪*, ומקבל אזור אישי בבוט, "
-        "עם כרטיס ביקור דיגיטלי וקישור ייחודי לשיתוף.\n\n"
-        "כל מי שנכנס דרך הקישור שלך נספר אוטומטית במערכת, "
-        "כולל כמה דורות קדימה של מי שהם הביאו. כך אתה יכול לבנות\n"
-        "*רשת הכנסות מתגלגלת* סביב כרטיס הביקור הדיגיטלי שלך.\n\n"
-        "התמונה שאתה רואה בכניסה היא *שער הקהילה* –\n"
-        "אותו רעיון של כרטיס ביקור / שער מכירה שתוכל למכור בעצמך,\n"
-        "רק עם הקישור האישי שלך. הבוט זוכר עבורך מי הצטרף דרכך.\n\n"
-        "בהמשך תוכל להגדיר בתוך המערכת את פרטי חשבון הבנק שלך "
-        "(לפי מדיניות הבנק במדינה שלך),\n"
-        "ולהגדיר את המחיר שתרצה לגבות על הלינק / הכרטיס שאתה מוכר דרך הבוט.\n"
-        "כל משתמש חדש מקבל *כרטיס ביקור אישי לשיתוף* ונכנס למערכת ההפניות.\n\n"
-        "📷 *מה עושים עכשיו?*\n"
-        "1️⃣ מבצעים תשלום באחת מהאפשרויות הבאות.\n"
-        "2️⃣ שולחים לכאן צילום מסך של אישור התשלום.\n"
-        "3️⃣ לאחר אישור אדמין תקבל כאן קישור הצטרפות אישי לקהילה העסקית.\n\n"
-        "🏦 *תשלום בהעברה בנקאית:*\n"
-        "בנק הפועלים\n"
-        "סניף כפר גנים (153)\n"
-        "חשבון: 73462\n"
-        "שם המוטב: קאופמן צביקה\n\n"
-        "💎 *תשלום ב-TON (ארנק דיגיטלי):*\n"
-        f"שלח לכתובת:\n`{ton_address}`\n"
-        "איך זה עובד?\n"
-        "1. הורד ארנק TON (למשל *Tonkeeper* או *Telegram Wallet*).\n"
-        "2. טען את הארנק במטבע TON.\n"
-        "3. בצע העברה לכתובת למעלה.\n"
-        "4. צלם מסך של האישור ושלח לכאן.\n\n"
-        "לאחר שנאשר את התשלום – תקבל כאן את\n"
-        "*קישור ההצטרפות לקהילת העסקים של SLH*,\n"
-        "ומשם תתחיל לבנות את הכלכלה האישית שלך דרך המערכת.\n"
-    )
-
-    img_path = get_start_image_path()
-    if img_path is not None:
-        try:
-            with img_path.open("rb") as f:
-                await chat.send_photo(
-                    photo=InputFile(f),
-                    caption=caption,
-                    parse_mode="Markdown",
-                )
-        except Exception as e:
-            logger.error("failed to send start image: %s", e)
-
-    await chat.send_message(text=long_text, reply_markup=keyboard, parse_mode="Markdown")
-
-
-
-async def notify_start_to_admin(update: Update, context: ContextTypes.DEFAULT_TYPE, referrer: Optional[int] = None) -> None:
-    """Send a log message to the admin/group whenever someone hits /start."""
-    if Config.ADMIN_ALERT_CHAT_ID <= 0:
-        return
-    user = update.effective_user
-    chat = update.effective_chat
-    if not user:
-        return
-    lines = [
-        "🚀 /start חדש בבוט Buy_My_Shop",
-        f"user_id = {user.id}",
-        f"username = @{user.username or 'לא-קיים'}",
-        f"full_name = {user.full_name}",
-    ]
-    if chat:
-        lines.append(f"from chat_id = {chat.id}")
-        lines.append(f"chat_type = {chat.type}")
-    if referrer:
-        lines.append(f"referrer_id = {referrer}")
-    text = "\n".join(lines)
-    try:
-        await context.bot.send_message(chat_id=Config.ADMIN_ALERT_CHAT_ID, text=text)
-    except Exception as e:
-        logger.error("failed to send /start log to admin: %s", e)
-
-
-
-async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    args = context.args or []
-    referrer: Optional[int] = None
-    if args:
-        try:
-            referrer = int(args[0])
-        except ValueError:
-            logger.warning("invalid referrer passed to /start: %s", args[0])
-
-    # לוג לקבוצת האדמינים / לוגים – כל /start
-    await notify_start_to_admin(update, context, referrer)
-
-    await send_start_screen(update, context, referrer)
-
-
-async def whoami_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    user = update.effective_user
-    chat = update.effective_chat
-    if not user:
-        await chat.send_message("לא זיהיתי משתמש.")
-        return
-    text = (
-        "👤 *פרטי המשתמש שלך:*\n"
-        f"🆔 ID: `{user.id}`\n"
-        f"📛 שם משתמש: @{user.username or 'לא מוגדר'}\n"
-        f"🔰 שם מלא: {user.full_name}\n"
-    )
-    await chat.send_message(text=text, parse_mode="Markdown")
-
-
-async def chatinfo_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    chat = update.effective_chat
-    user = update.effective_user
-    if not chat:
-        return
-    text = (
-        "💬 *פרטי הצ'אט הנוכחי:*\n"
-        f"🆔 chat_id: `{chat.id}`\n"
-        f"📛 סוג: `{chat.type}`\n"
-        f"📣 כותרת: {chat.title or '—'}\n"
-    )
-    if user:
-        text += (
-            "\n👤 *המשתמש ששלח:*\n"
-            f"🆔 user_id: `{user.id}`\n"
-            f"📛 שם משתמש: @{user.username or 'לא מוגדר'}"
-        )
-    await chat.send_message(text=text, parse_mode="Markdown")
-
-
-async def stats_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    chat = update.effective_chat
-    text = (
-        "📊 סטטיסטיקות בסיסיות יגיעו לכאן בהמשך.\n"
-        "כרגע הפוקוס: לוודא שכל ליד מהקמפיין מגיע לבוט, "
-        "מבצע תשלום ושולח אישור."
-    )
-    await chat.send_message(text=text)
-
-
-async def callback_query_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    query = update.callback_query
-    if not query:
-        return
-    await query.answer()
-    await query.edit_message_text("הפעולה נקלטה, תודה.")
-
-
-async def text_message_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    chat = update.effective_chat
-    await chat.send_message(
-        "תודה על ההודעה 🙏\n"
-        "להצטרפות – בצע תשלום 39₪ (בנק / Bit / PayBox / TON), "
-        "צלם מסך של האישור ושלח לכאן, או כתוב /start לקבלת ההנחיות שוב.",
-    )
-
-
-async def unknown_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    chat = update.effective_chat
-    await chat.send_message("פקודה לא מוכרת. השתמש ב-/start כדי לראות את האפשרויות.")
-
-# =========================
-# Referrals JSON (דמו)
-# =========================
-REFERRAL_FILE = BASE_DIR / "data" / "referrals.json"
-REFERRAL_FILE.parent.mkdir(exist_ok=True)
-
-
-def load_referrals() -> Dict[str, Any]:
-    if not REFERRAL_FILE.exists():
-        return {"users": {}, "statistics": {"total_users": 0, "total_referrals": 0}}
-    try:
-        with REFERRAL_FILE.open("r", encoding="utf-8") as f:
-            return json.load(f)
-    except Exception as e:
-        logger.error("error reading referrals: %s", e)
-        return {"users": {}, "statistics": {"total_users": 0, "total_referrals": 0}}
-
-
-def save_referrals(data: Dict[str, Any]) -> None:
-    try:
-        with REFERRAL_FILE.open("w", encoding="utf-8") as f:
-            json.dump(data, f, ensure_ascii=False, indent=2)
-    except Exception as e:
-        logger.error("error writing referrals: %s", e)
-
-# =========================
-# Health & lifecycle
-# =========================
-class HealthResponse(BaseModel):
-    status: str
-    telegram_ready: bool
-    db_connected: bool
-    bot_username: Optional[str] = None
-    webhook_url: Optional[str] = None
-    has_bot_token: bool
-    has_database_url: bool
-    db_available: bool
-    admin_owner_ids: List[int]
-    admin_alert_chat_id: int
-
-
-@app.on_event("startup")
-async def on_startup():
-    logger.info("Starting SLHNET service...")
-    try:
-        init_schema()
-    except Exception as e:
-        logger.error("DB init_schema error: %s", e)
-    await TelegramAppHolder.async_start()
-    logger.info("Startup complete.")
-
-
-@app.on_event("shutdown")
-async def on_shutdown():
-    logger.info("Shutting down SLHNET service...")
-    await TelegramAppHolder.async_stop()
-
-
-@app.get("/healthz", response_model=HealthResponse)
-async def healthz():
-    has_bot_token = bool(Config.BOT_TOKEN)
-    has_database_url = bool(Config.DATABASE_URL)
-    db_connected = False  # כרגע DB כבוי (db.py שבור); נדליק אחרי תיקון
-
-    try:
-        app_instance = TelegramAppHolder.get_app()
-        telegram_ok = app_instance is not None and TelegramAppHolder._started
-    except Exception:
-        telegram_ok = False
-
-    return HealthResponse(
-        status="ok",
-        telegram_ready=telegram_ok,
-        db_connected=db_connected,
-        bot_username=Config.BOT_USERNAME or None,
-        webhook_url=Config.WEBHOOK_URL or None,
-        has_bot_token=has_bot_token,
-        has_database_url=has_database_url,
-        db_available=DB_AVAILABLE,
-        admin_owner_ids=Config.ADMIN_OWNER_IDS,
-        admin_alert_chat_id=Config.ADMIN_ALERT_CHAT_ID,
-    )
-
-
-@app.get("/meta", response_class=JSONResponse)
-async def meta():
-    return {
-        "bot_username": Config.BOT_USERNAME,
-        "webhook_url": Config.WEBHOOK_URL,
-        "community_group_link": Config.COMMUNITY_GROUP_LINK,
-        "support_group_link": Config.SUPPORT_GROUP_LINK,
-        "has_bot_token": bool(Config.BOT_TOKEN),
-        "has_database_url": bool(Config.DATABASE_URL),
-        "db_available": DB_AVAILABLE,
-    }
-
-
-@app.get("/", response_class=HTMLResponse)
-async def root(request: Request):
-    return templates.TemplateResponse(
-        "landing.html",
-        {
-            "request": request,
-            "bot_username": Config.BOT_USERNAME,
-            "community_link": Config.COMMUNITY_GROUP_LINK,
-            "price": 39,
-        },
-    )
-
-
-@app.post("/webhook")
-async def telegram_webhook(request: Request):
-    data = await request.json()
-    app_instance = TelegramAppHolder.get_app()
-    update = Update.de_json(data, app_instance.bot)
-    await app_instance.process_update(update)
-    return JSONResponse({"ok": True})
-
-# =========================
-# Routers (SLH APIs)
-# =========================
+# רואטרים של API עם הגנות
 try:
     app.include_router(public_router, prefix="/api/public", tags=["public"])
     app.include_router(social_router, prefix="/api/social", tags=["social"])
@@ -613,4 +72,761 @@ try:
     if slhnet_extra_router:
         app.include_router(slhnet_extra_router, prefix="/api/extra", tags=["extra"])
 except Exception as e:
-    logger.error("Error including routers: %s", e)
+    logger.error(f"Error including routers: {e}")
+
+# =========================
+# ניהול referral משופר
+# =========================
+DATA_DIR = BASE_DIR / "data"
+DATA_DIR.mkdir(exist_ok=True)
+REF_FILE = DATA_DIR / "referrals.json"
+
+
+
+def load_referrals() -> Dict[str, Any]:
+    """טוען נתוני referrals עם הגנת שגיאות"""
+    base: Dict[str, Any] = {
+        "users": {},
+        "statistics": {
+            "total_users": 0,
+            "start_events_total": 0,
+            "last_start_at": None,
+            "starts_by_user": {},
+        },
+    }
+
+    if not REF_FILE.exists():
+        return base
+
+    try:
+        with open(REF_FILE, 'r', encoding='utf-8') as f:
+            data = json.load(f)
+
+        # ודא שמפתחות הסטטיסטיקה קיימים גם בקובץ ישן
+        stats = data.setdefault("statistics", {})
+        stats.setdefault("total_users", 0)
+        stats.setdefault("start_events_total", 0)
+        stats.setdefault("last_start_at", None)
+        stats.setdefault("starts_by_user", {})
+
+        data.setdefault("users", {})
+        return data
+    except (json.JSONDecodeError, Exception) as e:
+        logger.error(f"Error loading referrals: {e}")
+        return base
+
+    except (json.JSONDecodeError, Exception) as e:
+        logger.error(f"Error loading referrals: {e}")
+        return {"users": {}, "statistics": {"total_users": 0}}
+
+
+
+def save_referrals(data: Dict[str, Any]) -> None:
+    """שומר נתוני referrals עם הגנת שגיאות"""
+    try:
+        stats = data.setdefault("statistics", {})
+        stats["total_users"] = len(data.get("users", {}))
+
+        with open(REF_FILE, 'w', encoding='utf-8') as f:
+            json.dump(data, f, ensure_ascii=False, indent=2)
+    except Exception as e:
+        logger.error(f"Error saving referrals: {e}")
+
+
+
+
+def register_referral(user_id: int, referrer_id: Optional[int] = None) -> bool:
+    """רושם משתמש חדש עם referral"""
+    try:
+        data = load_referrals()
+        suid = str(user_id)
+
+        if suid in data["users"]:
+            # כבר רשום – לא נחשב כמשתמש חדש, אבל נרצה עדיין לוג / סטטיסטיקה במקום אחר
+            return False  # כבר רשום
+
+        user_data = {
+            "referrer": str(referrer_id) if referrer_id else None,
+            "joined_at": datetime.now().isoformat(),
+            "referral_count": 0,
+        }
+
+        data["users"][suid] = user_data
+
+        # עדכן סטטיסטיקת referrer אם קיים
+        if referrer_id:
+            referrer_str = str(referrer_id)
+            if referrer_str in data["users"]:
+                data["users"][referrer_str]["referral_count"] = data["users"][referrer_str].get("referral_count", 0) + 1
+
+        save_referrals(data)
+        logger.info(f"Registered new user {user_id} with referrer {referrer_id}")
+        return True
+
+    except Exception as e:
+        logger.error(f"Error registering referral: {e}")
+        return False
+
+
+def register_start_event(user_id: int) -> None:
+    """רושם אירוע /start לצורכי סטטיסטיקה (גם אם המשתמש כבר קיים)."""
+    try:
+        data = load_referrals()
+        stats = data.setdefault("statistics", {})
+        total = int(stats.get("start_events_total", 0))
+        stats["start_events_total"] = total + 1
+
+        from datetime import datetime as _dt
+        stats["last_start_at"] = _dt.now().isoformat()
+
+        per_user = stats.setdefault("starts_by_user", {})
+        suid = str(user_id)
+        per_user[suid] = int(per_user.get(suid, 0)) + 1
+
+        save_referrals(data)
+    except Exception as e:
+        logger.error(f"Error registering start event for {user_id}: {e}")
+def load_message_block(block_name: str, fallback: str = "") -> str:
+    """
+    טוען בלוק טקסט מהקובץ עם הגנות וטקסט ברירת מחדל
+    """
+    if not MESSAGES_FILE.exists():
+        logger.warning(f"Messages file not found: {MESSAGES_FILE}")
+        return fallback or f"[שגיאה: קובץ הודעות לא נמצא]"
+
+    try:
+        content = MESSAGES_FILE.read_text(encoding="utf-8")
+        lines = content.splitlines()
+
+        result_lines = []
+        in_block = False
+        found_block = False
+        
+        for line in lines:
+            stripped = line.strip()
+            if stripped.startswith("===") and block_name in stripped:
+                in_block = True
+                found_block = True
+                continue
+            if in_block and stripped.startswith("=== END"):
+                break
+            if in_block:
+                result_lines.append(line)
+
+        if not found_block and not fallback:
+            logger.warning(f"Message block '{block_name}' not found")
+            return f"[שגיאה: בלוק {block_name} לא נמצא]"
+            
+        if not result_lines and fallback:
+            return fallback
+            
+        return "\n".join(result_lines).strip() or fallback
+        
+    except Exception as e:
+        logger.error(f"Error loading message block '{block_name}': {e}")
+        return fallback or f"[שגיאה בטעינת בלוק {block_name}]"
+
+
+# =========================
+# מודלים עם ולידציה
+# =========================
+class TelegramWebhookUpdate(BaseModel):
+    update_id: int
+    message: Optional[Dict[str, Any]] = None
+    callback_query: Optional[Dict[str, Any]] = None
+    edited_message: Optional[Dict[str, Any]] = None
+
+
+class HealthResponse(BaseModel):
+    status: str
+    service: str
+    timestamp: str
+    version: str
+
+
+# =========================
+# קונפיגורציה ומשתני סביבה
+# =========================
+
+def _parse_chat_id(raw: str) -> int:
+    """Parses a chat_id from an env string, returns 0 if invalid."""
+    if not raw:
+        return 0
+    import re as _re
+    m = _re.search(r"-?\d+", raw)
+    if not m:
+        return 0
+    try:
+        return int(m.group(0))
+    except Exception:
+        return 0
+
+
+def _parse_admin_ids(raw: str) -> list[int]:
+    """Parses a comma/space separated list of admin IDs."""
+    if not raw:
+        return []
+    import re as _re
+    ids: list[int] = []
+    for part in _re.findall(r"-?\d+", raw):
+        try:
+            ids.append(int(part))
+        except Exception:
+            continue
+    return ids
+
+
+
+class Config:
+    """מחלקה לניהול קונפיגורציה"""
+    BOT_TOKEN: str = os.getenv("BOT_TOKEN", "")
+    WEBHOOK_URL: str = os.getenv("WEBHOOK_URL", "")
+
+    RAW_ADMIN_ALERT_CHAT_ID: str = os.getenv("ADMIN_ALERT_CHAT_ID", "").strip()
+    RAW_LOGS_GROUP_CHAT_ID: str = os.getenv("LOGS_GROUP_CHAT_ID", RAW_ADMIN_ALERT_CHAT_ID or "").strip()
+    RAW_ADMIN_OWNER_IDS: str = os.getenv("ADMIN_OWNER_IDS", "").strip()
+
+    LANDING_URL: str = os.getenv("LANDING_URL", "https://slh-nft.com")
+    BUSINESS_GROUP_URL: str = os.getenv("BUSINESS_GROUP_URL", "")
+    GROUP_STATIC_INVITE: str = os.getenv("GROUP_STATIC_INVITE", "")
+    PAYBOX_URL: str = os.getenv("PAYBOX_URL", "")
+    BIT_URL: str = os.getenv("BIT_URL", "")
+    PAYPAL_URL: str = os.getenv("PAYPAL_URL", "")
+    START_IMAGE_PATH: str = os.getenv("START_IMAGE_PATH", "assets/start_banner.jpg")
+
+    ADMIN_ALERT_CHAT_ID: int = _parse_chat_id(RAW_ADMIN_ALERT_CHAT_ID)
+    LOGS_GROUP_CHAT_ID: int = _parse_chat_id(RAW_LOGS_GROUP_CHAT_ID)
+    ADMIN_OWNER_IDS: list[int] = _parse_admin_ids(RAW_ADMIN_OWNER_IDS)
+
+    @classmethod
+    def validate(cls) -> List[str]:
+        """בודק תקינות קונפיגורציה ומחזיר רשימת אזהרות"""
+        warnings: List[str] = []
+        if not cls.BOT_TOKEN:
+            warnings.append("⚠️ BOT_TOKEN לא מוגדר")
+        if not cls.WEBHOOK_URL:
+            warnings.append("⚠️ WEBHOOK_URL לא מוגדר")
+        if not cls.ADMIN_ALERT_CHAT_ID:
+            warnings.append("⚠️ ADMIN_ALERT_CHAT_ID לא מוגדר")
+        return warnings
+
+
+
+# =========================
+# Telegram Application (singleton משופר)
+# =========================
+
+class TelegramAppManager:
+    """מנהל אפליקציית הטלגרם"""
+    _instance: Optional[Application] = None
+    _initialized: bool = False
+
+    @classmethod
+    def get_app(cls) -> Application:
+        if cls._instance is None:
+            if not Config.BOT_TOKEN:
+                raise RuntimeError("BOT_TOKEN is not set")
+
+            cls._instance = Application.builder().token(Config.BOT_TOKEN).build()
+            logger.info("Telegram Application instance created")
+
+        return cls._instance
+
+    @classmethod
+    async def ensure_initialized(cls) -> Application:
+        """מוודא שהאפליקציה מאותחלת פעם אחת בלבד"""
+        app_instance = cls.get_app()
+        if cls._initialized:
+            return app_instance
+
+        # רישום handlers
+        handlers = [
+            CommandHandler("start", start_command),
+            CommandHandler("whoami", whoami_command),
+            CommandHandler("stats", stats_command),
+            CommandHandler("admin", admin_command),
+            CallbackQueryHandler(callback_query_handler),
+            MessageHandler(filters.TEXT & ~filters.COMMAND, echo_message),
+            MessageHandler(filters.COMMAND, unknown_command),
+        ]
+
+        for handler in handlers:
+            app_instance.add_handler(handler)
+
+        cls._initialized = True
+        logger.info("Telegram handlers initialized")
+        return app_instance
+# =========================
+# utilities משופרות
+# =========================
+
+async def send_log_message(text: str) -> None:
+    """שולח הודעת לוג עם הגנות"""
+    if not Config.LOGS_GROUP_CHAT_ID and not Config.ADMIN_ALERT_CHAT_ID:
+        logger.warning("LOGS_GROUP_CHAT_ID and ADMIN_ALERT_CHAT_ID not set; skipping log message")
+        return
+
+    try:
+        app_instance = TelegramAppManager.get_app()
+        targets: list[int] = []
+
+        if Config.LOGS_GROUP_CHAT_ID:
+            targets.append(Config.LOGS_GROUP_CHAT_ID)
+        if Config.ADMIN_ALERT_CHAT_ID and Config.ADMIN_ALERT_CHAT_ID not in targets:
+            targets.append(Config.ADMIN_ALERT_CHAT_ID)
+
+        for chat_id in targets:
+            try:
+                await app_instance.bot.send_message(chat_id=chat_id, text=text)
+                logger.info(f"Log message sent to {chat_id}")
+            except Exception as inner_e:
+                logger.error(f"Failed to send log message to {chat_id}: {inner_e}")
+    except Exception as e:
+        logger.error(f"Failed to send log message: {e}")
+
+
+
+def safe_get_url(url: str, fallback: str) -> str:
+    """מחזיר URL עם הגנות"""
+    return url if url and url.startswith(('http://', 'https://')) else fallback
+
+
+# =========================
+# handlers משופרים
+# =========================
+
+async def send_start_screen(update: Update, context: ContextTypes.DEFAULT_TYPE, referrer: Optional[int] = None) -> None:
+    """מסך פתיחה שיווקי ל-SLH עם סטטיסטיקות ולוגים"""
+    user = update.effective_user
+    chat = update.effective_chat
+
+    if not user or not chat:
+        logger.error("No user or chat in update")
+        return
+
+    # רישום referral (אם משתמש חדש) + סטטיסטיקת /start
+    if user:
+        try:
+            register_referral(user.id, referrer)
+        except Exception as e:
+            logger.error(f"register_referral failed: {e}")
+        try:
+            register_start_event(user.id)
+        except Exception as e:
+            logger.error(f"register_start_event failed: {e}")
+
+    # הטקסטים מותאמים לבקשה שלך
+    part1 = (
+        "🎯 ברוך הבא לשער הקהילה של *SLH*\n\n"
+        "זהו בוט שנועד לייצר לך *מקור הכנסה אישי*.\n"
+        "רוכשים חד־פעמית לינק ייחודי לשיווק רשתי ב־*39₪*,\n"
+        "ומקבלים אזור אישי בבוט – כרטיס ביקור דיגיטלי וקישור ייחודי לשיתוף."
+    )
+
+    part2 = (
+        "כל מי שנכנס דרך הקישור שלך נספר אוטומטית במערכת, כולל דורות קדימה של מי שהם מביאים.\n"
+        "כך אתה יכול לבנות *רשת הכנסות מתגלגלת* סביב כרטיס הביקור הדיגיטלי שלך,\n"
+        "לפתוח עוד שלבים ולמכור דרכו עוד מוצרים – *החנות הדיגיטלית שלך בטלגרם*."
+    )
+
+    part3 = (
+        "התמונה שאתה רואה בכניסה היא *שער הקהילה* –\n"
+        "אותו רעיון של כרטיס ביקור / שער מכירה שתוכל למכור בעצמך,\n"
+        "רק עם הקישור האישי שלך. הבוט זוכר עבורך מי הצטרף דרכך.\n\n"
+        "לאחר התשלום תוכל להגדיר בתוך המערכת את פרטי חשבון הבנק שלך,\n"
+        "ולהגדיר את המחיר שתרצה לגבות על הלינק / הכרטיס שאתה מוכר דרך הבוט."
+    )
+
+    part4 = (
+        "כל משתמש חדש מקבל כרטיס ביקור אישי משלו לשיתוף וכניסה למערכת ההפניות.\n\n"
+        "📷 *מה עושים עכשיו?*\n"
+        "1️⃣ מבצעים תשלום באחת מהאפשרויות.\n"
+        "2️⃣ שולחים לכאן צילום מסך של אישור התשלום.\n"
+        "3️⃣ לאחר אישור אדמין תקבל כאן *קישור הצטרפות אישי לקהילה העסקית*."
+    )
+
+    # שליחת תמונת פתיחה (אם קיימת)
+    start_image_path = Config.START_IMAGE_PATH or "assets/start_banner.jpg"
+    image_fs_path = (BASE_DIR / start_image_path).resolve()
+    if image_fs_path.exists():
+        try:
+            with image_fs_path.open("rb") as f:
+                await chat.send_photo(
+                    photo=f,
+                    caption="שער הכניסה לקהילת *SLH* – מה שאתה רואה כאן הוא מה שתוכל למכור בעצמך, עם הלינק האישי שלך.",
+                    parse_mode="Markdown",
+                )
+        except Exception as e:
+            logger.error(f"Failed to send start image from {image_fs_path}: {e}")
+    else:
+        logger.warning(f"Start image not found at {image_fs_path}")
+
+    # שליחת טקסטים מפוצלים
+    await chat.send_message(part1, parse_mode="Markdown")
+    await chat.send_message(part2, parse_mode="Markdown")
+    await chat.send_message(part3, parse_mode="Markdown")
+    await chat.send_message(part4, parse_mode="Markdown")
+
+    # מקלדת תשלום והסברים
+    keyboard = [
+        [
+            InlineKeyboardButton("🏦 תשלום בהעברה בנקאית", callback_data="pay_bank"),
+        ],
+        [
+            InlineKeyboardButton("💎 תשלום ב-TON", callback_data="pay_ton"),
+        ],
+        [
+            InlineKeyboardButton("🧩 איך להגדיר ארנק TON", callback_data="ton_help"),
+        ],
+        [
+            InlineKeyboardButton("ℹ️ מה אני מקבל בקהילה?", callback_data="community_info"),
+        ],
+    ]
+    reply_markup = InlineKeyboardMarkup(keyboard)
+    await chat.send_message(
+        "בחר את אופן התשלום או קבל עוד מידע:",
+        reply_markup=reply_markup,
+    )
+
+    # לוגים לכל לחיצת /start
+    log_text = (
+        "📥 /start הופעל בבוט Buy_My_Shop\n"
+        f"👤 User ID: {user.id}\n"
+        f"📛 Username: @{user.username or 'לא מוגדר'}\n"
+        f"🔰 שם: {user.full_name}\n"
+        f"🔗 Referrer: {referrer or 'לא צוין'}"
+    )
+    await send_log_message(log_text)
+
+
+
+async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """פקודת start עם referral"""
+    referrer = None
+    if context.args:
+        try:
+            referrer = int(context.args[0])
+            logger.info(f"Start command with referrer: {referrer}")
+        except (ValueError, TypeError):
+            logger.warning(f"Invalid referrer ID: {context.args[0]}")
+
+    await send_start_screen(update, context, referrer=referrer)
+
+
+async def whoami_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """פקודת whoami משופרת"""
+    user = update.effective_user
+    chat = update.effective_chat
+
+    if not user:
+        await chat.send_message("❌ לא זיהיתי משתמש.")
+        return
+
+    # מידע נוסף מהרפר�rals
+    referrals_data = load_referrals()
+    user_ref_data = referrals_data["users"].get(str(user.id), {})
+    
+    text = (
+        f"👤 **פרטי המשתמש שלך:**\n"
+        f"🆔 ID: `{user.id}`\n"
+        f"📛 שם משתמש: @{user.username or 'לא מוגדר'}\n"
+        f"🔰 שם מלא: {user.full_name}\n"
+        f"🔄 מספר הפניות: {user_ref_data.get('referral_count', 0)}\n"
+        f"📅 הצטרף: {user_ref_data.get('joined_at', 'לא ידוע')}"
+    )
+    
+    await chat.send_message(text=text, parse_mode="Markdown")
+
+
+async def stats_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """פקודת stats חדשה - סטטיסטיקות"""
+    user = update.effective_user
+    chat = update.effective_chat
+
+    if not user:
+        return
+
+    referrals_data = load_referrals()
+    stats = referrals_data.get("statistics", {})
+    
+    text = (
+        f"📊 **סטטיסטיקות קהילה:**\n"
+        f"👥 סה״כ משתמשים: {stats.get('total_users', 0)}\n"
+        f"📈 משתמשים פעילים: {len(referrals_data.get('users', {}))}\n"
+        f"🔄 הפניות כוללות: {sum(u.get('referral_count', 0) for u in referrals_data.get('users', {}).values())}"
+    )
+    
+    await chat.send_message(text=text, parse_mode="Markdown")
+
+
+
+async def callback_query_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """מטפל ב-callback queries של הבוט"""
+    query = update.callback_query
+    if not query:
+        return
+
+    data = (query.data or "").strip()
+    await query.answer()
+
+    if data == "open_investor":
+        await handle_investor_callback(update, context)
+        return
+
+    if data == "pay_bank":
+        text = (
+            "🏦 *פרטי תשלום בהעברה בנקאית*\n\n"
+            "בנק הפועלים\n"
+            "סניף כפר גנים (153)\n"
+            "חשבון: 73462\n"
+            "שם המוטב: קאופמן צביקה\n\n"
+            "לאחר ההעברה: צלם/י מסך של אישור התשלום ושלח/י לכאן בבוט."
+        )
+        await query.message.reply_text(text, parse_mode="Markdown")
+        return
+
+    if data == "pay_ton":
+        text = (
+            "💎 *תשלום ב-TON (ארנק דיגיטלי)*\n\n"
+            "שלח/י את הסכום לכתובת הבאה:\n"
+            "`UQCr743gEr_nqV_0SBkSp3CtYS_15R3LDLBvLmKeEv7XdGvp`\n\n"
+            "לאחר ההעברה: צלם/י מסך של אישור התשלום ושלח/י לכאן בבוט."
+        )
+        await query.message.reply_text(text, parse_mode="Markdown")
+        return
+
+    if data == "ton_help":
+        text = (
+            "🧩 *איך להגדיר ארנק TON?*\n\n"
+            "1. הורד/י ארנק TON (למשל *Tonkeeper* או *Telegram Wallet*).\n"
+            "2. טען/י את הארנק במטבע TON.\n"
+            "3. בצע/י העברה לכתובת שצוינה במסך הקודם.\n"
+            "4. צלם/י מסך של האישור ושלח/י לכאן בבוט.\n\n"
+            "לאחר שנאשר את התשלום – תקבל/י כאן קישור הצטרפות לקהילת העסקים של SLH."
+        )
+        await query.message.reply_text(text, parse_mode="Markdown")
+        return
+
+    if data == "community_info":
+        text = (
+            "👥 *מה מחכה לך בקהילת העסקים של SLH?*\n\n"
+            "• הזדמנויות עסקיות חדשות ושותפויות.\n"
+            "• גישה לבוטים וכלי רווח ייחודיים.\n"
+            "• מערכת הפניות שמתגמלת אותך על כל מי שמצטרף דרכך.\n"
+            "• עדכונים שוטפים על הטבות, מוצרים חדשים ותוכניות רווח.\n\n"
+            "מהלינק האישי שלך *אתה מרוויח – לא אנחנו*.\n"
+            "המטרה שלנו היא להגדיל את הקהילה ואת האקו־סיסטם,\n"
+            "ולאפשר לך לבנות כלכלה אישית סביב כרטיס הביקור הדיגיטלי שלך."
+        )
+        await query.message.reply_text(text, parse_mode="Markdown")
+        return
+
+    # ברירת מחדל
+    await query.edit_message_text("❌ פעולה לא מוכרת.")
+
+
+
+async def handle_investor_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """מטפל בכפתור מידע למשקיעים"""
+    query = update.callback_query
+    investor_text = load_message_block(
+        "INVESTOR_INFO", 
+        "📈 **מידע למשקיעים**\n\nלפרטים נוספים על השקעות, צור קשר עם הנהלת הפרויקט."
+    )
+    
+    # כפתור חזרה
+    keyboard = [[InlineKeyboardButton("🔙 חזרה לתפריט הראשי", callback_data="back_to_main")]]
+    reply_markup = InlineKeyboardMarkup(keyboard)
+    
+    await query.edit_message_text(text=investor_text, reply_markup=reply_markup)
+
+
+
+async def admin_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """פאנל אדמין בסיסי עם סטטיסטיקות ופקודות"""
+    user = update.effective_user
+    chat = update.effective_chat
+
+    if not user or not chat:
+        return
+
+    if user.id not in Config.ADMIN_OWNER_IDS:
+        await chat.send_message("❌ אין לך הרשאת אדמין לבוט הזה.")
+        return
+
+    refs = load_referrals()
+    stats = refs.get("statistics", {})
+    total_users = int(stats.get("total_users", 0) or 0)
+    total_starts = int(stats.get("start_events_total", 0) or 0)
+    last_start = stats.get("last_start_at") or "לא נרשם"
+
+    text = (
+        "🛠 *לוח ניהול – Buy_My_Shop*\n\n"
+        "*סטטיסטיקות:*\n"
+        f"👥 משתמשים רשומים (referrals.json): {total_users}\n"
+        f"▶️ לחיצות /start מצטברות: {total_starts}\n"
+        f"🕒 /start אחרון: {last_start}\n\n"
+        "*פקודות זמינות:*\n"
+        "/start – דף הנחיתה למשתמשים\n"
+        "/whoami – פרטי המשתמש והפניות שלו\n"
+        "/stats – סטטיסטיקות בסיסיות על referrals\n"
+        "/admin – תפריט ניהול זה\n"
+    )
+
+    await chat.send_message(text, parse_mode="Markdown")
+
+async def echo_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """מטפל בהודעות טקסט רגילות"""
+    user = update.effective_user
+    text = update.message.text if update.message else ""
+    
+    logger.info(f"Message from {user.id if user else '?'}: {text}")
+    
+    response = load_message_block(
+        "ECHO_RESPONSE",
+        "✅ תודה על ההודעה! אנחנו כאן כדי לעזור.\nהשתמש ב-/start כדי לראות את התפריט הראשי."
+    )
+    
+    await update.message.reply_text(response)
+
+
+async def unknown_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """מטפל בפקודות לא מוכרות"""
+    await update.message.reply_text(
+        "❤קודה לא מוכרת. השתמש ב-/start כדי לראות את התפריט הזמין."
+    )
+
+
+# =========================
+# Routes של FastAPI משופרים
+# =========================
+@app.get("/health", response_model=HealthResponse)
+async def health() -> HealthResponse:
+    """Endpoint לבריאות המערכת"""
+    from datetime import datetime
+    return HealthResponse(
+        status="ok",
+        service="slhnet-telegram-gateway",
+        timestamp=datetime.now().isoformat(),
+        version="2.0.0"
+    )
+
+
+@app.get("/healthz", response_model=HealthResponse)
+async def healthz() -> HealthResponse:
+    """Endpoint מורחב לדיבוג – מצב טלגרם ו-DB"""
+    from datetime import datetime
+
+    # ברירת מחדל
+    telegram_ready = False
+    db_connected = False
+    details: Dict[str, Any] = {}
+
+    # בדיקת טלגרם
+    try:
+        app_instance = await TelegramAppManager.ensure_initialized()
+        me = await app_instance.bot.get_me()
+        telegram_ready = True
+        details["bot_username"] = me.username
+        details["bot_id"] = me.id
+    except Exception as e:
+        details["telegram_error"] = str(e)
+
+    # בדיקת DB בסיסית (אם קיים מודול db)
+    try:
+        from db import get_session  # type: ignore
+        async with get_session() as session:  # pragma: no cover - runtime check
+            await session.execute("SELECT 1")
+        db_connected = True
+    except Exception as e:
+        details["db_error"] = str(e)
+
+    details["admin_alert_chat_id"] = Config.ADMIN_ALERT_CHAT_ID
+    details["logs_group_chat_id"] = Config.LOGS_GROUP_CHAT_ID
+    details["admin_owner_ids"] = Config.ADMIN_OWNER_IDS
+
+    return HealthResponse(
+        status="ok",
+        service="slhnet-telegram-gateway",
+        timestamp=datetime.now().isoformat(),
+        version="2.0.0",
+        telegram_ready=telegram_ready,
+        db_connected=db_connected,
+        details=details,
+    )
+
+
+@app.get("/", response_class=HTMLResponse)
+async def landing(request: Request):
+    """דף נחיתה"""
+    if not templates:
+        return HTMLResponse("<h1>SLHNET Bot - Template Engine Not Available</h1>")
+    
+    return templates.TemplateResponse(
+        "landing.html",
+        {
+            "request": request,
+            "landing_url": safe_get_url(Config.LANDING_URL, "https://slh-nft.com"),
+            "business_group_url": safe_get_url(Config.BUSINESS_GROUP_URL, "https://slh-nft.com"),
+        },
+    )
+
+
+@app.post("/webhook")
+async def telegram_webhook(update: TelegramWebhookUpdate):
+    """Webhook endpoint עם הגנות"""
+    try:
+        # אתחול אוטומטי אם needed
+        TelegramAppManager.initialize_handlers()
+        app_instance = TelegramAppManager.get_app()
+
+        # המרה ועיבוד
+        raw_update = update.dict()
+        ptb_update = Update.de_json(raw_update, app_instance.bot)
+        
+        if ptb_update:
+            await app_instance.process_update(ptb_update)
+            return JSONResponse({"status": "processed"})
+        else:
+            return JSONResponse({"status": "no_update"}, status_code=400)
+            
+    except Exception as e:
+        logger.error(f"Webhook error: {e}")
+        return JSONResponse({"status": "error", "detail": str(e)}, status_code=500)
+
+
+@app.on_event("startup")
+async def startup_event():
+    """אתחול during startup"""
+    warnings = Config.validate()
+    for warning in warnings:
+        logger.warning(warning)
+    
+    if warnings:
+        await send_log_message("⚠️ **אזהרות אתחול:**\n" + "\n".join(warnings))
+
+
+# =========================
+# הרצה מקומית
+# =========================
+if __name__ == "__main__":
+    import uvicorn
+    from datetime import datetime
+
+    # בדיקת קונפיגורציה
+    warnings = Config.validate()
+    if warnings:
+        print("⚠️ אזהרות קונפיגורציה:")
+        for warning in warnings:
+            print(f"  {warning}")
+
+    port = int(os.getenv("PORT", "8080"))
+    print(f"🚀 Starting SLHNET Bot on port {port}")
+    
+    uvicorn.run(
+        "main:app",
+        host="0.0.0.0",
+        port=port,
+        reload=True,
+        log_config=None
+    )
