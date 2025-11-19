@@ -293,6 +293,33 @@ class TelegramAppManager:
             
         cls._initialized = True
         logger.info("Telegram handlers initialized")
+    @classmethod
+    async def start(cls) -> None:
+        """אתחול מלא של אפליקציית הטלגרם + Webhook"""
+        # רישום handlers פעם אחת
+        cls.initialize_handlers()
+        app_instance = cls.get_app()
+        if not getattr(cls, "_started", False):
+            await app_instance.initialize()
+            await app_instance.start()
+            try:
+                if Config.WEBHOOK_URL:
+                    await app_instance.bot.set_webhook(Config.WEBHOOK_URL)
+                    logger.info(f"Webhook set to {Config.WEBHOOK_URL}")
+            except Exception as e:
+                logger.error(f"Failed to set webhook: {e}")
+            cls._started = True
+            logger.info("Telegram Application started")
+
+    @classmethod
+    async def shutdown(cls) -> None:
+        """עצירת האפליקציה בצורה נקייה"""
+        try:
+            app_instance = cls.get_app()
+            await app_instance.stop()
+            await app_instance.shutdown()
+        except Exception as e:
+            logger.error(f"Error during Telegram shutdown: {e}")
 
 
 # =========================
@@ -549,12 +576,15 @@ async def startup_event():
     warnings = Config.validate()
     for warning in warnings:
         logger.warning(warning)
-    
     if warnings:
         await send_log_message("⚠️ **אזהרות אתחול:**\n" + "\n".join(warnings))
+    # אתחול אפליקציית טלגרם + Webhook
+    try:
+        await TelegramAppManager.start()
+    except Exception as e:
+        logger.error(f"Failed to start Telegram Application: {e}")
+        # לא מפילים את השרת HTTP, אבל שומרים לוג
 
-
-# =========================
 # הרצה מקומית
 # =========================
 if __name__ == "__main__":
