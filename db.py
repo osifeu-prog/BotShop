@@ -303,6 +303,31 @@ def get_monthly_payments(year: int, month: int) -> List[Dict[str, Any]]:
         rows = cur.fetchall()
         return [dict(row) for row in rows]
 
+def get_reserve_stats() -> Optional[Dict[str, Any]]:
+    """מחזיר סטטיסטיקה כספית על תשלומים ורזרבות (49%)."""
+    with db_cursor() as (conn, cur):
+        if cur is None:
+            return None
+        cur.execute(
+            """
+            SELECT
+                COALESCE(SUM(amount), 0)           AS total_amount,
+                COALESCE(SUM(reserve_amount), 0)   AS total_reserve,
+                COALESCE(SUM(net_amount), 0)       AS total_net,
+                COUNT(*)                           AS total_payments,
+                COUNT(*) FILTER (WHERE status = 'approved') AS approved_count,
+                COUNT(*) FILTER (WHERE status = 'pending')  AS pending_count,
+                COUNT(*) FILTER (WHERE status = 'rejected') AS rejected_count
+            FROM payments;
+            """
+        )
+        row = cur.fetchone()
+        if not row:
+            return None
+        return dict(row)
+
+
+
 
 def get_approval_stats() -> Optional[Dict[str, Any]]:
     """

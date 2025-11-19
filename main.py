@@ -6,6 +6,8 @@ from telegram import InlineKeyboardButton, InlineKeyboardMarkup, InputFile
 from pathlib import Path
 from typing import Optional, Dict, Any, List
 
+from db import init_schema, get_approval_stats, get_monthly_payments, get_reserve_stats
+
 from fastapi import FastAPI, Request, HTTPException
 from fastapi.responses import JSONResponse, HTMLResponse
 from fastapi.staticfiles import StaticFiles
@@ -54,6 +56,12 @@ app = FastAPI(
     description="בוט קהילה ושער API עבור SLHNET",
     version="2.0.0"
 )
+
+# אתחול סכמת בסיס הנתונים (טבלאות + רזרבות 49%)
+try:
+    init_schema()
+except Exception as e:
+    logger.warning(f"init_schema failed: {e}")
 
 BASE_DIR = Path(__file__).resolve().parent
 
@@ -519,6 +527,21 @@ async def unknown_command(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
 # =========================
 # Routes של FastAPI משופרים
 # =========================
+
+@app.get("/api/metrics/finance")
+async def finance_metrics():
+    """סטטוס כספי כולל – הכנסות, רזרבות, נטו ואישורים."""
+    from datetime import datetime
+    reserve_stats = get_reserve_stats() or {}
+    approval_stats = get_approval_stats() or {}
+
+    return {
+        "timestamp": datetime.utcnow().isoformat() + "Z",
+        "reserve": reserve_stats,
+        "approvals": approval_stats,
+    }
+
+
 @app.get("/health", response_model=HealthResponse)
 async def health() -> HealthResponse:
     """Endpoint לבריאות המערכת"""
