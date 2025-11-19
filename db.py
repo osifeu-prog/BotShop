@@ -718,3 +718,131 @@ except Exception as e:
         logger.error("SLHNET: failed to ensure extra tables: %s", e)
     except Exception:
         pass
+
+# ================================
+# SLHNET extra tables & helpers
+# (appended automatically)
+# ================================
+from typing import List, Dict, Any, Optional
+
+def ensure_extra_tables(conn):
+    \"\"\"Create SLHNET extra tables if they don't exist\"\"\"
+    with conn.cursor() as cur:
+        # פוסטים מהרשת החברתית
+        cur.execute(\"\"\"\
+        CREATE TABLE IF NOT EXISTS slh_posts (
+            id SERIAL PRIMARY KEY,
+            user_id BIGINT,
+            username TEXT,
+            title TEXT NOT NULL,
+            content TEXT NOT NULL,
+            share_url TEXT,
+            created_at TIMESTAMPTZ DEFAULT NOW(),
+            is_published BOOLEAN DEFAULT TRUE
+        );
+        \"\"\")
+        # מכירות SLH שתועדו דרך המערכת
+        cur.execute(\"\"\"\
+        CREATE TABLE IF NOT EXISTS slh_token_sales (
+            id SERIAL PRIMARY KEY,
+            user_id BIGINT,
+            username TEXT,
+            wallet_address TEXT,
+            amount_slh NUMERIC(36, 18),
+            price_nis NUMERIC(18, 2),
+            status TEXT DEFAULT 'pending',
+            tx_hash TEXT,
+            created_at TIMESTAMPTZ DEFAULT NOW()
+        );
+        \"\"\")
+    conn.commit()
+
+
+def fetch_posts(limit: int = 20) -> List[Dict[str, Any]]:
+    \"\"\"Get recent published posts for SLHNET Social\"\"\"
+    from .db import get_conn if False else None  # type: ignore
+    conn = get_conn()
+    # נוודא שהטבלאות קיימות (לייזי, לא נוגעים בסכימה הקיימת)
+    ensure_extra_tables(conn)
+    with conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                \"\"\"\
+                SELECT id, user_id, username, title, content, share_url, created_at
+                FROM slh_posts
+                WHERE is_published = TRUE
+                ORDER BY created_at DESC
+                LIMIT %s;
+                \"\"\", (limit,)
+            )
+            rows = cur.fetchall()
+    posts: List[Dict[str, Any]] = []
+    for r in rows:
+        posts.append({
+            "id": r[0],
+            "user_id": r[1],
+            "username": r[2],
+            "title": r[3],
+            "content": r[4],
+            "share_url": r[5],
+            "created_at": r[6].isoformat() if r[6] else None,
+        })
+    return posts
+
+
+def insert_post(
+    user_id: int,
+    username: Optional[str],
+    title: str,
+    content: str,
+    share_url: Optional[str] = None
+) -> int:
+    \"\"\"Insert a new SLHNET post\"\"\"
+    from .db import get_conn if False else None  # type: ignore
+    conn = get_conn()
+    ensure_extra_tables(conn)
+    with conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                \"\"\"\
+                INSERT INTO slh_posts (user_id, username, title, content, share_url)
+                VALUES (%s, %s, %s, %s, %s)
+                RETURNING id;
+                \"\"\",
+                (user_id, username, title, content, share_url)
+            )
+            post_id = cur.fetchone()[0]
+    return post_id
+
+
+def fetch_token_sales(limit: int = 50) -> List[Dict[str, Any]]:
+    \"\"\"Get recent SLH token sales for the public board\"\"\"
+    from .db import get_conn if False else None  # type: ignore
+    conn = get_conn()
+    ensure_extra_tables(conn)
+    with conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                \"\"\"\
+                SELECT id, user_id, username, wallet_address,
+                       amount_slh, price_nis, status, tx_hash, created_at
+                FROM slh_token_sales
+                ORDER BY created_at DESC
+                LIMIT %s;
+                \"\"\", (limit,)
+            )
+            rows = cur.fetchall()
+    sales: List[Dict[str, Any]] = []
+    for r in rows:
+        sales.append({
+            "id": r[0],
+            "user_id": r[1],
+            "username": r[2],
+            "wallet_address": r[3],
+            "amount_slh": float(r[4]) if r[4] is not None else None,
+            "price_nis": float(r[5]) if r[5] is not None else None,
+            "status": r[6],
+            "tx_hash": r[7],
+            "created_at": r[8].isoformat() if r[8] else None,
+        })
+    return sales
