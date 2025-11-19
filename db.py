@@ -65,9 +65,24 @@ def init_schema() -> None:
                 pay_method TEXT,
                 status TEXT NOT NULL DEFAULT 'pending',
                 reason TEXT,
+                amount NUMERIC(12,2),
+                reserve_ratio NUMERIC(5,4),
+                reserve_amount NUMERIC(12,2),
+                net_amount NUMERIC(12,2),
                 created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
                 updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
             );
+            """
+        )
+
+        # עדכון טבלה קיימת עם עמודות רזרבה, למקרה שהיא כבר קיימת בלי השדות החדשים
+        cur.execute(
+            """
+            ALTER TABLE payments
+                ADD COLUMN IF NOT EXISTS amount NUMERIC(12,2),
+                ADD COLUMN IF NOT EXISTS reserve_ratio NUMERIC(5,4),
+                ADD COLUMN IF NOT EXISTS reserve_amount NUMERIC(12,2),
+                ADD COLUMN IF NOT EXISTS net_amount NUMERIC(12,2);
             """
         )
 
@@ -140,8 +155,30 @@ def log_payment(user_id: int, username: Optional[str], pay_method: str) -> None:
             return
         cur.execute(
             """
-            INSERT INTO payments (user_id, username, pay_method, status, created_at, updated_at)
-            VALUES (%s, %s, %s, 'pending', NOW(), NOW());
+            INSERT INTO payments (
+                user_id,
+                username,
+                pay_method,
+                status,
+                amount,
+                reserve_ratio,
+                reserve_amount,
+                net_amount,
+                created_at,
+                updated_at
+            )
+            VALUES (
+                %s,
+                %s,
+                %s,
+                'pending',
+                39.00,
+                0.49,
+                39.00 * 0.49,
+                39.00 - (39.00 * 0.49),
+                NOW(),
+                NOW()
+            );
             """,
             (user_id, username, pay_method),
         )
