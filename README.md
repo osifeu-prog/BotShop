@@ -1,53 +1,161 @@
-# Buy My Shop – Telegram Gateway Bot
+# BotShop Fixed – 2025-11-19
 
-בוט טלגרם שמשמש כ"שער כניסה" לקהילת עסקים, עם:
+זהו עדכון ממוקד לפרויקט **botshop** שלך כדי שירוץ חלק על Railway.
 
-- תשלום חד־פעמי (39 ₪) במספר ערוצים (בנק, פייבוקס, ביט, PayPal, TON).
-- אישור תשלום ידני + שליחת קישור לקהילת העסקים.
-- העברת לוגים של תשלומים לקבוצת ניהול.
-- תמונת שער עם מונים (כמה פעמים הוצגה, כמה עותקים נשלחו אחרי אישור).
-- תפריט אדמין עם סטטוס מערכת, מונים ורעיונות לפיתוח עתידי.
-- אינטגרציה אופציונלית ל-PostgreSQL דרך `db.py`.
-- דף נחיתה סטטי ב-GitHub Pages לשיתוף ברשתות:
-  - `https://osifeu-prog.github.io/botshop/`
+הזיפ כולל:
 
-## קבצים עיקריים
+- `main.py` מתוקן:
+  - ייבוא מודולים נכון:
+    - `from slh.slh_public_api import router as public_router`
+    - `from social_api import router as social_router`
+    - `from SLH.slh_core_api import router as core_router`
+    - `from slh.slhnet_extra import router as slhnet_extra_router`
+  - פקודה חדשה `/chatinfo` למציאת `chat_id` של כל צ׳אט שבו הבוט חבר.
+- `db.py` מתוקן:
+  - הוסר בלוק קוד שבור בסוף הקובץ שגרם ל־`SyntaxError: unexpected character after line continuation character`.
 
-- `main.py` – לוגיקת הבוט + FastAPI + webhook + JobQueue.
-- `requirements.txt` – ספריות נדרשות.
-- `Procfile` – פקודת הרצה ל-PaaS (Railway).
-- `.gitignore` – הגדרות גיט.
-- `assets/start_banner.jpg` – תמונת שער ל-/start (הבוט משתמש בה).
-- `docs/index.html` – דף נחיתה ל-GitHub Pages (עם Open Graph לתמונה).
-- `db.py` (אופציונלי) – חיבור ל-PostgreSQL ללוגים של תשלומים.
-- `.env.example` – דוגמה למשתני סביבה.
+## איך להשתמש בזיפ
 
-## משתני סביבה (Railway → Variables)
+1. חלץ את התיקייה:
 
-חובה:
+   - מחק או גבה את התוכן הקיים של הפרויקט על המחשב.
+   - חלץ את `botshop_fixed_20251119.zip` לאותה תיקייה שבה הפרויקט שלך היה קודם.
 
-- `BOT_TOKEN` – הטוקן שקיבלת מ-@BotFather.
-- `WEBHOOK_URL` – ה-URL המלא של ה-webhook, לדוגמה:  
-  `https://webwook-production-4861.up.railway.app/webhook`
+   התוצאה צריכה להיות מבנה בסגנון:
 
-אופציונלי, אבל מומלץ:
+   ```text
+   botshop-main/
+     main.py
+     db.py
+     SLH/
+     slh/
+     social_api.py
+     docs/
+     templates/
+     Procfile
+     requirements.txt
+     ...
+   ```
 
-- `PAYBOX_URL` – לינק תשלום לפייבוקס (אפשר להחליף מדי פעם).
-- `BIT_URL` – לינק תשלום לביט.
-- `PAYPAL_URL` – לינק ל-PayPal.
-- `LANDING_URL` – לינק לדף הנחיתה (ברירת מחדל: GitHub Pages).
-- `START_IMAGE_PATH` – נתיב לתמונת השער (ברירת מחדל: `assets/start_banner.jpg`).
-- `DATABASE_URL` – אם משתמשים ב-PostgreSQL (מבנה: `postgres://user:pass@host:port/dbname`).
+2. עדכן ל-Git (אם אתה עובד דרך Git):
 
-## הרצה לוקאלית
+   ```bash
+   git add main.py db.py README.md
+   git commit -m "fix: main imports, db syntax, add /chatinfo"
+   git push
+   ```
 
-```bash
-python -m venv .venv
-source .venv/bin/activate  # ב-Windows: .venv\Scripts\activate
-pip install -r requirements.txt
+   אם אתה מעלה זיפ ידנית ל-Railway – פשוט העלה את הזיפ החדש במקום הפרויקט הישן.
 
-# הגדרת משתני סביבה לדוגמה:
-export BOT_TOKEN="123:ABC"
-export WEBHOOK_URL="https://your-public-url/webhook"
+## בדיקות בסיסיות מקומית
 
-uvicorn main:app --host 0.0.0.0 --port 8000
+אם אתה מריץ מקומית:
+
+1. צור וירטואלית והתקן חבילות:
+
+   ```bash
+   python -m venv .venv
+   .venv\Scripts\activate   # ב-Windows
+   pip install -r requirements.txt
+   ```
+
+2. הגדר משתני סביבה מינימליים (לבדיקה):
+
+   ```bash
+   set BOT_TOKEN=...        # טוקן הבוט שלך
+   set WEBHOOK_URL=https://example.com/webhook
+   ```
+
+3. הרץ את השרת:
+
+   ```bash
+   uvicorn main:app --reload --port 8080
+   ```
+
+4. בדוק שהאפליקציה חיה:
+
+   - היכנס בדפדפן ל:
+     - `http://127.0.0.1:8080/healthz`
+     - `http://127.0.0.1:8080/meta`
+
+### מה אתה אמור לראות
+
+- `GET /healthz`:
+
+  ```json
+  {
+    "status": "ok",
+    "telegram_ready": true או false,
+    "db_connected": true או false
+  }
+  ```
+
+- `GET /meta`:
+
+  ```json
+  {
+    "bot_username": "Buy_My_Shop_bot",
+    "webhook_url": "https://botshop-production.up.railway.app/webhook",
+    "community_group_link": "...",
+    "support_group_link": "..."
+  }
+  ```
+
+אם הגענו לכאן בלי שגיאות – זה אומר שהקוד נטען בלי קריסות ו-Uvicorn הצליח להרים את FastAPI.
+
+## בדיקה על Railway
+
+אחרי שהעלית את הקוד המתוקן:
+
+1. ודא שהמשתנים הבאים מוגדרים:
+
+   - `BOT_TOKEN`
+   - `WEBHOOK_URL` = `https://botshop-production.up.railway.app/webhook`
+   - `ADMIN_ALERT_CHAT_ID` (אפשר להשאיר ריק בהתחלה)
+   - `PAYBOX_URL` / `BIT_URL` / `PAYPAL_URL` לפי הצורך
+   - `LANDING_URL` (אם יש דף נחיתה חיצוני)
+   - `DATABASE_URL` (אם אתה משתמש ב-PostgreSQL)
+
+2. עשה **Redeploy** לשירות.
+
+3. פתח את ה-URL הציבורי של השירות ובדוק:
+
+   - `https://botshop-production.up.railway.app/healthz`
+   - `https://botshop-production.up.railway.app/meta`
+
+אם יש שגיאה, היא תופיע בלוגים של Railway, אבל ה-SyntaxError של `db.py` כבר לא אמור להופיע.
+
+## פקודת /chatinfo למציאת chat_id
+
+אחרי שהבוט באוויר:
+
+1. הוסף את הבוט לקבוצה/ערוץ שאתה רוצה להשתמש בו כלוג/אדמינים.
+2. בקבוצה הזו, שלח:
+
+   ```text
+   /chatinfo
+   ```
+
+3. הבוט יחזיר לך משהו בסגנון:
+
+   ```text
+   chat_id: -1001234567890
+   סוג: supergroup
+   כותרת: SLH Business Logs
+   ```
+
+4. קח את המספר `chat_id` (כולל `-100` אם יש) והגדר אותו ב-Railway כ:
+
+   - `ADMIN_ALERT_CHAT_ID = -1001234567890`
+
+5. Redeploy פעם נוספת.
+
+מהרגע הזה, כל הודעות הלוג (למשל על `/start` או תשלומים) יישלחו לקבוצה הזו.
+
+---
+
+אם תרצה סיבוב נוסף, אפשר בשלב הבא:
+
+- ליישר את תיקיית `docs`/`templates` כך שהאתר ישמש כדף נחיתה חד ל-39₪,
+- להוסיף סטטיסטיקות מתקדמות יותר ל-/stats,
+- או לחבר את ה-API ל-SLH Token / SLHNET המלא.
