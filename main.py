@@ -5,13 +5,33 @@ import logging
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, InputFile
 from pathlib import Path
 from typing import Optional, Dict, Any, List
+from decimal import Decimal, InvalidOperation
 
 from db import init_schema, get_approval_stats, get_monthly_payments, get_reserve_stats
+from slh_internal_wallets import (
+    init_internal_wallet_schema,
+    ensure_internal_wallet,
+    get_wallet_overview,
+    transfer_between_users,
+    create_stake_position,
+    get_user_stakes,
+    mint_slh_from_payment,
+)
 
 from fastapi import FastAPI, Request, HTTPException
 from fastapi.responses import JSONResponse, HTMLResponse, Response, Response
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
+
+from decimal import Decimal, InvalidOperation
+
+from slh_internal_wallets import (
+    init_internal_wallet_schema,
+    ensure_internal_wallet,
+    get_wallet_overview,
+    get_user_stakes,
+    create_stake_position,
+)
 
 from pydantic import BaseModel
 
@@ -77,11 +97,12 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# אתחול סכמת בסיס הנתונים (טבלאות + רזרבות 49%)
+# אתחול סכמת בסיס הנתונים (טבלאות + רזרבות 49%) + ארנקים פנימיים וסטייקינג
 try:
     init_schema()
+    init_internal_wallet_schema()
 except Exception as e:
-    logger.warning(f"init_schema failed: {e}")
+    logger.warning(f"init_schema or init_internal_wallet_schema failed: {e}")
 
 BASE_DIR = Path(__file__).resolve().parent
 
@@ -312,6 +333,10 @@ class TelegramAppManager:
             CommandHandler("start", start_command),
             CommandHandler("whoami", whoami_command),
             CommandHandler("stats", stats_command),
+            CommandHandler("wallet", wallet_command),
+            CommandHandler("send_slh", send_slh_command),
+            CommandHandler("stake", stake_command),
+            CommandHandler("mystakes", mystakes_command),
             CallbackQueryHandler(callback_query_handler),
             MessageHandler(filters.TEXT & ~filters.COMMAND, echo_message),
             MessageHandler(filters.COMMAND, unknown_command),
@@ -561,6 +586,253 @@ async def stats_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
 
 
 
+
+# =========================
+# ארנק פנימי וסטייקינג – פקודות טלגרם
+# =========================
+
+STAKING_DEFAULT_APY = Decimal(os.getenv("STAKING_DEFAULT_APY", "20"))
+STAKING_DEFAULT_DAYS = int(os.getenv("STAKING_DEFAULT_DAYS", "90"))
+
+async def wallet_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """מציג את ארנק ה-SLH הפנימי ומצבי הסטייקינג של המשתמש."""
+    user = update.effective_user
+    chat = update.effective_chat
+    if not user or not chat:
+        return
+
+    try:
+        # וידוא קיום ארנק
+        ensure_internal_wallet(user.id, user.username or None)
+        overview = get_wallet_overview(user.id) or {}
+        stakes = get_user_stakes(user.id) or []
+    except Exception as e:
+        logger.error(f"wallet_command error: {e}")
+        await chat.send_message(
+            "❌ לא ניתן לטעון את ארנק ה-SLH כרגע. נסה שוב מאוחר יותר."
+        )
+        return
+
+    balance = overview.get("balance_slh", 0)
+    wallet_id = overview.get("wallet_id", "?")
+
+    stakes_lines: List[str] = []
+    total_staked = Decimal("0")
+    for s in stakes:
+        amt = s.get("amount_slh") or Decimal("0")
+        total_staked += Decimal(str(amt))
+        pos_id = s.get("id", "?")
+        apy = s.get("apy", "?")
+        lock_days = s.get("lock_days", "?")
+        stakes_lines.append(
+            f"• #{pos_id}: {amt} SLH | APY {apy}% | {lock_days} ימים נעילה"
+        )
+
+    if not stakes_lines:
+        stakes_text = "אין לך עדיין עמדות סטייקינג פעילות."
+    else:
+        stakes_text = "\n".join(stakes_lines)
+
+    msg = (
+        "💼 *ארנק SLH פנימי*\n\n"
+        f"🆔 ID ארנק: `{wallet_id}`\n"
+        f"💰 יתרה זמינה: *{balance}* SLH\n"
+        f"🔒 סה״כ בסטייקינג: {total_staked} SLH\n\n"
+        "כדי לפתוח סטייקינג חדש:\n"
+        "*/stake <סכום_SLH> <ימי_נעילה>* לדוגמה:\n"
+        "`/stake 100 30` – סטייקינג על 100 SLH ל-30 ימים.\n\n"
+        "מצבי סטייקינג:\n"
+        f"{stakes_text}"
+    )
+
+    await chat.send_message(text=msg, parse_mode="Markdown")
+
+
+async def stake_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """פותח עמדת סטייקינג חדשה על בסיס ארנק פנימי."""
+    user = update.effective_user
+    chat = update.effective_chat
+    if not user or not chat:
+        return
+
+    args = context.args or []
+    if len(args) < 2:
+        help_text = (
+            "כדי לפתוח סטייקינג השתמש:\n"
+            "*/stake <סכום_SLH> <ימי_נעילה>* לדוגמה:\n"
+            "`/stake 100 30` – סטייקינג על 100 SLH ל-30 ימים.\n\n"
+            "לפני כן ודא שיש לך יתרה בארנק דרך הפקודה /wallet."
+        )
+        await chat.send_message(help_text, parse_mode="Markdown")
+        return
+
+    try:
+        amount_slh = Decimal(str(args[0]).replace(",", "."))
+        lock_days = int(args[1])
+    except (InvalidOperation, ValueError):
+        await chat.send_message(
+            "❌ פורמט לא תקין. נסה שוב: `/stake 100 30`.",
+            parse_mode="Markdown",
+        )
+        return
+
+    if amount_slh <= 0 or lock_days <= 0:
+        await chat.send_message(
+            "❌ הסכום וימי הנעילה חייבים להיות חיוביים."
+        )
+        return
+
+    try:
+        apy_percent = Decimal(os.getenv("INTERNAL_STAKING_APY", "15"))  # 15% ברירת מחדל
+    except InvalidOperation:
+        apy_percent = Decimal("15")
+
+    ok, message = create_stake_position(
+        user_id=user.id,
+        amount_slh=amount_slh,
+        apy=apy_percent,
+        lock_days=lock_days,
+    )
+
+    await chat.send_message(message)
+
+
+async def wallet_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """מציג למשתמש את מצב הארנק הפנימי שלו."""
+    user = update.effective_user
+    chat = update.effective_chat
+    if not user or not chat:
+        return
+
+    try:
+        ensure_internal_wallet(user.id, user.username)
+        wallet = get_wallet_overview(user.id)
+    except Exception as e:
+        logger.error(f"wallet_command error: {e}")
+        await chat.send_message("❌ לא הצלחתי לטעון את הארנק שלך כרגע. נסה שוב מאוחר יותר.")
+        return
+
+    if not wallet:
+        await chat.send_message("❌ לא הצלחתי לטעון את הארנק שלך כרגע.")
+        return
+
+    balance = wallet.get("balance_slh", Decimal("0"))
+    text = (
+        "👛 *הארנק הדיגיטלי שלך – SLHNET*
+
+"
+        f"🆔 User ID: `{user.id}`\n"
+        f"📛 Username: @{user.username or 'לא מוגדר'}\n"
+        f"💰 יתרה פנימית: *{balance} SLH*\n
+"
+        "היתרה הפנימית משמשת כחשבון נקודות / טוקנים בתוך האקו־סיסטם שלנו.
+"
+        "ניתן יהיה בעתיד לממש אותה מול החוזה החכם על רשת BSC."
+    )
+    await chat.send_message(text, parse_mode="Markdown")
+
+async def send_slh_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """מעביר SLH פנימי למשתמש אחר: /send_slh <amount> <@username|user_id>"""
+    user = update.effective_user
+    chat = update.effective_chat
+    if not user or not chat:
+        return
+
+    if len(context.args) < 2:
+        await chat.send_message("שימוש: /send_slh <amount> <@username|user_id>")
+        return
+
+    amount_str, target = context.args[0], context.args[1]
+    try:
+        amount = Decimal(amount_str.replace(",", "."))
+    except InvalidOperation:
+        await chat.send_message("סכום לא תקין. נסה שוב עם מספר תקין.")
+        return
+
+    # נסה לפענח user_id
+    to_user_id = None
+    if target.startswith("@"):
+        # בגרסה בסיסית זו אנחנו לא ממפים username ל-ID.
+"
+        # המשתמש יכול לשלוח /chatid מהצד השני ולהעביר ID ידנית.
+        await chat.send_message("בגרסה הנוכחית יש להשתמש ב-user_id מספרי, לא בשם משתמש. קבל את ה-ID מהפקודה /chatid אצל הצד השני.")
+        return
+    else:
+        try:
+            to_user_id = int(target)
+        except ValueError:
+            await chat.send_message("user_id חייב להיות מספרי.")
+            return
+
+    ok, msg = transfer_between_users(user.id, to_user_id, amount)
+    if not ok:
+        await chat.send_message(f"❌ העברה נכשלה: {msg}")
+        return
+
+    await chat.send_message(f"✅ הועברו {amount} SLH פנימיים למשתמש {to_user_id}.")
+
+async def stake_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """פותח סטייקינג בסיסי: /stake <amount> [days]"""
+    user = update.effective_user
+    chat = update.effective_chat
+    if not user or not chat:
+        return
+
+    if not context.args:
+        await chat.send_message("שימוש: /stake <amount> [days]. ברירת מחדל ימים: "
+                                f"{STAKING_DEFAULT_DAYS}, APY: {STAKING_DEFAULT_APY}%.")
+        return
+
+    amount_str = context.args[0]
+    days = STAKING_DEFAULT_DAYS
+    if len(context.args) >= 2:
+        try:
+            days = int(context.args[1])
+        except ValueError:
+            await chat.send_message("ערך ימים לא תקין, משתמש בברירת מחדל.")
+
+    try:
+        amount = Decimal(amount_str.replace(",", "."))
+    except InvalidOperation:
+        await chat.send_message("סכום לא תקין. נסה שוב עם מספר תקין.")
+        return
+
+    ok, msg = create_stake_position(user.id, amount, STAKING_DEFAULT_APY, days)
+    if not ok:
+        await chat.send_message(f"❌ סטייקינג נכשל: {msg}")
+        return
+
+    await chat.send_message(
+        f"✅ פתחת סטייקינג על {amount} SLH ל-{days} ימים.
+"
+        f"APY נוכחי: {STAKING_DEFAULT_APY}% (חישוב רווחים נעשה בעתיד לפי מנגנון מתקדם)."
+    )
+
+async def mystakes_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """מציג עמדות סטייקינג פעילות/סגורות"""
+    user = update.effective_user
+    chat = update.effective_chat
+    if not user or not chat:
+        return
+
+    stakes = get_user_stakes(user.id)
+    if not stakes:
+        await chat.send_message("אין לך עדיין עמדות סטייקינג.")
+        return
+
+    lines = ["📊 *עמדות הסטייקינג שלך:*\n"]
+    for st in stakes:
+        status = st.get("status", "unknown")
+        amount = st.get("amount_slh", Decimal("0"))
+        apy = st.get("apy", Decimal("0"))
+        lock_days = st.get("lock_days", 0)
+        started = st.get("started_at")
+        lines.append(
+            f"• {amount} SLH | {apy}% | {lock_days} ימים | סטטוס: {status} | התחלה: {started}"
+        )
+
+    await chat.send_message("\n".join(lines), parse_mode="Markdown")
+
 async def callback_query_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """מטפל ב-callback queries של תפריט ההתחלה"""
     query = update.callback_query
@@ -734,6 +1006,11 @@ async def telegram_webhook(update: TelegramWebhookUpdate):
 @app.on_event("startup")
 async def startup_event():
     """אתחול during startup"""
+    # סכמת ארנקים פנימיים + סטייקינג
+    try:
+        init_internal_wallet_schema()
+    except Exception as e:
+        logger.error(f"init_internal_wallet_schema failed: {e}")
     warnings = Config.validate()
     for warning in warnings:
         logger.warning(warning)
