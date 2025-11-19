@@ -244,6 +244,7 @@ class TelegramWebhookUpdate(BaseModel):
     edited_message: Optional[Dict[str, Any]] = None
 
 
+
 class HealthResponse(BaseModel):
     status: str
     service: str
@@ -266,7 +267,24 @@ class Config:
     BIT_URL: str = os.getenv("BIT_URL", "")
     PAYPAL_URL: str = os.getenv("PAYPAL_URL", "")
     START_IMAGE_PATH: str = os.getenv("START_IMAGE_PATH", "assets/start_banner.jpg")
-    LOGS_GROUP_CHAT_ID: str = os.getenv("LOGS_GROUP_CHAT_ID", ADMIN_ALERT_CHAT_ID or "")
+    LOGS_GROUP_CHAT_ID: str = os.getenv("LOGS_GROUP_CHAT_ID", os.getenv("ADMIN_ALERT_CHAT_ID", ""))
+
+    @classmethod
+    def validate(cls) -> List[str]:
+        """בודק תקינות קונפיגורציה ומחזיר רשימת אזהרות"""
+        warnings: List[str] = []
+        if not cls.BOT_TOKEN:
+            warnings.append("⚠️ BOT_TOKEN לא מוגדר")
+        if not cls.WEBHOOK_URL:
+            warnings.append("⚠️ WEBHOOK_URL לא מוגדר")
+        if not cls.ADMIN_ALERT_CHAT_ID:
+            warnings.append("⚠️ ADMIN_ALERT_CHAT_ID לא מוגדר")
+        if not cls.PAYBOX_URL and not cls.BIT_URL and not cls.PAYPAL_URL:
+            warnings.append("⚠️ לא הוגדרה אף שיטת תשלום (PAYBOX_URL / BIT_URL / PAYPAL_URL)")
+        if not cls.BUSINESS_GROUP_URL and not cls.GROUP_STATIC_INVITE:
+            warnings.append("⚠️ BUSINESS_GROUP_URL / GROUP_STATIC_INVITE לא מוגדרים – לאן מכניסים לקוחות אחרי תשלום?")
+        return warnings
+
 
 ADMIN_DASH_TOKEN = os.getenv("ADMIN_DASH_TOKEN", "")
 
@@ -279,19 +297,6 @@ def require_admin(request: Request) -> None:
         raise HTTPException(status_code=401, detail="Admin access not configured")
     if token != ADMIN_DASH_TOKEN:
         raise HTTPException(status_code=401, detail="Unauthorized admin access")
-
-
-    @classmethod
-    def validate(cls) -> List[str]:
-        """בודק תקינות קונפיגורציה ומחזיר רשימת אזהרות"""
-        warnings = []
-        if not cls.BOT_TOKEN:
-            warnings.append("⚠️ BOT_TOKEN לא מוגדר")
-        if not cls.WEBHOOK_URL:
-            warnings.append("⚠️ WEBHOOK_URL לא מוגדר")
-        if not cls.ADMIN_ALERT_CHAT_ID:
-            warnings.append("⚠️ ADMIN_ALERT_CHAT_ID לא מוגדר")
-        return warnings
 
 
 # =========================
