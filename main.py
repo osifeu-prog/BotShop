@@ -257,7 +257,6 @@ def get_start_image_path() -> Optional[Path]:
     מחפש קודם כל את הנתיב שהוגדר ב-START_IMAGE_PATH (יחסי ל-BASE_DIR אם צריך),
     ואם לא קיים – ינסה להשתמש ב-assets/start_banner.jpg.
     """
-    # 1) מהסביבה
     if Config.START_IMAGE_PATH:
         p = Path(Config.START_IMAGE_PATH)
         if not p.is_absolute():
@@ -265,7 +264,6 @@ def get_start_image_path() -> Optional[Path]:
         if p.exists():
             return p
 
-    # 2) ברירת מחדל לתיקיית assets
     p2 = BASE_DIR / "assets" / "start_banner.jpg"
     if p2.exists():
         return p2
@@ -274,10 +272,8 @@ def get_start_image_path() -> Optional[Path]:
 
 
 def get_ton_address() -> str:
-    """ה־TON address מתוך ENV, ואם לא קיים – ברירת מחדל שסיפקת."""
     if Config.TON_WALLET_ADDRESS:
         return Config.TON_WALLET_ADDRESS
-    # ברירת מחדל לפי מה שנתת
     return "UQCr743gEr_nqV_0SBkSp3CtYS_15R3LDLBvLmKeEv7XdGvp"
 
 # =========================
@@ -290,7 +286,7 @@ async def send_start_screen(update: Update, context: ContextTypes.DEFAULT_TYPE, 
     if user:
         ensure_user(user.id, user.username, user.full_name)
 
-    # אין כפתור שמוביל לקהילה לפני אישור – רק תשלום/מידע
+    # כפתורים – רק תשלום/מידע, לא קישור לקהילה לפני אישור
     buttons = []
 
     if Config.PAYBOX_URL:
@@ -308,15 +304,23 @@ async def send_start_screen(update: Update, context: ContextTypes.DEFAULT_TYPE, 
 
     text = (
         "🎯 *ברוך הבא לשער הקהילה של SLH*\n\n"
-        "כרטיס כניסה חד-פעמי: *39₪*.\n\n"
-        "לאחר התשלום ואישור ידני תקבל:\n"
-        "✅ גישה לקבוצת העסקים הסגורה\n"
-        "✅ בוטים וכלי רווח\n"
-        "✅ מערכת הפניות שמאפשרת להרוויח מחברים שתצרף\n\n"
+        "זהו בוט שנועד לייצר לך *מקור הכנסה אישי*.\n"
+        "אתה רוכש פעם אחת כניסה ב־*39₪*, ומקבל אזור אישי בבוט, "
+        "עם כרטיס ביקור דיגיטלי וקישור ייחודי לשיתוף.\n\n"
+        "כל מי שנכנס דרך הקישור שלך נספר אוטומטית במערכת, "
+        "כולל כמה דורות קדימה של מי שהם הביאו. כך אתה יכול לבנות\n"
+        "*רשת הכנסות מתגלגלת* סביב כרטיס הביקור הדיגיטלי שלך.\n\n"
+        "התמונה שאתה רואה בכניסה היא *שער הקהילה* –\n"
+        "אותו רעיון של כרטיס ביקור / שער מכירה שתוכל למכור בעצמך,\n"
+        "רק עם הקישור האישי שלך. הבוט זוכר עבורך מי הצטרף דרכך.\n\n"
+        "בהמשך תוכל להגדיר בתוך המערכת את פרטי חשבון הבנק שלך "
+        "(לפי מדיניות הבנק במדינה שלך),\n"
+        "ולהגדיר את המחיר שתרצה לגבות על הלינק / הכרטיס שאתה מוכר דרך הבוט.\n"
+        "כל משתמש חדש מקבל *כרטיס ביקור אישי לשיתוף* ונכנס למערכת ההפניות.\n\n"
         "📷 *מה עושים עכשיו?*\n"
         "1️⃣ מבצעים תשלום באחת מהאפשרויות הבאות.\n"
         "2️⃣ שולחים לכאן צילום מסך של אישור התשלום.\n"
-        "3️⃣ לאחר אישור אדמין תקבל כאן קישור הצטרפות אישי לקהילה.\n\n"
+        "3️⃣ לאחר אישור אדמין תקבל כאן קישור הצטרפות אישי לקהילה העסקית.\n\n"
         "🏦 *תשלום בהעברה בנקאית:*\n"
         "בנק הפועלים\n"
         "סניף כפר גנים (153)\n"
@@ -330,7 +334,8 @@ async def send_start_screen(update: Update, context: ContextTypes.DEFAULT_TYPE, 
         "3. בצע העברה לכתובת למעלה.\n"
         "4. צלם מסך של האישור ושלח לכאן.\n\n"
         "לאחר שנאשר את התשלום – תקבל כאן את\n"
-        "*קישור ההצטרפות לקהילת העסקים של SLH*.\n"
+        "*קישור ההצטרפות לקהילת העסקים של SLH*,\n"
+        "ומשם תתחיל לבנות את הכלכלה האישית שלך דרך המערכת.\n"
     )
 
     img_path = get_start_image_path()
@@ -347,7 +352,6 @@ async def send_start_screen(update: Update, context: ContextTypes.DEFAULT_TYPE, 
         except Exception as e:
             logger.error("failed to send start image: %s", e)
 
-    # fallback – בלי תמונה
     await chat.send_message(text=text, reply_markup=keyboard, parse_mode="Markdown")
 
 
