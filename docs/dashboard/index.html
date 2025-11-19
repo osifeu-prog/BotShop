@@ -4,78 +4,654 @@
     <meta charset="UTF-8">
     <title>Dashboard - Buy My Shop</title>
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <link rel="stylesheet" href="../css/style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        :root {
+            --primary: #4361ee;
+            --primary-dark: #3a56d4;
+            --secondary: #7209b7;
+            --success: #4cc9f0;
+            --light: #f8f9fa;
+            --dark: #212529;
+            --gray: #6c757d;
+            --light-gray: #e9ecef;
+            --border-radius: 12px;
+            --box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+            --transition: all 0.3s ease;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        body {
+            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+            color: var(--dark);
+            line-height: 1.6;
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+            padding: 20px;
+            background: white;
+            border-radius: var(--border-radius);
+            box-shadow: var(--box-shadow);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .header::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            right: 0;
+            width: 100%;
+            height: 4px;
+            background: linear-gradient(to left, var(--primary), var(--secondary));
+        }
+
+        .header h1 {
+            font-size: 2.2rem;
+            margin-bottom: 10px;
+            color: var(--primary);
+        }
+
+        .header p {
+            color: var(--gray);
+            font-size: 1.1rem;
+        }
+
+        .dashboard-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 25px;
+            margin-bottom: 30px;
+        }
+
+        .card {
+            background: white;
+            border-radius: var(--border-radius);
+            box-shadow: var(--box-shadow);
+            padding: 25px;
+            transition: var(--transition);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.12);
+        }
+
+        .card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            right: 0;
+            width: 5px;
+            height: 100%;
+            background: linear-gradient(to bottom, var(--primary), var(--secondary));
+        }
+
+        .card h2, .card h3 {
+            color: var(--primary);
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 1.4rem;
+        }
+
+        .card h2 i, .card h3 i {
+            font-size: 1.2rem;
+        }
+
+        .qr-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 15px;
+            background: var(--light);
+            border-radius: var(--border-radius);
+            margin-bottom: 20px;
+        }
+
+        .qr-code {
+            width: 180px;
+            height: 180px;
+            background: white;
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 15px;
+            border: 1px solid var(--light-gray);
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+        }
+
+        .qr-code canvas {
+            border-radius: 8px;
+        }
+
+        .personal-link {
+            background: var(--light);
+            padding: 12px 15px;
+            border-radius: var(--border-radius);
+            word-break: break-all;
+            margin: 15px 0;
+            font-size: 0.9rem;
+            border: 1px solid var(--light-gray);
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: var(--dark);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .form-input {
+            width: 100%;
+            padding: 12px 15px;
+            border: 1px solid var(--light-gray);
+            border-radius: var(--border-radius);
+            font-size: 1rem;
+            transition: var(--transition);
+        }
+
+        .form-input:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(67, 97, 238, 0.2);
+        }
+
+        .btn {
+            background: var(--primary);
+            color: white;
+            border: none;
+            padding: 12px 20px;
+            border-radius: var(--border-radius);
+            cursor: pointer;
+            font-size: 1rem;
+            font-weight: 600;
+            transition: var(--transition);
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            width: 100%;
+            margin-top: 10px;
+        }
+
+        .btn:hover {
+            background: var(--primary-dark);
+            transform: translateY(-2px);
+        }
+
+        .btn-secondary {
+            background: var(--secondary);
+        }
+
+        .btn-secondary:hover {
+            background: #6511a0;
+        }
+
+        .btn-success {
+            background: var(--success);
+        }
+
+        .btn-success:hover {
+            background: #3ab3d6;
+        }
+
+        .btn-outline {
+            background: transparent;
+            color: var(--primary);
+            border: 2px solid var(--primary);
+        }
+
+        .btn-outline:hover {
+            background: var(--primary);
+            color: white;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 15px;
+            margin-top: 15px;
+        }
+
+        .stat-card {
+            background: var(--light);
+            padding: 20px;
+            border-radius: var(--border-radius);
+            text-align: center;
+            transition: var(--transition);
+        }
+
+        .stat-card:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.08);
+        }
+
+        .stat-number {
+            font-size: 2rem;
+            font-weight: 700;
+            color: var(--primary);
+            margin-bottom: 5px;
+        }
+
+        .groups-container {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            margin-top: 15px;
+        }
+
+        .group-btn {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            padding: 15px;
+            border-radius: var(--border-radius);
+            text-decoration: none;
+            color: white;
+            font-weight: 600;
+            transition: var(--transition);
+        }
+
+        .group-btn:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 6px 12px rgba(0, 0, 0, 0.15);
+        }
+
+        .whatsapp {
+            background: #25D366;
+        }
+
+        .telegram {
+            background: #0088cc;
+        }
+
+        .notification {
+            position: fixed;
+            top: 20px;
+            left: 20px;
+            padding: 15px 20px;
+            background: white;
+            border-radius: var(--border-radius);
+            box-shadow: var(--box-shadow);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            z-index: 1000;
+            transform: translateX(-150%);
+            transition: transform 0.4s ease;
+            border-right: 4px solid var(--success);
+        }
+
+        .notification.show {
+            transform: translateX(0);
+        }
+
+        .notification i {
+            color: var(--success);
+            font-size: 1.2rem;
+        }
+
+        @media (max-width: 768px) {
+            .dashboard-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .header h1 {
+                font-size: 1.8rem;
+            }
+            
+            .stats-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+
+        @media (max-width: 480px) {
+            .stats-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .header h1 {
+                font-size: 1.5rem;
+            }
+            
+            .card {
+                padding: 20px 15px;
+            }
+        }
+
+        .progress-bar {
+            height: 8px;
+            background: var(--light-gray);
+            border-radius: 4px;
+            margin: 15px 0;
+            overflow: hidden;
+        }
+
+        .progress {
+            height: 100%;
+            background: linear-gradient(to right, var(--primary), var(--secondary));
+            border-radius: 4px;
+            width: 0%;
+            transition: width 1s ease;
+        }
+
+        .badge {
+            display: inline-block;
+            padding: 4px 10px;
+            background: var(--success);
+            color: white;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            margin-right: 8px;
+        }
+
+        .tooltip {
+            position: relative;
+            display: inline-block;
+        }
+
+        .tooltip .tooltiptext {
+            visibility: hidden;
+            width: 200px;
+            background-color: var(--dark);
+            color: white;
+            text-align: center;
+            border-radius: var(--border-radius);
+            padding: 10px;
+            position: absolute;
+            z-index: 1;
+            bottom: 125%;
+            right: 50%;
+            margin-right: -100px;
+            opacity: 0;
+            transition: opacity 0.3s;
+            font-size: 0.8rem;
+        }
+
+        .tooltip:hover .tooltiptext {
+            visibility: visible;
+            opacity: 1;
+        }
+
+        .tooltip .tooltiptext::after {
+            content: "";
+            position: absolute;
+            top: 100%;
+            right: 50%;
+            margin-right: -5px;
+            border-width: 5px;
+            border-style: solid;
+            border-color: var(--dark) transparent transparent transparent;
+        }
+    </style>
 </head>
 <body>
     <div class="container">
         <div class="header">
-            <h1>👤 דשבורד אישי</h1>
-            <p>ניהול הנכס הדיגיטלי שלך</p>
+            <h1><i class="fas fa-user-circle"></i> דשבורד אישי</h1>
+            <p>ניהול הנכס הדיגיטלי שלך - הכל במקום אחד</p>
         </div>
 
-        <div class="business-card">
-            <h2>📇 כרטיס ביקור דיגיטלי</h2>
-            <div id="personal-qr" class="qr-code">
-                <!-- QR code will be generated here -->
-            </div>
-            <p id="personal-link-display" style="word-break: break-all; margin: 20px 0;"></p>
-            <button class="btn" onclick="copyPersonalLink()">📋 העתק לינק</button>
-        </div>
-
-        <div class="dashboard-card">
-            <h3>⚙️ הגדרות אישיות</h3>
-            
-            <div class="form-group">
-                <label>🏦 חשבון בנק לקבלת תשלומים:</label>
-                <input type="text" id="bank-account" placeholder="בנק, סניף, חשבון" class="form-input">
-            </div>
-            
-            <div class="form-group">
-                <label>👥 לינק לקבוצה שלך:</label>
-                <input type="url" id="group-link" placeholder="https://t.me/yourgroup" class="form-input">
-            </div>
-            
-            <div class="form-group">
-                <label>💰 מחיר להפצה (ש"ח):</label>
-                <input type="number" id="custom-price" value="39" min="39" class="form-input">
-            </div>
-            
-            <button class="btn" onclick="saveSettings()">💾 שמור הגדרות</button>
-        </div>
-
-        <div class="dashboard-card">
-            <h3>📊 סטטיסטיקות</h3>
-            <div class="stats-grid">
-                <div class="stat-card">
-                    <div class="stat-number" id="total-clicks">0</div>
-                    <div>👆 לחיצות על הלינק</div>
+        <div class="dashboard-grid">
+            <div class="card business-card">
+                <h2><i class="fas fa-id-card"></i> כרטיס ביקור דיגיטלי</h2>
+                <div class="qr-container">
+                    <div id="personal-qr" class="qr-code">
+                        <!-- QR code will be generated here -->
+                        <canvas id="qr-canvas"></canvas>
+                    </div>
+                    <p>סרוק כדי לגשת לפרופיל שלך</p>
                 </div>
-                <div class="stat-card">
-                    <div class="stat-number" id="total-sales">0</div>
-                    <div>💰 מכירות</div>
+                <div class="personal-link" id="personal-link-display">https://buymyshop.com/user/12345</div>
+                <button class="btn" onclick="copyPersonalLink()">
+                    <i class="fas fa-copy"></i> העתק לינק
+                </button>
+                <button class="btn btn-outline" onclick="sharePersonalLink()">
+                    <i class="fas fa-share-alt"></i> שתף
+                </button>
+            </div>
+
+            <div class="card dashboard-card">
+                <h3><i class="fas fa-cog"></i> הגדרות אישיות</h3>
+                
+                <div class="form-group">
+                    <label><i class="fas fa-university"></i> חשבון בנק לקבלת תשלומים:</label>
+                    <input type="text" id="bank-account" placeholder="בנק, סניף, חשבון" class="form-input">
+                    <div class="tooltip">
+                        <i class="fas fa-info-circle" style="color: var(--gray); font-size: 0.9rem;"></i>
+                        <span class="tooltiptext">הפרטים הבנקאיים שלך ישמשו להעברת התשלומים שהרווחת</span>
+                    </div>
                 </div>
-                <div class="stat-card">
-                    <div class="stat-number" id="total-earnings">0₪</div>
-                    <div>💸 רווחים</div>
+                
+                <div class="form-group">
+                    <label><i class="fas fa-users"></i> לינק לקבוצה שלך:</label>
+                    <input type="url" id="group-link" placeholder="https://t.me/yourgroup" class="form-input">
+                </div>
+                
+                <div class="form-group">
+                    <label><i class="fas fa-tag"></i> מחיר להפצה (ש"ח):</label>
+                    <input type="number" id="custom-price" value="39" min="39" class="form-input">
+                </div>
+                
+                <button class="btn btn-secondary" onclick="saveSettings()">
+                    <i class="fas fa-save"></i> שמור הגדרות
+                </button>
+            </div>
+
+            <div class="card dashboard-card">
+                <h3><i class="fas fa-chart-bar"></i> סטטיסטיקות</h3>
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <div class="stat-number" id="total-clicks">1,247</div>
+                        <div><i class="fas fa-mouse-pointer"></i> לחיצות על הלינק</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-number" id="total-sales">42</div>
+                        <div><i class="fas fa-shopping-cart"></i> מכירות</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-number" id="total-earnings">1,638₪</div>
+                        <div><i class="fas fa-money-bill-wave"></i> רווחים</div>
+                    </div>
+                </div>
+                <div class="progress-bar">
+                    <div class="progress" id="progress-bar" style="width: 65%"></div>
+                </div>
+                <p style="text-align: center; font-size: 0.9rem; color: var(--gray);">
+                    <span class="badge">מטרה: 2,500₪</span> 
+                    התקדמות: 65%
+                </p>
+            </div>
+
+            <div class="card dashboard-card">
+                <h3><i class="fas fa-users"></i> קבוצות הפרויקט</h3>
+                <p>הצטרף לקבוצות כדי להתעדכן ולתמוך:</p>
+                <div class="groups-container">
+                    <a href="https://chat.whatsapp.com/CCKTtCu9BFPHZTZC6L9Bdh" class="group-btn whatsapp" target="_blank">
+                        <i class="fab fa-whatsapp"></i> קבוצת וואטסאפ
+                    </a>
+                    <a href="https://t.me/+HIzvM8sEgh1kNWY0" class="group-btn telegram" target="_blank">
+                        <i class="fab fa-telegram"></i> קבוצת טלגרם
+                    </a>
                 </div>
             </div>
-        </div>
 
-        <div class="dashboard-card">
-            <h3>👥 קבוצות הפרויקט</h3>
-            <p>הצטרף לקבוצות כדי להתעדכן ולתמוך:</p>
-            <div style="margin: 20px 0;">
-                <a href="https://chat.whatsapp.com/CCKTtCu9BFPHZTZC6L9Bdh" class="btn" target="_blank" style="background: #25D366;">
-                    📱 קבוצת וואטסאפ
-                </a>
-                <a href="https://t.me/+HIzvM8sEgh1kNWY0" class="btn" target="_blank" style="background: #0088cc;">
-                    📢 קבוצת טלגרם
-                </a>
+            <div class="card dashboard-card">
+                <h3><i class="fas fa-history"></i> פעילות אחרונה</h3>
+                <div id="recent-activity">
+                    <div style="padding: 10px 0; border-bottom: 1px solid var(--light-gray);">
+                        <div><i class="fas fa-mouse-pointer" style="color: var(--primary);"></i> לחיצה על הלינק שלך</div>
+                        <div style="font-size: 0.8rem; color: var(--gray);">לפני 2 שעות</div>
+                    </div>
+                    <div style="padding: 10px 0; border-bottom: 1px solid var(--light-gray);">
+                        <div><i class="fas fa-shekel-sign" style="color: var(--success);"></i> מכירה חדשה +39₪</div>
+                        <div style="font-size: 0.8rem; color: var(--gray);">אתמול</div>
+                    </div>
+                    <div style="padding: 10px 0;">
+                        <div><i class="fas fa-user-plus" style="color: var(--secondary);"></i> משתמש חדש הצטרף דרך הלינק שלך</div>
+                        <div style="font-size: 0.8rem; color: var(--gray);">לפני 3 ימים</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card dashboard-card">
+                <h3><i class="fas fa-award"></i> הישגים</h3>
+                <div style="display: flex; gap: 15px; margin-top: 15px;">
+                    <div style="text-align: center;">
+                        <div style="width: 60px; height: 60px; background: var(--light); border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 10px;">
+                            <i class="fas fa-medal" style="color: gold; font-size: 1.5rem;"></i>
+                        </div>
+                        <div style="font-size: 0.8rem;">מפיץ מצטיין</div>
+                    </div>
+                    <div style="text-align: center;">
+                        <div style="width: 60px; height: 60px; background: var(--light); border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 10px;">
+                            <i class="fas fa-bolt" style="color: var(--secondary); font-size: 1.5rem;"></i>
+                        </div>
+                        <div style="font-size: 0.8rem;">התחלה מהירה</div>
+                    </div>
+                    <div style="text-align: center;">
+                        <div style="width: 60px; height: 60px; background: var(--light); border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 10px;">
+                            <i class="fas fa-share" style="color: var(--primary); font-size: 1.5rem;"></i>
+                        </div>
+                        <div style="font-size: 0.8rem;">משתף פעיל</div>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
 
-    <script src="../js/app.js"></script>
-    <script src="../js/dashboard.js"></script>
+    <div class="notification" id="notification">
+        <i class="fas fa-check-circle"></i>
+        <span id="notification-text">הפעולה בוצעה בהצלחה!</span>
+    </div>
+
+    <script>
+        // יצירת קוד QR בסיסי (בפועל צריך להשתמש בספריה כמו QRCode.js)
+        function generateQRCode() {
+            const canvas = document.getElementById('qr-canvas');
+            const ctx = canvas.getContext('2d');
+            canvas.width = 160;
+            canvas.height = 160;
+            
+            // ציור רקע
+            ctx.fillStyle = 'white';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            // ציור קוד QR פשוט (דמה)
+            ctx.fillStyle = 'black';
+            
+            // פינות
+            ctx.fillRect(10, 10, 30, 30);
+            ctx.fillRect(120, 10, 30, 30);
+            ctx.fillRect(10, 120, 30, 30);
+            
+            // נקודות אקראיות לדוגמה
+            for (let i = 0; i < 50; i++) {
+                const x = Math.floor(Math.random() * 140) + 10;
+                const y = Math.floor(Math.random() * 140) + 10;
+                const size = Math.floor(Math.random() * 5) + 2;
+                ctx.fillRect(x, y, size, size);
+            }
+        }
+
+        // פונקציית העתקת הלינק
+        function copyPersonalLink() {
+            const linkText = document.getElementById('personal-link-display').textContent;
+            navigator.clipboard.writeText(linkText).then(() => {
+                showNotification('הלינק הועתק ללוח!');
+            });
+        }
+
+        // פונקציית שיתוף הלינק
+        function sharePersonalLink() {
+            const linkText = document.getElementById('personal-link-display').textContent;
+            if (navigator.share) {
+                navigator.share({
+                    title: 'הפרופיל שלי ב-Buy My Shop',
+                    text: 'בקרו בפרופיל שלי ב-Buy My Shop',
+                    url: linkText,
+                })
+                .then(() => showNotification('הלינק שותף בהצלחה!'))
+                .catch((error) => console.log('Error sharing:', error));
+            } else {
+                copyPersonalLink();
+            }
+        }
+
+        // פונקציית שמירת הגדרות
+        function saveSettings() {
+            // כאן תהיה הלוגיקה לשמירת ההגדרות
+            showNotification('ההגדרות נשמרו בהצלחה!');
+        }
+
+        // פונקציית הצגת התראה
+        function showNotification(message) {
+            const notification = document.getElementById('notification');
+            const notificationText = document.getElementById('notification-text');
+            
+            notificationText.textContent = message;
+            notification.classList.add('show');
+            
+            setTimeout(() => {
+                notification.classList.remove('show');
+            }, 3000);
+        }
+
+        // אתחול הדף
+        document.addEventListener('DOMContentLoaded', function() {
+            generateQRCode();
+            
+            // אנימציה לסטטיסטיקות
+            animateValue('total-clicks', 0, 1247, 1500);
+            animateValue('total-sales', 0, 42, 1500);
+            animateValue('total-earnings', 0, 1638, 1500);
+        });
+
+        // פונקציה לאנימציית מספרים
+        function animateValue(id, start, end, duration) {
+            const obj = document.getElementById(id);
+            let startTimestamp = null;
+            const step = (timestamp) => {
+                if (!startTimestamp) startTimestamp = timestamp;
+                const progress = Math.min((timestamp - startTimestamp) / duration, 1);
+                const value = Math.floor(progress * (end - start) + start);
+                obj.innerHTML = id === 'total-earnings' ? value + '₪' : value.toLocaleString();
+                if (progress < 1) {
+                    window.requestAnimationFrame(step);
+                }
+            };
+            window.requestAnimationFrame(step);
+        }
+    </script>
 </body>
 </html>
