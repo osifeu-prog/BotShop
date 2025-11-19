@@ -268,3 +268,72 @@ BUSINESS_GROUP_URL="https://t.me/+HIzvM8sEgh1kNWY0"
 
 זהו – זו השכבה הראשונה *המלאה* עם רזרבות, מדדים, אתר ובוט,
 נבנתה כך שהיא יציבה ורצה, ומוכנה להתרחבות לשכבות הבאות.
+
+
+---
+
+## 10. שכבת ADVANCED – סימולציות, טוקנומיקה וניתוח סיכונים
+
+הפרויקט כולל גם רואטר מתקדם בנתיב `/api/advanced` (קובץ `SLH/slh_advanced_api.py`), המממש חלקים מהתוכנית המלאה:
+
+### 10.1. סימולציית תשואות
+
+- `GET /api/advanced/yield/simulate`  
+  פרמטרים:
+  - `amount` – סכום השקעה בשקלים (חובה)
+  - `months` – מספר חודשים (ברירת מחדל: 12)
+  - `tier` – רמת משקיע: `pioneer/early/community/standard/vip`
+
+ה-API מחזיר:
+- `monthly_rate` – ריבית חודשית לפי tier (10% ל־pioneer, טווח 8–12% בהתאם ל-tier)
+- `effective_apy` – תשואה שנתית אפקטיבית (אם `months >= 12`)
+- `total_return` – סך רווח צפוי
+- `total_with_principal` – קרן + רווח
+
+### 10.2. טוקנומיקה (SLH / SELA)
+
+- `GET /api/advanced/tokenomics/summary`
+
+מחזיר:
+- מחיר SELA משוער (444 ₪)
+- יחס חלוקת SLH (1 SLH לכל 1 ₪)
+- חלוקת הכנסות:
+  - 30% קרן ערבויות
+  - 30% פיתוח וטכנולוגיה
+  - 20% קהילה ושיווק
+  - 20% רווח ותשואות
+- יחס רזרבה בפועל: 49% לכל תשלום (בהתאם למה שנרשם ב-payments)
+
+### 10.3. רשת הפניות
+
+- `GET /api/advanced/referrals/top?limit=10`  
+  מחזיר את המפנים המובילים מתוך טבלת `referrals` בבסיס הנתונים.
+
+### 10.4. ניהול סיכונים בסיסי
+
+- `GET /api/advanced/risk/summary`
+
+מבוסס על:
+- סך התשלומים (`total_amount`)
+- סך הרזרבות (`total_reserve`)
+- סך הנטו (`total_net`)
+- `diversification_index` – מדד פשטני לפיזור סיכון (יחס רזרבה/סך תשלומים)
+
+---
+
+## 11. שילוב עם דשבורד ה-Web
+
+בדשבורד (`docs/dashboard/index.html`) נטענת ספריית `docs/js/dashboard.js`:
+
+- היא קוראת אל:
+  - `/api/metrics/finance` – נתונים כספיים גולמיים
+  - ניתן להרחיב בקלות לקריאה גם אל:
+    - `/api/advanced/yield/simulate`
+    - `/api/advanced/tokenomics/summary`
+    - `/api/advanced/risk/summary`
+
+כך תוכל לבנות:
+
+- דשבורד למשקיעים
+- דשבורד פנימי לאדמין
+- מצגות חיות על בסיס נתונים אמיתיים מהמערכת.

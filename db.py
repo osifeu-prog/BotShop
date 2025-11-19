@@ -352,6 +352,75 @@ def get_approval_stats() -> Optional[Dict[str, Any]]:
         return dict(row)
 
 
+
+
+def get_latest_payments(limit: int = 100, status: Optional[str] = None) -> List[Dict[str, Any]]:
+    """מחזיר רשימת תשלומים אחרונים, לשימוש בדשבורד אדמין."""
+    with db_cursor() as (conn, cur):
+        results: List[Dict[str, Any]] = []
+        if cur is None:
+            return results
+
+        params: List[Any] = []
+        where_clause = ""
+        if status:
+            where_clause = "WHERE status = %s"
+            params.append(status)
+
+        query = f"""
+            SELECT
+                id,
+                user_id,
+                username,
+                pay_method,
+                status,
+                amount,
+                reserve_ratio,
+                reserve_amount,
+                net_amount,
+                created_at
+            FROM payments
+            {where_clause}
+            ORDER BY created_at DESC
+            LIMIT %s
+        """
+        params.append(limit)
+        cur.execute(query, params)
+        rows = cur.fetchall() or []
+        for row in rows:
+            results.append(dict(row))
+        return results
+
+
+def get_investor_kpis() -> Optional[Dict[str, Any]]:
+    """מדדי KPI בסיסיים – מספר משקיעים, סכומים ממוצעים וכו'."""
+    with db_cursor() as (conn, cur):
+        if cur is None:
+            return None
+
+        # מספר משקיעים מאושרים, סכום כולל, ממוצע וכללי
+        cur.execute(
+            """
+            SELECT
+                COUNT(DISTINCT user_id) FILTER (WHERE status = 'approved') AS approved_investors,
+                COUNT(DISTINCT user_id) AS total_investors,
+                COALESCE(SUM(amount), 0) AS total_amount,
+                COALESCE(AVG(amount), 0) AS avg_ticket
+            FROM payments;
+            """
+        )
+        row = cur.fetchone()
+        if not row:
+            return None
+        base = dict(row)
+
+        return {
+            "approved_investors": int(base.get("approved_investors") or 0),
+            "total_investors": int(base.get("total_investors") or 0),
+            "total_amount": float(base.get("total_amount") or 0.0),
+            "avg_ticket": float(base.get("avg_ticket") or 0.0),
+        }
+
 # =========================
 # rewards – בסיס ל-NFT / SLH / SHARE
 # =========================

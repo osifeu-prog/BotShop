@@ -6,7 +6,7 @@ from telegram import InlineKeyboardButton, InlineKeyboardMarkup, InputFile
 from pathlib import Path
 from typing import Optional, Dict, Any, List
 
-from db import init_schema, get_approval_stats, get_monthly_payments, get_reserve_stats
+from db import init_schema, get_approval_stats, get_monthly_payments, get_reserve_stats, get_latest_payments, get_investor_kpis
 
 from fastapi import FastAPI, Request, HTTPException
 from fastapi.responses import JSONResponse, HTMLResponse
@@ -33,6 +33,10 @@ try:
     from slhnet_extra import router as slhnet_extra_router
 except Exception:
     slhnet_extra_router = None
+try:
+    from SLH.slh_advanced_api import router as advanced_router
+except Exception:
+    advanced_router = None
 
 from telegram.ext import CommandHandler, ContextTypes, Application
 
@@ -111,6 +115,8 @@ try:
         app.include_router(core_router, prefix="/api/core", tags=["core"])
     if slhnet_extra_router is not None:
         app.include_router(slhnet_extra_router, prefix="/api/extra", tags=["extra"])
+    if 'advanced_router' in globals() and advanced_router is not None:
+        app.include_router(advanced_router)
 except Exception as e:
     logger.error(f"Error including routers: {e}")
 
@@ -261,6 +267,19 @@ class Config:
     PAYPAL_URL: str = os.getenv("PAYPAL_URL", "")
     START_IMAGE_PATH: str = os.getenv("START_IMAGE_PATH", "assets/start_banner.jpg")
     LOGS_GROUP_CHAT_ID: str = os.getenv("LOGS_GROUP_CHAT_ID", ADMIN_ALERT_CHAT_ID or "")
+
+ADMIN_DASH_TOKEN = os.getenv("ADMIN_DASH_TOKEN", "")
+
+
+def require_admin(request: Request) -> None:
+    """בודק טוקן אדמין מה-Header או מה-Query Param."""
+    token = request.headers.get("X-Admin-Token") or request.query_params.get("admin_token")
+    if not ADMIN_DASH_TOKEN:
+        logger.warning("ADMIN_DASH_TOKEN not set – blocking admin panel access")
+        raise HTTPException(status_code=401, detail="Admin access not configured")
+    if token != ADMIN_DASH_TOKEN:
+        raise HTTPException(status_code=401, detail="Unauthorized admin access")
+
 
     @classmethod
     def validate(cls) -> List[str]:
@@ -555,6 +574,39 @@ async def finance_metrics():
         "timestamp": datetime.utcnow().isoformat() + "Z",
         "reserve": reserve_stats,
         "approvals": approval_stats,
+    }
+
+
+@app.get("/api/admin/finance-summary")
+async def admin_finance_summary(request: Request):
+    """תקציר פיננסי מלא לדשבורד אדמין."""
+    require_admin(request)
+    from datetime import datetime
+
+    reserve_stats = get_reserve_stats() or {}
+    approval_stats = get_approval_stats() or {}
+    investor_kpis = get_investor_kpis() or {}
+
+    return {
+        "timestamp": datetime.utcnow().isoformat() + "Z",
+        "reserve": reserve_stats,
+        "approvals": approval_stats,
+        "investors": investor_kpis,
+    }
+
+
+@app.get("/api/admin/payments")
+async def admin_payments(
+    request: Request,
+    limit: int = 100,
+    status: str | None = None,
+):
+    """רשימת תשלומים אחרונים לדשבורד אדמין."""
+    require_admin(request)
+    payments = get_latest_payments(limit=limit, status=status)
+    return {
+        "items": payments,
+        "count": len(payments),
     }
 
 
