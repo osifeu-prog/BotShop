@@ -2,34 +2,44 @@
 <html lang="he" dir="rtl">
 <head>
     <meta charset="UTF-8">
-    <title>Dashboard - Buy My Shop</title>
+    <title>דשבורד - SLHNET | Buy My Shop</title>
     <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="description" content="דשבורד ניהול אישי ל-SLHNET - עקוב אחרי הסטטיסטיקות, הרווחים והפעילות שלך">
+    
     <!-- Icons -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
     <!-- QRCode library -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+    
     <style>
+        /* CSS Variables */
         :root {
             --primary: #4361ee;
             --primary-dark: #3a56d4;
             --secondary: #7209b7;
             --success: #4cc9f0;
+            --warning: #f59e0b;
+            --error: #ef4444;
             --light: #f8f9fa;
             --dark: #212529;
             --gray: #6c757d;
             --light-gray: #e9ecef;
             --border-radius: 12px;
-            --box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+            --border-radius-lg: 16px;
+            --shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+            --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.12);
             --transition: all 0.3s ease;
         }
 
-        /* Dark mode overrides */
-        body.dark-mode {
+        /* Dark mode */
+        [data-theme="dark"] {
             --light: #121212;
             --dark: #f8f9fa;
             --gray: #adb5bd;
             --light-gray: #343a40;
-            --box-shadow: 0 4px 16px rgba(0, 0, 0, 0.6);
+            --shadow: 0 4px 16px rgba(0, 0, 0, 0.6);
+            --shadow-lg: 0 8px 32px rgba(0, 0, 0, 0.8);
             background: radial-gradient(circle at top, #1f2933 0%, #050608 60%, #000 100%);
             color: var(--dark);
         }
@@ -38,7 +48,7 @@
             margin: 0;
             padding: 0;
             box-sizing: border-box;
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            font-family: 'Segoe UI', 'Noto Sans Hebrew', Tahoma, Geneva, Verdana, sans-serif;
         }
 
         body {
@@ -47,8 +57,14 @@
             line-height: 1.6;
             min-height: 100vh;
             padding: 20px;
+            transition: var(--transition);
         }
 
+        [data-theme="dark"] body {
+            background: radial-gradient(circle at top, #1f2933 0%, #050608 60%, #000 100%);
+        }
+
+        /* Layout */
         .container {
             max-width: 1200px;
             margin: 0 auto;
@@ -56,16 +72,16 @@
 
         .header {
             text-align: center;
-            margin-bottom: 30px;
-            padding: 20px 60px 20px 20px;
-            background: white;
-            border-radius: var(--border-radius);
-            box-shadow: var(--box-shadow);
+            margin-bottom: 2rem;
+            padding: 2rem 3rem 2rem 1rem;
+            background: var(--light);
+            border-radius: var(--border-radius-lg);
+            box-shadow: var(--shadow);
             position: relative;
             overflow: hidden;
         }
 
-        body.dark-mode .header {
+        [data-theme="dark"] .header {
             background: #111827;
         }
 
@@ -80,8 +96,8 @@
         }
 
         .header h1 {
-            font-size: 2.2rem;
-            margin-bottom: 10px;
+            font-size: clamp(1.75rem, 4vw, 2.5rem);
+            margin-bottom: 0.5rem;
             color: var(--primary);
         }
 
@@ -90,37 +106,41 @@
             font-size: 1.1rem;
         }
 
+        /* Theme Toggle */
         .theme-toggle-wrapper {
             position: absolute;
-            top: 16px;
-            left: 20px;
+            top: 1rem;
+            left: 1rem;
         }
 
+        /* Dashboard Grid */
         .dashboard-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-            gap: 25px;
-            margin-bottom: 30px;
+            grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+            gap: 1.5rem;
+            margin-bottom: 2rem;
         }
 
+        /* Cards */
         .card {
-            background: white;
-            border-radius: var(--border-radius);
-            box-shadow: var(--box-shadow);
-            padding: 25px;
+            background: var(--light);
+            border-radius: var(--border-radius-lg);
+            box-shadow: var(--shadow);
+            padding: 1.5rem;
             transition: var(--transition);
             position: relative;
             overflow: hidden;
+            border: 1px solid transparent;
         }
 
-        body.dark-mode .card {
+        [data-theme="dark"] .card {
             background: #0b1120;
-            border: 1px solid rgba(148, 163, 184, 0.3);
+            border-color: rgba(148, 163, 184, 0.3);
         }
 
         .card:hover {
-            transform: translateY(-5px);
-            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.12);
+            transform: translateY(-4px);
+            box-shadow: var(--shadow-lg);
         }
 
         .card::before {
@@ -135,29 +155,31 @@
 
         .card h2, .card h3 {
             color: var(--primary);
-            margin-bottom: 20px;
+            margin-bottom: 1.25rem;
             display: flex;
             align-items: center;
-            gap: 10px;
-            font-size: 1.4rem;
+            gap: 0.75rem;
+            font-size: 1.3rem;
         }
 
         .card h2 i, .card h3 i {
             font-size: 1.2rem;
         }
 
+        /* QR Code Section */
         .qr-container {
             display: flex;
             flex-direction: column;
             align-items: center;
             justify-content: center;
-            padding: 15px;
+            padding: 1.25rem;
             background: var(--light);
             border-radius: var(--border-radius);
-            margin-bottom: 20px;
+            margin-bottom: 1.25rem;
+            border: 1px solid var(--light-gray);
         }
 
-        body.dark-mode .qr-container {
+        [data-theme="dark"] .qr-container {
             background: #020617;
         }
 
@@ -169,59 +191,61 @@
             display: flex;
             align-items: center;
             justify-content: center;
-            margin-bottom: 15px;
+            margin-bottom: 1rem;
             border: 1px solid var(--light-gray);
-            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+            box-shadow: var(--shadow);
         }
 
-        body.dark-mode .qr-code {
+        [data-theme="dark"] .qr-code {
             background: #020617;
         }
 
         .personal-link {
             background: var(--light);
-            padding: 12px 15px;
+            padding: 1rem;
             border-radius: var(--border-radius);
             word-break: break-all;
-            margin: 15px 0;
+            margin: 1rem 0;
             font-size: 0.9rem;
             border: 1px solid var(--light-gray);
+            font-family: monospace;
         }
 
-        body.dark-mode .personal-link {
+        [data-theme="dark"] .personal-link {
             background: #020617;
         }
 
+        /* Forms */
         .form-group {
-            margin-bottom: 20px;
+            margin-bottom: 1.25rem;
         }
 
         .form-group label {
             display: block;
-            margin-bottom: 8px;
+            margin-bottom: 0.5rem;
             font-weight: 600;
             color: var(--dark);
             display: flex;
             align-items: center;
-            gap: 8px;
+            gap: 0.5rem;
         }
 
-        body.dark-mode .form-group label {
+        [data-theme="dark"] .form-group label {
             color: var(--dark);
         }
 
         .form-input {
             width: 100%;
-            padding: 12px 15px;
+            padding: 0.75rem 1rem;
             border: 1px solid var(--light-gray);
             border-radius: var(--border-radius);
             font-size: 1rem;
             transition: var(--transition);
-            background: white;
+            background: var(--light);
             color: var(--dark);
         }
 
-        body.dark-mode .form-input {
+        [data-theme="dark"] .form-input {
             background: #020617;
             color: var(--dark);
             border-color: #475569;
@@ -233,11 +257,12 @@
             box-shadow: 0 0 0 3px rgba(67, 97, 238, 0.2);
         }
 
+        /* Buttons */
         .btn {
             background: var(--primary);
             color: white;
             border: none;
-            padding: 12px 20px;
+            padding: 0.75rem 1.5rem;
             border-radius: var(--border-radius);
             cursor: pointer;
             font-size: 1rem;
@@ -246,9 +271,9 @@
             display: inline-flex;
             align-items: center;
             justify-content: center;
-            gap: 8px;
+            gap: 0.5rem;
             width: 100%;
-            margin-top: 10px;
+            margin-top: 0.5rem;
         }
 
         .btn:hover {
@@ -268,16 +293,12 @@
             background: var(--success);
         }
 
-        .btn-success:hover {
-            background: #3ab3d6;
-        }
-
         .btn-outline {
             background: transparent;
             color: var(--primary);
             border: 2px solid var(--primary);
             width: auto;
-            padding-inline: 16px;
+            padding: 0.5rem 1rem;
         }
 
         .btn-outline:hover {
@@ -285,50 +306,53 @@
             color: white;
         }
 
+        /* Stats */
         .stats-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-            gap: 15px;
-            margin-top: 15px;
+            grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+            gap: 1rem;
+            margin-top: 1rem;
         }
 
         .stat-card {
             background: var(--light);
-            padding: 20px;
+            padding: 1.25rem;
             border-radius: var(--border-radius);
             text-align: center;
             transition: var(--transition);
+            border: 1px solid var(--light-gray);
         }
 
-        body.dark-mode .stat-card {
+        [data-theme="dark"] .stat-card {
             background: #020617;
         }
 
         .stat-card:hover {
-            transform: translateY(-3px);
-            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.08);
+            transform: translateY(-2px);
+            box-shadow: var(--shadow);
         }
 
         .stat-number {
             font-size: 2rem;
             font-weight: 700;
             color: var(--primary);
-            margin-bottom: 5px;
+            margin-bottom: 0.25rem;
         }
 
+        /* Groups */
         .groups-container {
             display: flex;
             flex-direction: column;
-            gap: 15px;
-            margin-top: 15px;
+            gap: 1rem;
+            margin-top: 1rem;
         }
 
         .group-btn {
             display: flex;
             align-items: center;
             justify-content: center;
-            gap: 10px;
-            padding: 15px;
+            gap: 0.75rem;
+            padding: 1rem;
             border-radius: var(--border-radius);
             text-decoration: none;
             color: white;
@@ -337,8 +361,8 @@
         }
 
         .group-btn:hover {
-            transform: translateY(-3px);
-            box-shadow: 0 6px 12px rgba(0, 0, 0, 0.15);
+            transform: translateY(-2px);
+            box-shadow: var(--shadow-lg);
         }
 
         .whatsapp {
@@ -349,24 +373,25 @@
             background: #0088cc;
         }
 
+        /* Notifications */
         .notification {
             position: fixed;
-            top: 20px;
-            left: 20px;
-            padding: 15px 20px;
-            background: white;
+            top: 1.25rem;
+            left: 1.25rem;
+            padding: 1rem 1.25rem;
+            background: var(--light);
             border-radius: var(--border-radius);
-            box-shadow: var(--box-shadow);
+            box-shadow: var(--shadow-lg);
             display: flex;
             align-items: center;
-            gap: 10px;
+            gap: 0.75rem;
             z-index: 1000;
             transform: translateX(-150%);
             transition: transform 0.4s ease;
             border-right: 4px solid var(--success);
         }
 
-        body.dark-mode .notification {
+        [data-theme="dark"] .notification {
             background: #020617;
         }
 
@@ -379,39 +404,12 @@
             font-size: 1.2rem;
         }
 
-        @media (max-width: 768px) {
-            .dashboard-grid {
-                grid-template-columns: 1fr;
-            }
-
-            .header h1 {
-                font-size: 1.8rem;
-            }
-
-            .stats-grid {
-                grid-template-columns: repeat(2, 1fr);
-            }
-        }
-
-        @media (max-width: 480px) {
-            .stats-grid {
-                grid-template-columns: 1fr;
-            }
-
-            .header h1 {
-                font-size: 1.5rem;
-            }
-
-            .card {
-                padding: 20px 15px;
-            }
-        }
-
+        /* Progress Bars */
         .progress-bar {
             height: 8px;
             background: var(--light-gray);
             border-radius: 4px;
-            margin: 15px 0;
+            margin: 1rem 0;
             overflow: hidden;
         }
 
@@ -423,17 +421,19 @@
             transition: width 1s ease;
         }
 
+        /* Badges */
         .badge {
             display: inline-block;
-            padding: 4px 10px;
+            padding: 0.25rem 0.75rem;
             background: var(--success);
             color: white;
             border-radius: 20px;
             font-size: 0.8rem;
             font-weight: 600;
-            margin-right: 8px;
+            margin-left: 0.5rem;
         }
 
+        /* Tooltips */
         .tooltip {
             position: relative;
             display: inline-block;
@@ -446,7 +446,7 @@
             color: white;
             text-align: center;
             border-radius: var(--border-radius);
-            padding: 10px;
+            padding: 0.75rem;
             position: absolute;
             z-index: 1;
             bottom: 125%;
@@ -472,44 +472,119 @@
             border-style: solid;
             border-color: var(--dark) transparent transparent transparent;
         }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .dashboard-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .header {
+                padding: 1.5rem 2rem 1.5rem 1rem;
+            }
+
+            .stats-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+            
+            .theme-toggle-wrapper {
+                position: static;
+                margin-bottom: 1rem;
+            }
+        }
+
+        @media (max-width: 480px) {
+            body {
+                padding: 1rem;
+            }
+            
+            .stats-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .card {
+                padding: 1.25rem;
+            }
+            
+            .header h1 {
+                font-size: 1.5rem;
+            }
+        }
+
+        /* Loading States */
+        .loading {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid rgba(255,255,255,.3);
+            border-radius: 50%;
+            border-top-color: #fff;
+            animation: spin 1s ease-in-out infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .skeleton {
+            background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+            background-size: 200% 100%;
+            animation: loading 1.5s infinite;
+            border-radius: 4px;
+        }
+
+        [data-theme="dark"] .skeleton {
+            background: linear-gradient(90deg, #374151 25%, #4b5563 50%, #374151 75%);
+        }
+
+        @keyframes loading {
+            0% {
+                background-position: 200% 0;
+            }
+            100% {
+                background-position: -200% 0;
+            }
+        }
     </style>
 </head>
 <body>
     <div class="container">
         <div class="header">
-            <h1><i class="fas fa-user-circle"></i> דשבורד אישי</h1>
+            <h1><i class="fas fa-user-circle"></i> דשבורד אישי - SLHNET</h1>
             <p>ניהול הנכס הדיגיטלי שלך - הכל במקום אחד</p>
             <div class="theme-toggle-wrapper">
-                <button class="btn btn-outline" id="theme-toggle">
+                <button class="btn btn-outline" id="theme-toggle" aria-label="החלף מצב צבע">
                     <i class="fas fa-moon"></i> מצב כהה
                 </button>
             </div>
         </div>
 
         <div class="dashboard-grid">
+            <!-- כרטיס ביקור דיגיטלי -->
             <div class="card business-card">
                 <h2><i class="fas fa-id-card"></i> כרטיס ביקור דיגיטלי</h2>
                 <div class="qr-container">
-                    <div id="personal-qr" class="qr-code">
-                        <!-- QR code will be generated here -->
+                    <div id="personal-qr" class="qr-code" aria-label="קוד QR לפרופיל האישי">
+                        <!-- QR code יופעל כאן -->
                     </div>
                     <p>סרוק כדי לגשת לפרופיל שלך</p>
                 </div>
-                <div class="personal-link" id="personal-link-display">https://buymyshop.com/user/12345</div>
-                <button class="btn" onclick="copyPersonalLink()">
+                <div class="personal-link" id="personal-link-display">https://slhnet.com/user/12345</div>
+                <button class="btn" onclick="copyPersonalLink()" aria-label="העתק קישור אישי">
                     <i class="fas fa-copy"></i> העתק לינק
                 </button>
-                <button class="btn btn-outline" onclick="sharePersonalLink()">
+                <button class="btn btn-outline" onclick="sharePersonalLink()" aria-label="שתף קישור אישי">
                     <i class="fas fa-share-alt"></i> שתף
                 </button>
             </div>
 
+            <!-- הגדרות אישיות -->
             <div class="card dashboard-card">
                 <h3><i class="fas fa-cog"></i> הגדרות אישיות</h3>
 
                 <div class="form-group">
-                    <label><i class="fas fa-university"></i> חשבון בנק לקבלת תשלומים:</label>
-                    <input type="text" id="bank-account" placeholder="בנק, סניף, חשבון" class="form-input">
+                    <label for="bank-account"><i class="fas fa-university"></i> חשבון בנק לקבלת תשלומים:</label>
+                    <input type="text" id="bank-account" placeholder="בנק, סניף, חשבון" class="form-input" aria-describedby="bank-help">
                     <div class="tooltip">
                         <i class="fas fa-info-circle" style="color: var(--gray); font-size: 0.9rem;"></i>
                         <span class="tooltiptext">הפרטים הבנקאיים שלך ישמשו להעברת התשלומים שהרווחת</span>
@@ -517,12 +592,12 @@
                 </div>
 
                 <div class="form-group">
-                    <label><i class="fas fa-users"></i> לינק לקבוצה שלך:</label>
+                    <label for="group-link"><i class="fas fa-users"></i> לינק לקבוצה שלך:</label>
                     <input type="url" id="group-link" placeholder="https://t.me/yourgroup" class="form-input">
                 </div>
 
                 <div class="form-group">
-                    <label><i class="fas fa-tag"></i> מחיר להפצה (ש"ח):</label>
+                    <label for="custom-price"><i class="fas fa-tag"></i> מחיר להפצה (ש"ח):</label>
                     <input type="number" id="custom-price" value="39" min="39" class="form-input">
                 </div>
 
@@ -531,6 +606,7 @@
                 </button>
             </div>
 
+            <!-- סטטיסטיקות -->
             <div class="card dashboard-card">
                 <h3><i class="fas fa-chart-bar"></i> סטטיסטיקות</h3>
                 <div class="stats-grid">
@@ -548,7 +624,7 @@
                     </div>
                 </div>
                 <div class="progress-bar">
-                    <div class="progress" id="progress-bar" style="width: 0%"></div>
+                    <div class="progress" id="progress-bar" style="width: 0%" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100"></div>
                 </div>
                 <p style="text-align: center; font-size: 0.9rem; color: var(--gray);">
                     <span class="badge">מטרה: 2,500₪</span> 
@@ -556,64 +632,68 @@
                 </p>
             </div>
 
+            <!-- קבוצות הפרויקט -->
             <div class="card dashboard-card">
-                <h3><i class="fas fa-users"></i> קבוצות הפרויקט</h3>
+                <h3><i class="fas fa-users"></i> קבוצות הקהילה</h3>
                 <p>הצטרף לקבוצות כדי להתעדכן ולתמוך:</p>
                 <div class="groups-container">
-                    <a href="https://chat.whatsapp.com/CCKTtCu9BFPHZTZC6L9Bdh" class="group-btn whatsapp" target="_blank">
+                    <a href="https://chat.whatsapp.com/CCKTtCu9BFPHZTZC6L9Bdh" class="group-btn whatsapp" target="_blank" rel="noopener">
                         <i class="fab fa-whatsapp"></i> קבוצת וואטסאפ
                     </a>
-                    <a href="https://t.me/+HIzvM8sEgh1kNWY0" class="group-btn telegram" target="_blank">
+                    <a href="https://t.me/+HIzvM8sEgh1kNWY0" class="group-btn telegram" target="_blank" rel="noopener">
                         <i class="fab fa-telegram"></i> קבוצת טלגרם
                     </a>
                 </div>
             </div>
 
+            <!-- פעילות אחרונה -->
             <div class="card dashboard-card">
                 <h3><i class="fas fa-history"></i> פעילות אחרונה</h3>
                 <div id="recent-activity">
-                    <div style="padding: 10px 0; border-bottom: 1px solid var(--light-gray);">
+                    <div class="activity-item">
                         <div><i class="fas fa-mouse-pointer" style="color: var(--primary);"></i> לחיצה על הלינק שלך</div>
-                        <div style="font-size: 0.8rem; color: var(--gray);">לפני 2 שעות</div>
+                        <div class="activity-time">לפני 2 שעות</div>
                     </div>
-                    <div style="padding: 10px 0; border-bottom: 1px solid var(--light-gray);">
+                    <div class="activity-item">
                         <div><i class="fas fa-shekel-sign" style="color: var(--success);"></i> מכירה חדשה +39₪</div>
-                        <div style="font-size: 0.8rem; color: var(--gray);">אתמול</div>
+                        <div class="activity-time">אתמול</div>
                     </div>
-                    <div style="padding: 10px 0;">
+                    <div class="activity-item">
                         <div><i class="fas fa-user-plus" style="color: var(--secondary);"></i> משתמש חדש הצטרף דרך הלינק שלך</div>
-                        <div style="font-size: 0.8rem; color: var(--gray);">לפני 3 ימים</div>
+                        <div class="activity-time">לפני 3 ימים</div>
                     </div>
                 </div>
             </div>
 
+            <!-- הישגים -->
             <div class="card dashboard-card">
                 <h3><i class="fas fa-award"></i> הישגים</h3>
-                <div style="display: flex; gap: 15px; margin-top: 15px;">
-                    <div style="text-align: center;">
-                        <div style="width: 60px; height: 60px; background: var(--light); border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 10px;">
-                            <i class="fas fa-medal" style="color: gold; font-size: 1.5rem;"></i>
+                <div class="achievements-grid">
+                    <div class="achievement-item">
+                        <div class="achievement-icon">
+                            <i class="fas fa-medal" style="color: gold;"></i>
                         </div>
-                        <div style="font-size: 0.8rem;">מפיץ מצטיין</div>
+                        <div class="achievement-text">מפיץ מצטיין</div>
                     </div>
-                    <div style="text-align: center;">
-                        <div style="width: 60px; height: 60px; background: var(--light); border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 10px;">
-                            <i class="fas fa-bolt" style="color: var(--secondary); font-size: 1.5rem;"></i>
+                    <div class="achievement-item">
+                        <div class="achievement-icon">
+                            <i class="fas fa-bolt" style="color: var(--secondary);"></i>
                         </div>
-                        <div style="font-size: 0.8rem;">התחלה מהירה</div>
+                        <div class="achievement-text">התחלה מהירה</div>
                     </div>
-                    <div style="text-align: center;">
-                        <div style="width: 60px; height: 60px; background: var(--light); border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 10px;">
-                            <i class="fas fa-share" style="color: var(--primary); font-size: 1.5rem;"></i>
+                    <div class="achievement-item">
+                        <div class="achievement-icon">
+                            <i class="fas fa-share" style="color: var(--primary);"></i>
                         </div>
-                        <div style="font-size: 0.8rem;">משתף פעיל</div>
+                        <div class="achievement-text">משתף פעיל</div>
                     </div>
                 </div>
             </div>
         </div>
     </div>
 
-    <div class="notification" id="notification">
+    <!-- התראות -->
+    <div class="notification" id="notification" role="alert" aria-live="polite">
         <i class="fas fa-check-circle"></i>
         <span id="notification-text">הפעולה בוצעה בהצלחה!</span>
     </div>
@@ -621,12 +701,15 @@
     <script>
         const API_BASE = window.BOTSHOP_API_BASE || 'https://botshop-production.up.railway.app';
 
+        // ניהול ערכת נושא
         function applyTheme(theme) {
             const body = document.body;
             const toggle = document.getElementById('theme-toggle');
             const isDark = theme === 'dark';
-            body.classList.toggle('dark-mode', isDark);
+            
+            document.documentElement.setAttribute('data-theme', isDark ? 'dark' : 'light');
             localStorage.setItem('dashboard_theme', isDark ? 'dark' : 'light');
+            
             if (toggle) {
                 toggle.innerHTML = isDark
                     ? '<i class="fas fa-sun"></i> מצב בהיר'
@@ -636,108 +719,160 @@
 
         function initTheme() {
             const stored = localStorage.getItem('dashboard_theme');
-            if (stored === 'dark' || stored === 'light') {
+            if (stored) {
                 applyTheme(stored);
             } else {
-                const prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+                const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
                 applyTheme(prefersDark ? 'dark' : 'light');
             }
-            const toggle = document.getElementById('theme-toggle');
-            if (toggle) {
-                toggle.addEventListener('click', () => {
-                    const current = document.body.classList.contains('dark-mode') ? 'dark' : 'light';
-                    applyTheme(current === 'dark' ? 'light' : 'dark');
-                });
-            }
-        }
-
-        function generateQRCode() {
-            const linkText = document.getElementById('personal-link-display').textContent.trim();
-            const container = document.getElementById('personal-qr');
-            if (!container) return;
-            container.innerHTML = '';
-            if (window.QRCode) {
-                new QRCode(container, {
-                    text: linkText || window.location.href,
-                    width: 160,
-                    height: 160,
-                    correctLevel: QRCode.CorrectLevel.H
-                });
-            }
-        }
-
-        function copyPersonalLink() {
-            const linkText = document.getElementById('personal-link-display').textContent.trim();
-            if (!linkText) return;
-            navigator.clipboard.writeText(linkText).then(() => {
-                showNotification('הלינק הועתק ללוח!');
+            
+            document.getElementById('theme-toggle').addEventListener('click', () => {
+                const current = document.documentElement.getAttribute('data-theme') === 'dark' ? 'dark' : 'light';
+                applyTheme(current === 'dark' ? 'light' : 'dark');
             });
         }
 
-        function sharePersonalLink() {
+        // יצירת QR code
+        function generateQRCode() {
             const linkText = document.getElementById('personal-link-display').textContent.trim();
-            if (!linkText) return;
+            const container = document.getElementById('personal-qr');
+            
+            if (!container || !window.QRCode) return;
+            
+            container.innerHTML = '';
+            new QRCode(container, {
+                text: linkText || window.location.href,
+                width: 160,
+                height: 160,
+                correctLevel: QRCode.CorrectLevel.H,
+                colorDark: '#000000',
+                colorLight: '#ffffff'
+            });
+        }
+
+        // העתקת קישור
+        async function copyPersonalLink() {
+            const linkText = document.getElementById('personal-link-display').textContent.trim();
+            
+            if (!linkText) {
+                showNotification('לא נמצא קישור להעתקה', 'error');
+                return;
+            }
+
+            try {
+                await navigator.clipboard.writeText(linkText);
+                showNotification('הלינק הועתק ללוח בהצלחה!');
+            } catch (err) {
+                // Fallback for older browsers
+                const textArea = document.createElement('textarea');
+                textArea.value = linkText;
+                document.body.appendChild(textArea);
+                textArea.select();
+                document.execCommand('copy');
+                document.body.removeChild(textArea);
+                showNotification('הלינק הועתק ללוח!');
+            }
+        }
+
+        // שיתוף קישור
+        async function sharePersonalLink() {
+            const linkText = document.getElementById('personal-link-display').textContent.trim();
+            
+            if (!linkText) {
+                showNotification('לא נמצא קישור לשיתוף', 'error');
+                return;
+            }
+
             if (navigator.share) {
-                navigator.share({
-                    title: 'הפרופיל שלי ב-Buy My Shop',
-                    text: 'בקרו בפרופיל הדיגיטלי שלי ב-SLHNET',
-                    url: linkText,
-                })
-                .then(() => showNotification('הלינק שותף בהצלחה!'))
-                .catch((error) => console.log('Error sharing:', error));
+                try {
+                    await navigator.share({
+                        title: 'הפרופיל שלי ב-SLHNET',
+                        text: 'בקרו בפרופיל הדיגיטלי שלי ב-SLHNET',
+                        url: linkText,
+                    });
+                    showNotification('הלינק שותף בהצלחה!');
+                } catch (err) {
+                    if (err.name !== 'AbortError') {
+                        console.log('Error sharing:', err);
+                    }
+                }
             } else {
+                // Fallback to copy
                 copyPersonalLink();
             }
         }
 
+        // שמירת הגדרות
         function saveSettings() {
-            const bank = document.getElementById('bank-account').value;
-            const group = document.getElementById('group-link').value;
-            const price = document.getElementById('custom-price').value;
-            const link = document.getElementById('personal-link-display').textContent.trim();
-            const payload = { bank, group, price, link };
+            const settings = {
+                bank: document.getElementById('bank-account').value,
+                group: document.getElementById('group-link').value,
+                price: document.getElementById('custom-price').value,
+                link: document.getElementById('personal-link-display').textContent.trim(),
+                lastUpdated: new Date().toISOString()
+            };
+
             try {
-                localStorage.setItem('bms_dashboard_settings', JSON.stringify(payload));
-            } catch (e) {}
-            showNotification('ההגדרות נשמרו בהצלחה!');
+                localStorage.setItem('slhnet_dashboard_settings', JSON.stringify(settings));
+                showNotification('ההגדרות נשמרו בהצלחה!');
+            } catch (e) {
+                showNotification('שגיאה בשמירת ההגדרות', 'error');
+            }
         }
 
+        // טעינת הגדרות
         function loadSettings() {
             try {
-                const raw = localStorage.getItem('bms_dashboard_settings');
+                const raw = localStorage.getItem('slhnet_dashboard_settings');
                 if (!raw) return;
+                
                 const data = JSON.parse(raw);
                 if (data.bank) document.getElementById('bank-account').value = data.bank;
                 if (data.group) document.getElementById('group-link').value = data.group;
                 if (data.price) document.getElementById('custom-price').value = data.price;
                 if (data.link) document.getElementById('personal-link-display').textContent = data.link;
-            } catch (e) {}
+            } catch (e) {
+                console.warn('Failed to load settings:', e);
+            }
         }
 
-        function showNotification(message) {
+        // הצגת התראות
+        function showNotification(message, type = 'success') {
             const notification = document.getElementById('notification');
             const notificationText = document.getElementById('notification-text');
+            
             if (!notification || !notificationText) return;
+            
+            // עדכון סגנון לפי סוג ההתראה
+            notification.style.borderRightColor = type === 'error' ? 'var(--error)' : 'var(--success)';
             notificationText.textContent = message;
+            
+            // הצגת ההתראה
             notification.classList.add('show');
+            
+            // הסתרה אוטומטית לאחר 3 שניות
             setTimeout(() => {
                 notification.classList.remove('show');
             }, 3000);
         }
 
+        // אנימציות לסטטיסטיקות
         function animateValue(id, start, end, duration) {
             const obj = document.getElementById(id);
             if (!obj) return;
+            
             let startTimestamp = null;
             const step = (timestamp) => {
                 if (!startTimestamp) startTimestamp = timestamp;
                 const progress = Math.min((timestamp - startTimestamp) / duration, 1);
                 const value = Math.floor(progress * (end - start) + start);
+                
                 if (id === 'total-earnings') {
-                    obj.innerHTML = value.toLocaleString() + '₪';
+                    obj.innerHTML = value.toLocaleString('he-IL') + '₪';
                 } else {
-                    obj.innerHTML = value.toLocaleString();
+                    obj.innerHTML = value.toLocaleString('he-IL');
                 }
+                
                 if (progress < 1) {
                     window.requestAnimationFrame(step);
                 }
@@ -745,52 +880,78 @@
             window.requestAnimationFrame(step);
         }
 
-        async function loadFinanceMetrics() {
-            try {
-                const res = await fetch(API_BASE + '/api/metrics/finance');
-                if (!res.ok) {
-                    console.warn('Failed to load finance metrics', res.status);
-                    // fallback demo values
-                    animateValue('total-clicks', 0, 1247, 1500);
-                    animateValue('total-sales', 0, 42, 1500);
-                    animateValue('total-earnings', 0, 1638, 1500);
-                    updateGoalProgress(1638);
-                    return;
-                }
-                const data = await res.json();
-                const reserve = data && data.reserve ? data.reserve : {};
-                const totalPayments = reserve.total_payments || 0;
-                const approvedCount = reserve.approved_count || 0;
-                const totalNet = reserve.total_net || 0;
-                const estimatedClicks = totalPayments * 3;
-
-                animateValue('total-clicks', 0, estimatedClicks, 1500);
-                animateValue('total-sales', 0, approvedCount, 1500);
-                animateValue('total-earnings', 0, Math.round(totalNet), 1500);
-                updateGoalProgress(totalNet);
-            } catch (err) {
-                console.error('Error fetching finance metrics', err);
-                animateValue('total-clicks', 0, 1247, 1500);
-                animateValue('total-sales', 0, 42, 1500);
-                animateValue('total-earnings', 0, 1638, 1500);
-                updateGoalProgress(1638);
-            }
-        }
-
+        // עדכון התקדמות מטרה
         function updateGoalProgress(currentEarnings) {
             const goal = 2500;
             const pct = Math.max(0, Math.min(100, (currentEarnings / goal) * 100));
             const bar = document.getElementById('progress-bar');
             const label = document.getElementById('goal-progress-label');
-            if (bar) bar.style.width = pct.toFixed(0) + '%';
-            if (label) label.textContent = pct.toFixed(0) + '%';
+            
+            if (bar) {
+                bar.style.width = pct.toFixed(0) + '%';
+                bar.setAttribute('aria-valuenow', pct.toFixed(0));
+            }
+            if (label) {
+                label.textContent = pct.toFixed(0) + '%';
+            }
         }
 
+        // טעינת נתוני פיננסים
+        async function loadFinanceMetrics() {
+            try {
+                // הצגת מצב טעינה
+                document.querySelectorAll('.stat-number').forEach(el => {
+                    el.innerHTML = '<span class="skeleton" style="width: 60px; height: 20px; display: inline-block;"></span>';
+                });
+
+                const res = await fetch(API_BASE + '/api/metrics/finance');
+                
+                if (!res.ok) throw new Error('Network response was not ok');
+                
+                const data = await res.json();
+                const reserve = data?.reserve || {};
+                
+                const totalPayments = reserve.total_payments || 0;
+                const approvedCount = reserve.approved_count || 0;
+                const totalNet = reserve.total_net || 0;
+                const estimatedClicks = totalPayments * 3;
+
+                // אנימציית הסטטיסטיקות
+                animateValue('total-clicks', 0, estimatedClicks, 1500);
+                animateValue('total-sales', 0, approvedCount, 1500);
+                animateValue('total-earnings', 0, Math.round(totalNet), 1500);
+                updateGoalProgress(totalNet);
+                
+            } catch (err) {
+                console.error('Error fetching finance metrics:', err);
+                // ערכי דמה במקרה של שגיאה
+                animateValue('total-clicks', 0, 1247, 1500);
+                animateValue('total-sales', 0, 42, 1500);
+                animateValue('total-earnings', 0, 1638, 1500);
+                updateGoalProgress(1638);
+                
+                showNotification('אין חיבור לרשת - מוצגים נתונים לא מקוונים', 'warning');
+            }
+        }
+
+        // אתחול האפליקציה
         document.addEventListener('DOMContentLoaded', function() {
             initTheme();
             loadSettings();
             generateQRCode();
             loadFinanceMetrics();
+            
+            // האזנה לשינויים בשדות
+            document.querySelectorAll('.form-input').forEach(input => {
+                input.addEventListener('change', saveSettings);
+            });
+        });
+
+        // טעינת נתונים מחדש כאשר הדף חוזר להיות גלוי
+        document.addEventListener('visibilitychange', function() {
+            if (!document.hidden) {
+                loadFinanceMetrics();
+            }
         });
     </script>
 </body>
