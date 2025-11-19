@@ -626,6 +626,12 @@ async def health() -> HealthResponse:
         version="2.0.0"
     )
 
+@app.get("/healthz", response_model=HealthResponse)
+async def healthz() -> HealthResponse:
+    """Alias עבור בדיקת בריאות (/healthz) לשימוש ב-Railway או ב-uptime checks."""
+    return await health()
+
+
 
 @app.get("/", response_class=HTMLResponse)
 async def landing(request: Request):
