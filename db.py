@@ -210,6 +210,64 @@ def update_payment_status(user_id: int, status: str, reason: Optional[str]) -> N
             (status, reason, user_id),
         )
 
+def has_approved_payment(user_id: int) -> bool:
+    """בודק אם יש למשתמש תשלום שאושר (approved)."""
+    with db_cursor() as (conn, cur):
+        if cur is None:
+            logger.warning("has_approved_payment called without DB.")
+            return False
+        cur.execute(
+            """
+            SELECT 1
+            FROM payments
+            WHERE user_id = %s
+              AND status = 'approved'
+            LIMIT 1
+            """,
+            (user_id,),
+        )
+        return cur.fetchone() is not None
+
+
+def get_pending_payments(limit: int = 20) -> List[Dict[str, Any]]:
+    """מחזיר רשימת תשלומים במצב pending לצורך ניהול."""
+    with db_cursor() as (conn, cur):
+        if cur is None:
+            logger.warning("get_pending_payments called without DB.")
+            return []
+        cur.execute(
+            """
+            SELECT id, user_id, username, pay_method, amount, status, created_at
+            FROM payments
+            WHERE status = 'pending'
+            ORDER BY created_at DESC
+            LIMIT %s
+            """,
+            (limit,),
+        )
+        rows = cur.fetchall()
+        return [dict(row) for row in rows] if rows else []
+
+
+def get_last_payment_user(user_id: int) -> Optional[Dict[str, Any]]:
+    """מחזיר את התשלום האחרון של המשתמש, אם קיים."""
+    with db_cursor() as (conn, cur):
+        if cur is None:
+            logger.warning("get_last_payment_user called without DB.")
+            return None
+        cur.execute(
+            """
+            SELECT id, user_id, username, pay_method, amount, status, created_at
+            FROM payments
+            WHERE user_id = %s
+            ORDER BY created_at DESC
+            LIMIT 1
+            """,
+            (user_id,),
+        )
+        row = cur.fetchone()
+        return dict(row) if row else None
+
 
 # =========================
 # users / referrals – למערכת ניקוד ו-Leaderboard
