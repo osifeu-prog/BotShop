@@ -14,6 +14,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
 from pydantic import BaseModel
+from fastapi.middleware.cors import CORSMiddleware
 
 from telegram import Update
 try:
@@ -55,6 +56,21 @@ app = FastAPI(
     title="SLHNET Gateway Bot",
     description="בוט קהילה ושער API עבור SLHNET",
     version="2.0.0"
+)
+
+# CORS – מאפשר גישה לדשבורד מהדומיין slh-nft.com
+allowed_origins = [
+    os.getenv("FRONTEND_ORIGIN", "").rstrip("/") or "https://slh-nft.com",
+    "https://slh-nft.com",
+    "https://www.slh-nft.com",
+]
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=allowed_origins,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 # אתחול סכמת בסיס הנתונים (טבלאות + רזרבות 49%)
