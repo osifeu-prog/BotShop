@@ -25,25 +25,33 @@
   <link rel="icon" href="https://slh-nft.com/assets/favicon.ico" type="image/x-icon" />
   <link rel="apple-touch-icon" href="https://slh-nft.com/assets/apple-touch-icon.png">
 
-  <!-- Preload critical resources -->
+  <!-- Font Awesome for icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+  <!-- Google Fonts -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
 
   <style>
     /* CSS Variables for consistent theming */
     :root {
-      --primary-color: #22c55e;
-      --primary-dark: #16a34a;
-      --secondary-color: #3b82f6;
-      --text-primary: #f9fafb;
-      --text-secondary: #cbd5f5;
-      --text-muted: #9ca3af;
-      --bg-primary: #020617;
-      --bg-secondary: #0f172a;
-      --bg-card: rgba(15, 23, 42, 0.95);
-      --border-color: rgba(148, 163, 184, 0.4);
-      --border-radius: 18px;
-      --shadow: 0 12px 40px rgba(15, 23, 42, 0.65);
+      --primary-color: #00ff88;
+      --primary-dark: #00cc6a;
+      --primary-light: #66ffb8;
+      --secondary-color: #6c63ff;
+      --accent-color: #ff6b6b;
+      --text-primary: #ffffff;
+      --text-secondary: #b0b8d0;
+      --text-muted: #8a94b0;
+      --bg-primary: #0a0f1e;
+      --bg-secondary: #131a2e;
+      --bg-card: rgba(19, 26, 46, 0.85);
+      --border-color: rgba(255, 255, 255, 0.1);
+      --border-radius: 20px;
+      --border-radius-lg: 30px;
+      --shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+      --shadow-glow: 0 0 30px rgba(0, 255, 136, 0.3);
     }
 
     /* Reset and base styles */
@@ -59,18 +67,96 @@
 
     body {
       margin: 0;
-      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-      background: radial-gradient(circle at top, #111827 0, #020617 55%, #000 100%);
+      font-family: 'Heebo', system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: radial-gradient(ellipse at top, #1a2a4a 0%, #0a0f1e 60%, #050814 100%);
       color: var(--text-primary);
       line-height: 1.6;
       overflow-x: hidden;
+      position: relative;
+    }
+
+    /* Animated background */
+    .bg-animation {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      z-index: -1;
+      opacity: 0.6;
+    }
+
+    .bg-circle {
+      position: absolute;
+      border-radius: 50%;
+      background: radial-gradient(circle, var(--primary-color) 0%, transparent 70%);
+      filter: blur(40px);
+      opacity: 0.15;
+    }
+
+    .circle-1 {
+      width: 600px;
+      height: 600px;
+      top: -200px;
+      right: -200px;
+      animation: float 15s ease-in-out infinite;
+    }
+
+    .circle-2 {
+      width: 400px;
+      height: 400px;
+      bottom: -100px;
+      left: -100px;
+      animation: float 12s ease-in-out infinite reverse;
+    }
+
+    .circle-3 {
+      width: 300px;
+      height: 300px;
+      top: 50%;
+      left: 20%;
+      animation: float 10s ease-in-out infinite;
+    }
+
+    @keyframes float {
+      0%, 100% { transform: translateY(0) scale(1); }
+      50% { transform: translateY(-20px) scale(1.05); }
+    }
+
+    /* Particles */
+    .particles {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      z-index: -1;
+      pointer-events: none;
+    }
+
+    .particle {
+      position: absolute;
+      width: 4px;
+      height: 4px;
+      background: var(--primary-light);
+      border-radius: 50%;
+      opacity: 0.3;
+      animation: particle-float 20s infinite linear;
+    }
+
+    @keyframes particle-float {
+      0% { transform: translateY(100vh) translateX(0); opacity: 0; }
+      10% { opacity: 0.7; }
+      90% { opacity: 0.7; }
+      100% { transform: translateY(-100px) translateX(20px); opacity: 0; }
     }
 
     /* Improved focus styles for accessibility */
     a:focus-visible,
     button:focus-visible {
       outline: 2px solid var(--primary-color);
-      outline-offset: 2px;
+      outline-offset: 4px;
+      border-radius: 8px;
     }
 
     /* Skip link for accessibility */
@@ -79,11 +165,13 @@
       top: -40px;
       right: 0;
       background: var(--primary-color);
-      color: white;
-      padding: 8px;
+      color: #000;
+      padding: 12px 16px;
       text-decoration: none;
       z-index: 1000;
       border-radius: 4px;
+      font-weight: 600;
+      transition: top 0.3s ease;
     }
 
     .skip-link:focus {
@@ -93,7 +181,7 @@
     a { 
       color: inherit; 
       text-decoration: none;
-      transition: color 0.2s ease;
+      transition: all 0.3s ease;
     }
 
     a:hover {
@@ -101,166 +189,248 @@
     }
 
     .page {
-      max-width: 1200px;
+      max-width: 1300px;
       margin: 0 auto;
-      padding: 24px 16px 48px;
+      padding: 30px 20px 60px;
+      position: relative;
+      z-index: 1;
     }
 
     /* Enhanced hero section */
     .hero {
       display: grid;
       grid-template-columns: minmax(0, 3fr) minmax(0, 2fr);
-      gap: 32px;
+      gap: 50px;
       align-items: center;
-      margin-bottom: 60px;
+      margin-bottom: 80px;
+      padding-top: 40px;
     }
 
     @media (max-width: 768px) {
       .hero { 
         grid-template-columns: 1fr;
-        gap: 24px;
-        margin-bottom: 40px;
+        gap: 40px;
+        margin-bottom: 60px;
+        padding-top: 20px;
       }
     }
 
     .badge {
       display: inline-flex;
       align-items: center;
-      gap: 8px;
-      padding: 6px 12px;
-      border-radius: 999px;
+      gap: 10px;
+      padding: 8px 16px;
+      border-radius: 50px;
       border: 1px solid var(--border-color);
-      font-size: 12px;
+      font-size: 14px;
       color: var(--text-secondary);
       background: var(--bg-card);
-      backdrop-filter: blur(14px);
+      backdrop-filter: blur(20px);
       font-weight: 500;
+      margin-bottom: 20px;
+      box-shadow: var(--shadow);
+    }
+
+    .badge::before {
+      content: '';
+      width: 8px;
+      height: 8px;
+      background: var(--primary-color);
+      border-radius: 50%;
+      animation: pulse 2s infinite;
+    }
+
+    @keyframes pulse {
+      0% { box-shadow: 0 0 0 0 rgba(0, 255, 136, 0.7); }
+      70% { box-shadow: 0 0 0 10px rgba(0, 255, 136, 0); }
+      100% { box-shadow: 0 0 0 0 rgba(0, 255, 136, 0); }
     }
 
     .title {
-      font-size: clamp(28px, 5vw, 42px);
-      font-weight: 800;
-      margin: 20px 0 12px;
+      font-size: clamp(32px, 6vw, 56px);
+      font-weight: 900;
+      margin: 20px 0 16px;
       color: var(--text-primary);
-      line-height: 1.2;
+      line-height: 1.1;
+      background: linear-gradient(135deg, var(--text-primary) 0%, var(--primary-color) 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
     }
 
     .subtitle {
-      font-size: 18px;
+      font-size: 20px;
       line-height: 1.7;
       color: var(--text-secondary);
-      margin-bottom: 24px;
+      margin-bottom: 30px;
+      font-weight: 400;
     }
 
     .pill-row {
       display: flex;
       flex-wrap: wrap;
-      gap: 8px;
-      font-size: 14px;
-      margin-bottom: 24px;
+      gap: 10px;
+      font-size: 15px;
+      margin-bottom: 30px;
     }
 
     .pill {
-      padding: 6px 12px;
-      border-radius: 999px;
-      background: rgba(30, 64, 175, 0.25);
-      border: 1px solid rgba(129, 140, 248, 0.35);
-      color: #e0e7ff;
-      font-size: 13px;
+      padding: 8px 16px;
+      border-radius: 50px;
+      background: linear-gradient(135deg, rgba(108, 99, 255, 0.2) 0%, rgba(0, 255, 136, 0.1) 100%);
+      border: 1px solid rgba(108, 99, 255, 0.3);
+      color: var(--text-primary);
+      font-size: 14px;
+      font-weight: 500;
+      backdrop-filter: blur(10px);
+      transition: all 0.3s ease;
     }
 
-    /* Improved CTA section */
+    .pill:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 5px 15px rgba(108, 99, 255, 0.2);
+    }
+
+    /* Enhanced CTA section */
     .cta-main {
       display: flex;
       flex-wrap: wrap;
-      gap: 12px;
-      margin-bottom: 16px;
+      gap: 15px;
+      margin-bottom: 20px;
     }
 
     .btn {
-      padding: 12px 24px;
-      border-radius: 999px;
+      padding: 16px 32px;
+      border-radius: 50px;
       border: none;
       cursor: pointer;
-      font-weight: 600;
-      font-size: 15px;
-      transition: all 0.3s ease;
+      font-weight: 700;
+      font-size: 16px;
+      transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
       display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .btn::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: -100%;
+      width: 100%;
+      height: 100%;
+      background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+      transition: left 0.7s;
+    }
+
+    .btn:hover::before {
+      left: 100%;
+    }
+
+    .btn-primary {
+      background: linear-gradient(135deg, var(--primary-color) 0%, var(--primary-dark) 100%);
+      color: #000;
+      box-shadow: 0 10px 30px rgba(0, 255, 136, 0.4);
+    }
+
+    .btn-primary:hover {
+      transform: translateY(-5px) scale(1.05);
+      box-shadow: 0 15px 40px rgba(0, 255, 136, 0.6);
+    }
+
+    .btn-secondary {
+      padding: 15px 30px;
+      border-radius: 50px;
+      border: 2px solid var(--secondary-color);
+      background: transparent;
+      color: var(--text-primary);
+      font-size: 16px;
+      cursor: pointer;
+      backdrop-filter: blur(10px);
+    }
+
+    .btn-secondary:hover {
+      background: rgba(108, 99, 255, 0.1);
+      transform: translateY(-5px);
+      box-shadow: 0 10px 25px rgba(108, 99, 255, 0.3);
+    }
+
+    .mini-note {
+      font-size: 14px;
+      color: var(--text-muted);
+      line-height: 1.6;
+      display: flex;
       align-items: center;
       gap: 8px;
     }
 
-    .btn-primary {
-      background: linear-gradient(135deg, var(--primary-color), var(--primary-dark));
-      color: #022c22;
-      box-shadow: 0 10px 30px rgba(34, 197, 94, 0.45);
-    }
-
-    .btn-primary:hover {
-      transform: translateY(-2px);
-      box-shadow: 0 15px 40px rgba(34, 197, 94, 0.6);
-    }
-
-    .btn-secondary {
-      padding: 11px 22px;
-      border-radius: 999px;
-      border: 1px solid var(--border-color);
-      background: transparent;
-      color: var(--text-primary);
-      font-size: 15px;
-      cursor: pointer;
-    }
-
-    .btn-secondary:hover {
-      background: rgba(255, 255, 255, 0.05);
-      border-color: var(--primary-color);
-    }
-
-    .mini-note {
-      font-size: 13px;
-      color: var(--text-muted);
-      line-height: 1.5;
-    }
-
     /* Enhanced card design */
     .card {
-      border-radius: var(--border-radius);
-      padding: 24px;
+      border-radius: var(--border-radius-lg);
+      padding: 30px;
       background: var(--bg-card);
       border: 1px solid var(--border-color);
       box-shadow: var(--shadow);
-      transition: transform 0.3s ease, box-shadow 0.3s ease;
+      transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+      backdrop-filter: blur(20px);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .card::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 4px;
+      background: linear-gradient(90deg, var(--primary-color), var(--secondary-color));
     }
 
     .card:hover {
-      transform: translateY(-4px);
-      box-shadow: 0 20px 50px rgba(15, 23, 42, 0.8);
+      transform: translateY(-10px) scale(1.02);
+      box-shadow: 0 30px 60px rgba(0, 0, 0, 0.6), var(--shadow-glow);
     }
 
     .card h3 {
-      margin: 0 0 12px;
-      font-size: 18px;
+      margin: 0 0 16px;
+      font-size: 22px;
       color: var(--text-primary);
       font-weight: 700;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .card h3 i {
+      color: var(--primary-color);
+      font-size: 24px;
     }
 
     .card p {
-      margin: 0 0 12px;
-      font-size: 14px;
+      margin: 0 0 16px;
+      font-size: 16px;
       color: var(--text-secondary);
-      line-height: 1.6;
+      line-height: 1.7;
     }
 
     .card ul {
       margin: 0;
-      padding-inline-start: 20px;
-      font-size: 14px;
+      padding-inline-start: 24px;
+      font-size: 15px;
       color: var(--text-primary);
-      line-height: 1.6;
+      line-height: 1.7;
     }
 
     .card li {
-      margin-bottom: 8px;
+      margin-bottom: 10px;
+      position: relative;
+    }
+
+    .card li::marker {
+      color: var(--primary-color);
     }
 
     .card li:last-child {
@@ -268,101 +438,200 @@
     }
 
     .section-title {
-      margin: 48px 0 16px;
-      font-size: 28px;
-      font-weight: 700;
+      margin: 80px 0 20px;
+      font-size: 42px;
+      font-weight: 800;
       text-align: center;
       color: var(--text-primary);
+      position: relative;
+    }
+
+    .section-title::after {
+      content: '';
+      display: block;
+      width: 80px;
+      height: 4px;
+      background: linear-gradient(90deg, var(--primary-color), var(--secondary-color));
+      margin: 20px auto;
+      border-radius: 2px;
     }
 
     .section-sub {
-      margin: 0 0 32px;
-      font-size: 16px;
+      margin: 0 0 50px;
+      font-size: 18px;
       color: var(--text-muted);
       text-align: center;
-      max-width: 600px;
+      max-width: 700px;
       margin-left: auto;
       margin-right: auto;
+      line-height: 1.6;
     }
 
     .grid-3 {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-      gap: 24px;
-      margin-bottom: 40px;
+      grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+      gap: 30px;
+      margin-bottom: 60px;
     }
 
     .stacked {
       display: flex;
       flex-direction: column;
-      gap: 12px;
-      font-size: 14px;
+      gap: 16px;
+      font-size: 16px;
       color: var(--text-secondary);
-      max-width: 500px;
+      max-width: 600px;
       margin: 0 auto;
+      background: var(--bg-card);
+      padding: 30px;
+      border-radius: var(--border-radius);
+      border: 1px solid var(--border-color);
+      backdrop-filter: blur(20px);
     }
 
     .stacked div {
-      padding: 12px 0;
+      padding: 16px 0;
       border-bottom: 1px solid var(--border-color);
+      display: flex;
+      align-items: center;
+      gap: 12px;
     }
 
     .stacked div:last-child {
       border-bottom: none;
     }
 
+    .stacked div::before {
+      content: '';
+      width: 8px;
+      height: 8px;
+      background: var(--primary-color);
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+
     .investor-card {
-      margin-top: 20px;
-      border-radius: 16px;
-      padding: 16px;
-      background: rgba(15, 23, 42, 0.9);
-      border: 1px dashed rgba(250, 204, 21, 0.7);
-      font-size: 14px;
-      color: #fef9c3;
+      margin-top: 25px;
+      border-radius: var(--border-radius);
+      padding: 20px;
+      background: linear-gradient(135deg, rgba(255, 215, 0, 0.1) 0%, rgba(255, 140, 0, 0.05) 100%);
+      border: 1px dashed rgba(255, 215, 0, 0.5);
+      font-size: 15px;
+      color: #ffeb99;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .investor-card::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: url("data:image/svg+xml,%3Csvg width='100' height='100' viewBox='0 0 100 100' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M11 18c3.866 0 7-3.134 7-7s-3.134-7-7-7-7 3.134-7 7 3.134 7 7 7zm48 25c3.866 0 7-3.134 7-7s-3.134-7-7-7-7 3.134-7 7 3.134 7 7 7zm-43-7c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3zm63 31c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3zM34 90c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3zm56-76c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3zM12 86c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm28-65c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm23-11c2.76 0 5-2.24 5-5s-2.24-5-5-5-5 2.24-5 5 2.24 5 5 5zm-6 60c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm29 22c2.76 0 5-2.24 5-5s-2.24-5-5-5-5 2.24-5 5 2.24 5 5 5zM32 63c2.76 0 5-2.24 5-5s-2.24-5-5-5-5 2.24-5 5 2.24 5 5 5zm57-13c2.76 0 5-2.24 5-5s-2.24-5-5-5-5 2.24-5 5 2.24 5 5 5zm-9-21c1.105 0 2-.895 2-2s-.895-2-2-2-2 .895-2 2 .895 2 2 2zM60 91c1.105 0 2-.895 2-2s-.895-2-2-2-2 .895-2 2 .895 2 2 2zM35 41c1.105 0 2-.895 2-2s-.895-2-2-2-2 .895-2 2 .895 2 2 2zM12 60c1.105 0 2-.895 2-2s-.895-2-2-2-2 .895-2 2 .895 2 2 2z' fill='%23ffd700' fill-opacity='0.1' fill-rule='evenodd'/%3E%3C/svg%3E");
+      opacity: 0.3;
     }
 
     .investor-card strong {
-      color: #fde68a;
+      color: #ffd700;
       display: block;
       margin-bottom: 8px;
+      font-size: 16px;
     }
 
     /* Footer improvements */
     footer {
-      margin-top: 60px;
-      font-size: 12px;
+      margin-top: 80px;
+      font-size: 14px;
       color: var(--text-muted);
       text-align: center;
-      padding: 20px 0;
+      padding: 30px 0;
       border-top: 1px solid var(--border-color);
+      position: relative;
+    }
+
+    footer::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 100px;
+      height: 3px;
+      background: linear-gradient(90deg, var(--primary-color), var(--secondary-color));
+      border-radius: 0 0 2px 2px;
     }
 
     /* Back to top button */
     .back-to-top {
       position: fixed;
-      bottom: 20px;
-      left: 20px;
+      bottom: 30px;
+      left: 30px;
       background: var(--primary-color);
-      color: white;
-      width: 40px;
-      height: 40px;
+      color: #000;
+      width: 50px;
+      height: 50px;
       border-radius: 50%;
       display: flex;
       align-items: center;
       justify-content: center;
       text-decoration: none;
       opacity: 0;
-      transition: opacity 0.3s ease;
+      transition: all 0.3s ease;
       z-index: 1000;
+      box-shadow: 0 5px 15px rgba(0, 255, 136, 0.4);
+      font-weight: bold;
+      font-size: 18px;
     }
 
     .back-to-top.visible {
       opacity: 1;
     }
 
+    .back-to-top:hover {
+      transform: translateY(-5px);
+      box-shadow: 0 8px 20px rgba(0, 255, 136, 0.6);
+    }
+
+    /* Floating elements */
+    .floating-element {
+      position: absolute;
+      z-index: -1;
+      opacity: 0.1;
+    }
+
+    .float-1 {
+      top: 10%;
+      left: 5%;
+      width: 100px;
+      height: 100px;
+      border-radius: 30% 70% 70% 30% / 30% 30% 70% 70%;
+      background: var(--primary-color);
+      animation: float-element 20s infinite linear;
+    }
+
+    .float-2 {
+      bottom: 20%;
+      right: 10%;
+      width: 150px;
+      height: 150px;
+      border-radius: 63% 37% 54% 46% / 55% 48% 52% 45%;
+      background: var(--secondary-color);
+      animation: float-element 25s infinite linear reverse;
+    }
+
+    @keyframes float-element {
+      0% { transform: translate(0, 0) rotate(0deg); border-radius: 63% 37% 54% 46% / 55% 48% 52% 45%; }
+      25% { transform: translate(20px, 20px) rotate(90deg); border-radius: 30% 70% 70% 30% / 30% 30% 70% 70%; }
+      50% { transform: translate(0, 40px) rotate(180deg); border-radius: 76% 24% 33% 67% / 68% 55% 45% 32%; }
+      75% { transform: translate(-20px, 20px) rotate(270deg); border-radius: 40% 60% 66% 34% / 40% 40% 60% 60%; }
+      100% { transform: translate(0, 0) rotate(360deg); border-radius: 63% 37% 54% 46% / 55% 48% 52% 45%; }
+    }
+
     /* Loading animation for better perceived performance */
     .skeleton {
-      background: linear-gradient(90deg, #1e293b 25%, #334155 50%, #1e293b 75%);
+      background: linear-gradient(90deg, #1a243a 25%, #24304d 50%, #1a243a 75%);
       background-size: 200% 100%;
       animation: loading 1.5s infinite;
       border-radius: 4px;
@@ -376,9 +645,74 @@
         background-position: -200% 0;
       }
     }
+
+    /* Responsive adjustments */
+    @media (max-width: 768px) {
+      .page {
+        padding: 20px 15px 40px;
+      }
+      
+      .hero {
+        gap: 30px;
+        margin-bottom: 50px;
+      }
+      
+      .title {
+        font-size: clamp(28px, 8vw, 42px);
+      }
+      
+      .subtitle {
+        font-size: 18px;
+      }
+      
+      .card {
+        padding: 25px;
+      }
+      
+      .section-title {
+        font-size: 36px;
+        margin: 60px 0 15px;
+      }
+      
+      .section-sub {
+        font-size: 16px;
+        margin-bottom: 40px;
+      }
+      
+      .grid-3 {
+        grid-template-columns: 1fr;
+        gap: 25px;
+      }
+      
+      .btn {
+        padding: 14px 28px;
+        font-size: 15px;
+      }
+      
+      .back-to-top {
+        bottom: 20px;
+        left: 20px;
+        width: 45px;
+        height: 45px;
+      }
+    }
   </style>
 </head>
 <body>
+  <!-- Animated Background -->
+  <div class="bg-animation">
+    <div class="bg-circle circle-1"></div>
+    <div class="bg-circle circle-2"></div>
+    <div class="bg-circle circle-3"></div>
+  </div>
+  
+  <!-- Floating Elements -->
+  <div class="floating-element float-1"></div>
+  <div class="floating-element float-2"></div>
+  
+  <!-- Particles -->
+  <div class="particles" id="particles-container"></div>
+  
   <a href="#main-content" class="skip-link">דלג לתוכן הראשי</a>
   
   <div class="page">
@@ -396,30 +730,33 @@
           מתועד בעץ הפניות שקוף ואתה הראשון ליהנות.
         </p>
         <div class="pill-row">
-          <div class="pill">גישה לקבוצת עסקים פרטית</div>
-          <div class="pill">חנות דיגיטלית אישית</div>
-          <div class="pill">לינק ריפרל ייחודי</div>
-          <div class="pill">איירדרופים וסטייקינג עתידי</div>
+          <div class="pill"><i class="fas fa-users"></i> גישה לקבוצת עסקים פרטית</div>
+          <div class="pill"><i class="fas fa-store"></i> חנות דיגיטלית אישית</div>
+          <div class="pill"><i class="fas fa-link"></i> לינק ריפרל ייחודי</div>
+          <div class="pill"><i class="fas fa-coins"></i> איירדרופים וסטייקינג עתידי</div>
         </div>
         <div class="cta-main" id="join39">
           <a href="https://links.payboxapp.com/1SNfaJ6XcYb" target="_blank" rel="noopener noreferrer">
             <button class="btn btn-primary">
+              <i class="fas fa-bolt"></i>
               <span>תשלום חדפעמי 39₪ וגישה מלאה</span>
             </button>
           </a>
           <a href="https://t.me/Buy_My_Shop_bot" target="_blank" rel="noopener noreferrer">
             <button class="btn btn-secondary">
+              <i class="fab fa-telegram"></i>
               <span>כניסה לבוט SLHNET</span>
             </button>
           </a>
         </div>
         <div class="mini-note">
+          <i class="fas fa-info-circle"></i>
           אפשר לשלם גם בביט / PayPal. כל הפרטים בבוט ובקבוצת העסקים אחרי ההצטרפות.
         </div>
       </div>
       <div>
         <div class="card">
-          <h3>מה קורה אחרי שאתה משלים תשלום 39₪?</h3>
+          <h3><i class="fas fa-rocket"></i> מה קורה אחרי שאתה משלים תשלום 39₪?</h3>
           <p>זו לא עוד "קבוצת וואטסאפ". אתה מקבל <strong>נכס דיגיטלי</strong> שממשיך לעבוד בשבילך:</p>
           <ul>
             <li>גישה לקבוצת עסקים סגורה עם הדרכות, שיתופי פעולה ותוכן איכותי</li>
@@ -428,11 +765,12 @@
             <li>השתתפות עתידית בסטייקינג, איירדרופים ותגמולים נוספים בטוקני SLH</li>
           </ul>
           <p class="mini-note">
-            📊 <strong>49% מכל תשלום</strong> נכנס אוטומטית לרזרבות המערכת – קרן ביטחון שמטרתה להגדיל את היציבות והרווחיות לטווח הארוך עבור כל המצטרפים.
+            <i class="fas fa-chart-bar"></i>
+            <strong>49% מכל תשלום</strong> נכנס אוטומטית לרזרבות המערכת – קרן ביטחון שמטרתה להגדיל את היציבות והרווחיות לטווח הארוך עבור כל המצטרפים.
           </p>
 
           <div class="investor-card">
-            <strong>משקיעים / שותפים אסטרטגיים</strong>
+            <strong><i class="fas fa-handshake"></i> משקיעים / שותפים אסטרטגיים</strong>
             יוצרים מודל ריפרל שקוף וסטייקינג חכם סביב אקו-סיסטם אמיתי של עסקים - לא סביב "אוויר".<br/>
             קשר ישיר: טלפון 058-420-3384 | טלגרם <a href="https://t.me/Osif83" target="_blank" rel="noopener noreferrer">@Osif83</a>
           </div>
@@ -446,15 +784,15 @@
         <p class="section-sub">מודל ריפרל מדורג + נכסים דיגיטליים אמיתיים + טוקן SLH על Binance Smart Chain</p>
         <div class="grid-3">
           <div class="card">
-            <h3>1. מצטרפים ומשלימים 39₪</h3>
+            <h3><i class="fas fa-user-plus"></i> 1. מצטרפים ומשלימים 39₪</h3>
             <p>פותחים לעצמכם "שער כניסה" אישי לרשת - כולל קישור שיתוף, חנות ופרופיל עסקי.</p>
           </div>
           <div class="card">
-            <h3>2. בונים עץ הפניות</h3>
+            <h3><i class="fas fa-network-wired"></i> 2. בונים עץ הפניות</h3>
             <p>כל מי שנכנס דרך הקישור שלך מתועד. אנחנו בונים עץ קשרים שקוף - מי הביא את מי, ומתי.</p>
           </div>
           <div class="card">
-            <h3>3. נהנים מחשיפה ותגמולים</h3>
+            <h3><i class="fas fa-money-bill-wave"></i> 3. נהנים מחשיפה ותגמולים</h3>
             <p>הקהילה, הפוסטים, החנויות והסטייקינג מייצרים עבורך ערך מתמשך - גם כשאתה לא "רודף" אחרי לידים.</p>
           </div>
         </div>
@@ -465,16 +803,16 @@
         <p class="section-sub">השילוב בין טוקן על BSC לבין רשת חברתית-עסקית מייצר מודל חדש של Social-Fi</p>
         <div class="grid-3">
           <div class="card">
-            <h3>טוקן SLH על BSC</h3>
-            <p>Contract: <code style="font-size: 12px; background: rgba(255,255,255,0.1); padding: 4px 8px; border-radius: 4px;">0xACb0A09414CEA1C879c67bB7A877E4e19480f022</code></p>
-            <p>ניתן להחזקה בכל ארנק שתומך ב-BSC. בהמשך - סטייקינג, תגמולים והצבעות קהילה.</p>
+            <h3><i class="fab fa-ethereum"></i> טוקן SLH על BSC</h3>
+            <p>Contract: <code style="font-size: 12px; background: rgba(255,255,255,0.1); padding: 8px 12px; border-radius: 8px; font-family: monospace;">0xACb0A09414CEA1C879c67bB7A877E4e19480f022</code></p>
+            <p>ניתן להחזיק בכל ארנק שתומך ב-BSC. בהמשך - סטייקינג, תגמולים והצבעות קהילה.</p>
           </div>
           <div class="card">
-            <h3>סטייקינג (פאזה 1)</h3>
+            <h3><i class="fas fa-lock"></i> סטייקינג (פאזה 1)</h3>
             <p>מתחילים ממודל נקודות פנימי על בסיס פעילות, שיתופים והפניות. בהמשך - קישור ישיר לסטייקינג ב-SLH.</p>
           </div>
           <div class="card">
-            <h3>DAO קהילתי</h3>
+            <h3><i class="fas fa-users-cog"></i> DAO קהילתי</h3>
             <p>שקיפות מלאה: מי הרוויח, כמה, ועל בסיס מה. כל זה נבנה בהדרגה לתוך לוגיקת המערכת.</p>
           </div>
         </div>
@@ -483,9 +821,9 @@
       <section>
         <h2 class="section-title">מוכן להתחיל?</h2>
         <div class="stacked">
-          <div>1. לוחצים על כפתור <strong>תשלום 39₪</strong> ומבצעים רכישה מאובטחת</div>
-          <div>2. נכנסים לבוט: <a href="https://t.me/Buy_My_Shop_bot" target="_blank" rel="noopener noreferrer">@Buy_My_Shop_bot</a> ומבצעים /start</div>
-          <div>3. מצטרפים לקבוצת העסקים, מקבלים קישורים ייחודיים ומתחילים להפיץ את הנכס הדיגיטלי שלכם</div>
+          <div><strong>1.</strong> לוחצים על כפתור <strong>תשלום 39₪</strong> ומבצעים רכישה מאובטחת</div>
+          <div><strong>2.</strong> נכנסים לבוט: <a href="https://t.me/Buy_My_Shop_bot" target="_blank" rel="noopener noreferrer">@Buy_My_Shop_bot</a> ומבצעים /start</div>
+          <div><strong>3.</strong> מצטרפים לקבוצת העסקים, מקבלים קישורים ייחודיים ומתחילים להפיץ את הנכס הדיגיטלי שלכם</div>
         </div>
       </section>
     </main>
@@ -527,550 +865,66 @@
     document.querySelectorAll('.btn').forEach(button => {
       button.addEventListener('click', function(e) {
         if (this.href || this.closest('a')) {
-          this.style.opacity = '0.7';
+          const originalText = this.innerHTML;
+          this.innerHTML = '<i class="fas fa-spinner fa-spin"></i> טוען...';
+          this.style.opacity = '0.8';
+          
           setTimeout(() => {
+            this.innerHTML = originalText;
             this.style.opacity = '1';
           }, 2000);
         }
       });
     });
-  </script>
-</body>
-</html><!DOCTYPE html>
-<html lang="he" dir="rtl">
-<head>
-  <meta charset="utf-8" />
-  <title>SLHNET - שער הכניסה לנכס הדיגיטלי שלך</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <meta name="description" content="קהילת עסקים, טוקן SLH, חנויות דיגיטליות ומודל ריפרל שקוף. תשלום חדפעמי של 39₪ פותח לך עולם של הכנסות, חשיפה והזדמנויות." />
-  
-  <!-- Open Graph improvements -->
-  <meta property="og:type" content="website" />
-  <meta property="og:title" content="SLHNET - שער הכניסה לנכס הדיגיטלי שלך" />
-  <meta property="og:description" content="שלם 39₪ פעם אחת, קבל גישה לקבוצת עסקים, חנות דיגיטלית אישית, לינק ריפרל ועתיד של סטייקינג וטוקני SLH." />
-  <meta property="og:url" content="https://slh-nft.com/" />
-  <meta property="og:image" content="https://slh-nft.com/assets/og-image.jpg" />
-  <meta property="og:image:width" content="1200">
-  <meta property="og:image:height" content="630">
-  <meta property="og:locale" content="he_IL" />
 
-  <!-- Twitter Card -->
-  <meta name="twitter:card" content="summary_large_image">
-  <meta name="twitter:title" content="SLHNET - שער הכניסה לנכס הדיגיטלי שלך">
-  <meta name="twitter:description" content="קהילת עסקים, טוקן SLH, חנויות דיגיטליות ומודל ריפרל שקוף">
-
-  <!-- Favicon -->
-  <link rel="icon" href="https://slh-nft.com/assets/favicon.ico" type="image/x-icon" />
-  <link rel="apple-touch-icon" href="https://slh-nft.com/assets/apple-touch-icon.png">
-
-  <!-- Preload critical resources -->
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-
-  <style>
-    /* CSS Variables for consistent theming */
-    :root {
-      --primary-color: #22c55e;
-      --primary-dark: #16a34a;
-      --secondary-color: #3b82f6;
-      --text-primary: #f9fafb;
-      --text-secondary: #cbd5f5;
-      --text-muted: #9ca3af;
-      --bg-primary: #020617;
-      --bg-secondary: #0f172a;
-      --bg-card: rgba(15, 23, 42, 0.95);
-      --border-color: rgba(148, 163, 184, 0.4);
-      --border-radius: 18px;
-      --shadow: 0 12px 40px rgba(15, 23, 42, 0.65);
-    }
-
-    /* Reset and base styles */
-    * {
-      margin: 0;
-      padding: 0;
-      box-sizing: border-box;
-    }
-
-    html {
-      scroll-behavior: smooth;
-    }
-
-    body {
-      margin: 0;
-      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-      background: radial-gradient(circle at top, #111827 0, #020617 55%, #000 100%);
-      color: var(--text-primary);
-      line-height: 1.6;
-      overflow-x: hidden;
-    }
-
-    /* Improved focus styles for accessibility */
-    a:focus-visible,
-    button:focus-visible {
-      outline: 2px solid var(--primary-color);
-      outline-offset: 2px;
-    }
-
-    /* Skip link for accessibility */
-    .skip-link {
-      position: absolute;
-      top: -40px;
-      right: 0;
-      background: var(--primary-color);
-      color: white;
-      padding: 8px;
-      text-decoration: none;
-      z-index: 1000;
-      border-radius: 4px;
-    }
-
-    .skip-link:focus {
-      top: 0;
-    }
-
-    a { 
-      color: inherit; 
-      text-decoration: none;
-      transition: color 0.2s ease;
-    }
-
-    a:hover {
-      color: var(--primary-color);
-    }
-
-    .page {
-      max-width: 1200px;
-      margin: 0 auto;
-      padding: 24px 16px 48px;
-    }
-
-    /* Enhanced hero section */
-    .hero {
-      display: grid;
-      grid-template-columns: minmax(0, 3fr) minmax(0, 2fr);
-      gap: 32px;
-      align-items: center;
-      margin-bottom: 60px;
-    }
-
-    @media (max-width: 768px) {
-      .hero { 
-        grid-template-columns: 1fr;
-        gap: 24px;
-        margin-bottom: 40px;
+    // Create particles
+    function createParticles() {
+      const container = document.getElementById('particles-container');
+      const particleCount = 50;
+      
+      for (let i = 0; i < particleCount; i++) {
+        const particle = document.createElement('div');
+        particle.classList.add('particle');
+        
+        // Random position
+        const left = Math.random() * 100;
+        const delay = Math.random() * 20;
+        const duration = 15 + Math.random() * 15;
+        
+        particle.style.left = `${left}%`;
+        particle.style.animationDelay = `${delay}s`;
+        particle.style.animationDuration = `${duration}s`;
+        
+        container.appendChild(particle);
       }
     }
 
-    .badge {
-      display: inline-flex;
-      align-items: center;
-      gap: 8px;
-      padding: 6px 12px;
-      border-radius: 999px;
-      border: 1px solid var(--border-color);
-      font-size: 12px;
-      color: var(--text-secondary);
-      background: var(--bg-card);
-      backdrop-filter: blur(14px);
-      font-weight: 500;
-    }
-
-    .title {
-      font-size: clamp(28px, 5vw, 42px);
-      font-weight: 800;
-      margin: 20px 0 12px;
-      color: var(--text-primary);
-      line-height: 1.2;
-    }
-
-    .subtitle {
-      font-size: 18px;
-      line-height: 1.7;
-      color: var(--text-secondary);
-      margin-bottom: 24px;
-    }
-
-    .pill-row {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 8px;
-      font-size: 14px;
-      margin-bottom: 24px;
-    }
-
-    .pill {
-      padding: 6px 12px;
-      border-radius: 999px;
-      background: rgba(30, 64, 175, 0.25);
-      border: 1px solid rgba(129, 140, 248, 0.35);
-      color: #e0e7ff;
-      font-size: 13px;
-    }
-
-    /* Improved CTA section */
-    .cta-main {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 12px;
-      margin-bottom: 16px;
-    }
-
-    .btn {
-      padding: 12px 24px;
-      border-radius: 999px;
-      border: none;
-      cursor: pointer;
-      font-weight: 600;
-      font-size: 15px;
-      transition: all 0.3s ease;
-      display: inline-flex;
-      align-items: center;
-      gap: 8px;
-    }
-
-    .btn-primary {
-      background: linear-gradient(135deg, var(--primary-color), var(--primary-dark));
-      color: #022c22;
-      box-shadow: 0 10px 30px rgba(34, 197, 94, 0.45);
-    }
-
-    .btn-primary:hover {
-      transform: translateY(-2px);
-      box-shadow: 0 15px 40px rgba(34, 197, 94, 0.6);
-    }
-
-    .btn-secondary {
-      padding: 11px 22px;
-      border-radius: 999px;
-      border: 1px solid var(--border-color);
-      background: transparent;
-      color: var(--text-primary);
-      font-size: 15px;
-      cursor: pointer;
-    }
-
-    .btn-secondary:hover {
-      background: rgba(255, 255, 255, 0.05);
-      border-color: var(--primary-color);
-    }
-
-    .mini-note {
-      font-size: 13px;
-      color: var(--text-muted);
-      line-height: 1.5;
-    }
-
-    /* Enhanced card design */
-    .card {
-      border-radius: var(--border-radius);
-      padding: 24px;
-      background: var(--bg-card);
-      border: 1px solid var(--border-color);
-      box-shadow: var(--shadow);
-      transition: transform 0.3s ease, box-shadow 0.3s ease;
-    }
-
-    .card:hover {
-      transform: translateY(-4px);
-      box-shadow: 0 20px 50px rgba(15, 23, 42, 0.8);
-    }
-
-    .card h3 {
-      margin: 0 0 12px;
-      font-size: 18px;
-      color: var(--text-primary);
-      font-weight: 700;
-    }
-
-    .card p {
-      margin: 0 0 12px;
-      font-size: 14px;
-      color: var(--text-secondary);
-      line-height: 1.6;
-    }
-
-    .card ul {
-      margin: 0;
-      padding-inline-start: 20px;
-      font-size: 14px;
-      color: var(--text-primary);
-      line-height: 1.6;
-    }
-
-    .card li {
-      margin-bottom: 8px;
-    }
-
-    .card li:last-child {
-      margin-bottom: 0;
-    }
-
-    .section-title {
-      margin: 48px 0 16px;
-      font-size: 28px;
-      font-weight: 700;
-      text-align: center;
-      color: var(--text-primary);
-    }
-
-    .section-sub {
-      margin: 0 0 32px;
-      font-size: 16px;
-      color: var(--text-muted);
-      text-align: center;
-      max-width: 600px;
-      margin-left: auto;
-      margin-right: auto;
-    }
-
-    .grid-3 {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-      gap: 24px;
-      margin-bottom: 40px;
-    }
-
-    .stacked {
-      display: flex;
-      flex-direction: column;
-      gap: 12px;
-      font-size: 14px;
-      color: var(--text-secondary);
-      max-width: 500px;
-      margin: 0 auto;
-    }
-
-    .stacked div {
-      padding: 12px 0;
-      border-bottom: 1px solid var(--border-color);
-    }
-
-    .stacked div:last-child {
-      border-bottom: none;
-    }
-
-    .investor-card {
-      margin-top: 20px;
-      border-radius: 16px;
-      padding: 16px;
-      background: rgba(15, 23, 42, 0.9);
-      border: 1px dashed rgba(250, 204, 21, 0.7);
-      font-size: 14px;
-      color: #fef9c3;
-    }
-
-    .investor-card strong {
-      color: #fde68a;
-      display: block;
-      margin-bottom: 8px;
-    }
-
-    /* Footer improvements */
-    footer {
-      margin-top: 60px;
-      font-size: 12px;
-      color: var(--text-muted);
-      text-align: center;
-      padding: 20px 0;
-      border-top: 1px solid var(--border-color);
-    }
-
-    /* Back to top button */
-    .back-to-top {
-      position: fixed;
-      bottom: 20px;
-      left: 20px;
-      background: var(--primary-color);
-      color: white;
-      width: 40px;
-      height: 40px;
-      border-radius: 50%;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      text-decoration: none;
-      opacity: 0;
-      transition: opacity 0.3s ease;
-      z-index: 1000;
-    }
-
-    .back-to-top.visible {
-      opacity: 1;
-    }
-
-    /* Loading animation for better perceived performance */
-    .skeleton {
-      background: linear-gradient(90deg, #1e293b 25%, #334155 50%, #1e293b 75%);
-      background-size: 200% 100%;
-      animation: loading 1.5s infinite;
-      border-radius: 4px;
-    }
-
-    @keyframes loading {
-      0% {
-        background-position: 200% 0;
-      }
-      100% {
-        background-position: -200% 0;
-      }
-    }
-  </style>
-</head>
-<body>
-  <a href="#main-content" class="skip-link">דלג לתוכן הראשי</a>
-  
-  <div class="page">
-    <section class="hero" id="top">
-      <div>
-        <div class="badge">
-          <span>SLHNET</span>
-          <span>•</span>
-          <span>נכס דיגיטלי לכל אחד</span>
-        </div>
-        <h1 class="title">שלם 39₪ פעם אחת וקבל נכס דיגיטלי שיכול לעבוד בשבילך כל החיים.</h1>
-        <p class="subtitle">
-          SLHNET מחברת בין בעלי עסקים, יוצרים ומשווקים לרשת ריפרל חכמה סביב טוקן
-          <strong>SLH</strong>, חנויות דיגיטליות וקהילת עסקים פעילה. כל מי שנכנס דרך הלינק שלך
-          מתועד בעץ הפניות שקוף ואתה הראשון ליהנות.
-        </p>
-        <div class="pill-row">
-          <div class="pill">גישה לקבוצת עסקים פרטית</div>
-          <div class="pill">חנות דיגיטלית אישית</div>
-          <div class="pill">לינק ריפרל ייחודי</div>
-          <div class="pill">איירדרופים וסטייקינג עתידי</div>
-        </div>
-        <div class="cta-main" id="join39">
-          <a href="https://links.payboxapp.com/1SNfaJ6XcYb" target="_blank" rel="noopener noreferrer">
-            <button class="btn btn-primary">
-              <span>תשלום חדפעמי 39₪ וגישה מלאה</span>
-            </button>
-          </a>
-          <a href="https://t.me/Buy_My_Shop_bot" target="_blank" rel="noopener noreferrer">
-            <button class="btn btn-secondary">
-              <span>כניסה לבוט SLHNET</span>
-            </button>
-          </a>
-        </div>
-        <div class="mini-note">
-          אפשר לשלם גם בביט / PayPal. כל הפרטים בבוט ובקבוצת העסקים אחרי ההצטרפות.
-        </div>
-      </div>
-      <div>
-        <div class="card">
-          <h3>מה קורה אחרי שאתה משלים תשלום 39₪?</h3>
-          <p>זו לא עוד "קבוצת וואטסאפ". אתה מקבל <strong>נכס דיגיטלי</strong> שממשיך לעבוד בשבילך:</p>
-          <ul>
-            <li>גישה לקבוצת עסקים סגורה עם הדרכות, שיתופי פעולה ותוכן איכותי</li>
-            <li>פתיחת חנות דיגיטלית אישית שתוכל למכור דרכה מוצרים/שירותים</li>
-            <li>לינק ריפרל אישי - כל מי שנכנס דרכך מתועד ברשת SLHNET</li>
-            <li>השתתפות עתידית בסטייקינג, איירדרופים ותגמולים נוספים בטוקני SLH</li>
-          </ul>
-          <p class="mini-note">
-            📊 <strong>49% מכל תשלום</strong> נכנס אוטומטית לרזרבות המערכת – קרן ביטחון שמטרתה להגדיל את היציבות והרווחיות לטווח הארוך עבור כל המצטרפים.
-          </p>
-
-          <div class="investor-card">
-            <strong>משקיעים / שותפים אסטרטגיים</strong>
-            יוצרים מודל ריפרל שקוף וסטייקינג חכם סביב אקו-סיסטם אמיתי של עסקים - לא סביב "אוויר".<br/>
-            קשר ישיר: טלפון 058-420-3384 | טלגרם <a href="https://t.me/Osif83" target="_blank" rel="noopener noreferrer">@Osif83</a>
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <main id="main-content">
-      <section>
-        <h2 class="section-title">איך מרוויחים ב-SLHNET בפועל?</h2>
-        <p class="section-sub">מודל ריפרל מדורג + נכסים דיגיטליים אמיתיים + טוקן SLH על Binance Smart Chain</p>
-        <div class="grid-3">
-          <div class="card">
-            <h3>1. מצטרפים ומשלימים 39₪</h3>
-            <p>פותחים לעצמכם "שער כניסה" אישי לרשת - כולל קישור שיתוף, חנות ופרופיל עסקי.</p>
-          </div>
-          <div class="card">
-            <h3>2. בונים עץ הפניות</h3>
-            <p>כל מי שנכנס דרך הקישור שלך מתועד. אנחנו בונים עץ קשרים שקוף - מי הביא את מי, ומתי.</p>
-          </div>
-          <div class="card">
-            <h3>3. נהנים מחשיפה ותגמולים</h3>
-            <p>הקהילה, הפוסטים, החנויות והסטייקינג מייצרים עבורך ערך מתמשך - גם כשאתה לא "רודף" אחרי לידים.</p>
-          </div>
-        </div>
-      </section>
-
-      <section>
-        <h2 class="section-title">SLHNET + SLH Token</h2>
-        <p class="section-sub">השילוב בין טוקן על BSC לבין רשת חברתית-עסקית מייצר מודל חדש של Social-Fi</p>
-        <div class="grid-3">
-          <div class="card">
-            <h3>טוקן SLH על BSC</h3>
-            <p>Contract: <code style="font-size: 12px; background: rgba(255,255,255,0.1); padding: 4px 8px; border-radius: 4px;">0xACb0A09414CEA1C879c67bB7A877E4e19480f022</code></p>
-            <p>ניתן להחזקה בכל ארנק שתומך ב-BSC. בהמשך - סטייקינג, תגמולים והצבעות קהילה.</p>
-          </div>
-          <div class="card">
-            <h3>סטייקינג (פאזה 1)</h3>
-            <p>מתחילים ממודל נקודות פנימי על בסיס פעילות, שיתופים והפניות. בהמשך - קישור ישיר לסטייקינג ב-SLH.</p>
-          </div>
-          <div class="card">
-            <h3>DAO קהילתי</h3>
-            <p>שקיפות מלאה: מי הרוויח, כמה, ועל בסיס מה. כל זה נבנה בהדרגה לתוך לוגיקת המערכת.</p>
-          </div>
-        </div>
-      </section>
-
-      <section>
-        <h2 class="section-title">מוכן להתחיל?</h2>
-        <div class="stacked">
-          <div>1. לוחצים על כפתור <strong>תשלום 39₪</strong> ומבצעים רכישה מאובטחת</div>
-          <div>2. נכנסים לבוט: <a href="https://t.me/Buy_My_Shop_bot" target="_blank" rel="noopener noreferrer">@Buy_My_Shop_bot</a> ומבצעים /start</div>
-          <div>3. מצטרפים לקבוצת העסקים, מקבלים קישורים ייחודיים ומתחילים להפיץ את הנכס הדיגיטלי שלכם</div>
-        </div>
-      </section>
-    </main>
-
-    <footer>
-      SLHNET - Social-Fi for real-world businesses - Powered by SLH token on BSC
-    </footer>
-  </div>
-
-  <a href="#top" class="back-to-top" aria-label="חזרה למעלה">↑</a>
-
-  <script>
-    // Back to top button functionality
-    const backToTopButton = document.querySelector('.back-to-top');
-    
-    window.addEventListener('scroll', () => {
-      if (window.pageYOffset > 300) {
-        backToTopButton.classList.add('visible');
-      } else {
-        backToTopButton.classList.remove('visible');
-      }
+    // Initialize particles when page loads
+    document.addEventListener('DOMContentLoaded', function() {
+      createParticles();
     });
 
-    // Smooth scroll for anchor links
-    document.querySelectorAll('a[href^="#"]').forEach(anchor => {
-      anchor.addEventListener('click', function (e) {
-        e.preventDefault();
-        const target = document.querySelector(this.getAttribute('href'));
-        if (target) {
-          target.scrollIntoView({
-            behavior: 'smooth',
-            block: 'start'
-          });
-        }
-      });
-    });
+    // Add scroll animation for cards
+    const observerOptions = {
+      threshold: 0.1,
+      rootMargin: '0px 0px -50px 0px'
+    };
 
-    // Add loading state to buttons
-    document.querySelectorAll('.btn').forEach(button => {
-      button.addEventListener('click', function(e) {
-        if (this.href || this.closest('a')) {
-          this.style.opacity = '0.7';
-          setTimeout(() => {
-            this.style.opacity = '1';
-          }, 2000);
+    const observer = new IntersectionObserver((entries) => {
+      entries.forEach(entry => {
+        if (entry.isIntersecting) {
+          entry.target.style.opacity = '1';
+          entry.target.style.transform = 'translateY(0)';
         }
       });
+    }, observerOptions);
+
+    // Observe cards for animation
+    document.querySelectorAll('.card').forEach(card => {
+      card.style.opacity = '0';
+      card.style.transform = 'translateY(30px)';
+      card.style.transition = 'opacity 0.6s ease, transform 0.6s ease';
+      observer.observe(card);
     });
   </script>
 </body>
