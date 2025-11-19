@@ -717,19 +717,15 @@ async def wallet_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
         return
 
     balance = wallet.get("balance_slh", Decimal("0"))
+    balance = wallet.get("balance_slh", Decimal("0"))
     text = (
-        "👛 *הארנק הדיגיטלי שלך – SLHNET*
-
-"
+        "👛 *הארנק הדיגיטלי שלך – SLHNET*\n\n"
         f"🆔 User ID: `{user.id}`\n"
         f"📛 Username: @{user.username or 'לא מוגדר'}\n"
-        f"💰 יתרה פנימית: *{balance} SLH*\n
-"
-        "היתרה הפנימית משמשת כחשבון נקודות / טוקנים בתוך האקו־סיסטם שלנו.
-"
+        f"💰 יתרה פנימית: *{balance} SLH*\n\n"
+        "היתרה הפנימית משמשת כחשבון נקודות / טוקנים בתוך האקו־סיסטם שלנו.\n"
         "ניתן יהיה בעתיד לממש אותה מול החוזה החכם על רשת BSC."
     )
-    await chat.send_message(text, parse_mode="Markdown")
 
 async def send_slh_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """מעביר SLH פנימי למשתמש אחר: /send_slh <amount> <@username|user_id>"""
@@ -753,7 +749,6 @@ async def send_slh_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -
     to_user_id = None
     if target.startswith("@"):
         # בגרסה בסיסית זו אנחנו לא ממפים username ל-ID.
-"
         # המשתמש יכול לשלוח /chatid מהצד השני ולהעביר ID ידנית.
         await chat.send_message("בגרסה הנוכחית יש להשתמש ב-user_id מספרי, לא בשם משתמש. קבל את ה-ID מהפקודה /chatid אצל הצד השני.")
         return
@@ -803,8 +798,7 @@ async def stake_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
         return
 
     await chat.send_message(
-        f"✅ פתחת סטייקינג על {amount} SLH ל-{days} ימים.
-"
+        f"✅ פתחת סטייקינג על {amount} SLH ל-{days} ימים.\n"
         f"APY נוכחי: {STAKING_DEFAULT_APY}% (חישוב רווחים נעשה בעתיד לפי מנגנון מתקדם)."
     )
 
