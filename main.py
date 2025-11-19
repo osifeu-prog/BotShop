@@ -5,11 +5,13 @@ import logging
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, InputFile
 from pathlib import Path
 from typing import Optional, Dict, Any, List
+from datetime import datetime
+from prometheus_client import generate_latest, CONTENT_TYPE_LATEST
 
 from db import init_schema, get_approval_stats, get_monthly_payments, get_reserve_stats
 
 from fastapi import FastAPI, Request, HTTPException
-from fastapi.responses import JSONResponse, HTMLResponse
+from fastapi.responses import JSONResponse, HTMLResponse, Response
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
@@ -556,6 +558,12 @@ async def finance_metrics():
         "reserve": reserve_stats,
         "approvals": approval_stats,
     }
+
+
+@app.get("/metrics")
+async def metrics():
+    """Prometheus scrape endpoint for SLHNET metrics."""
+    return Response(generate_latest(), media_type=CONTENT_TYPE_LATEST)
 
 
 @app.get("/health", response_model=HealthResponse)
