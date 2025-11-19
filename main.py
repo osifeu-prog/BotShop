@@ -2,7 +2,7 @@ from telegram.ext import MessageHandler, filters, CallbackQueryHandler
 import os
 import json
 import logging
-from telegram import InlineKeyboardButton, InlineKeyboardMarkup
+from telegram import InlineKeyboardButton, InlineKeyboardMarkup, InputFile
 from pathlib import Path
 from typing import Optional, Dict, Any, List
 
@@ -87,11 +87,11 @@ logger.info("ADMIN_OWNER_IDS=%s, ADMIN_ALERT_CHAT_ID=%s", Config.ADMIN_OWNER_IDS
 class BotTexts:
     start_text: str = (
         "ברוך הבא לשער הקהילה העסקית של SLH.\n"
-        "כרטיס כניסה 39₪ כולל גישה לבוטים, לאקדמיה ולמערכת ההפניות."
+        "כרטיס כניסה חד-פעמי: 39₪ כולל גישה לבוטים, לקהילה ולאקדמיה."
     )
     investor_text: str = (
         "ברוך הבא למסלול המשקיעים של SLH.\n"
-        "כאן מרוכזים עדכוני השקעות ותוכניות עתיד."
+        "כאן מרוכזים עדכונים ותוכניות השקעה."
     )
 
     @classmethod
@@ -132,6 +132,7 @@ BotTexts.load_from_file(BASE_DIR / "bot_messages_slhnet.txt")
 # =========================
 # DB layer
 # =========================
+DB_AVAILABLE = False
 try:
     from db import (
         init_schema,
@@ -145,6 +146,7 @@ try:
         get_metric,
         list_sales,
     )
+    DB_AVAILABLE = True
 except ImportError:
     logger.warning("db module not found – running without DB")
 
@@ -215,7 +217,6 @@ class TelegramAppHolder:
         app_instance = cls.get_app()
         cls.init_handlers()
         if not cls._started:
-            # === כאן הפיקס העיקרי: initialize + start ===
             await app_instance.initialize()
             if Config.WEBHOOK_URL:
                 try:
@@ -249,6 +250,37 @@ async def send_log_message(text: str) -> None:
         logger.error("failed to send log message: %s", e)
 
 # =========================
+# Helpers
+# =========================
+def get_start_image_path() -> Optional[Path]:
+    """
+    מחפש קודם כל את הנתיב שהוגדר ב-START_IMAGE_PATH (יחסי ל-BASE_DIR אם צריך),
+    ואם לא קיים – ינסה להשתמש ב-assets/start_banner.jpg.
+    """
+    # 1) מהסביבה
+    if Config.START_IMAGE_PATH:
+        p = Path(Config.START_IMAGE_PATH)
+        if not p.is_absolute():
+            p = BASE_DIR / p
+        if p.exists():
+            return p
+
+    # 2) ברירת מחדל לתיקיית assets
+    p2 = BASE_DIR / "assets" / "start_banner.jpg"
+    if p2.exists():
+        return p2
+
+    return None
+
+
+def get_ton_address() -> str:
+    """ה־TON address מתוך ENV, ואם לא קיים – ברירת מחדל שסיפקת."""
+    if Config.TON_WALLET_ADDRESS:
+        return Config.TON_WALLET_ADDRESS
+    # ברירת מחדל לפי מה שנתת
+    return "UQCr743gEr_nqV_0SBkSp3CtYS_15R3LDLBvLmKeEv7XdGvp"
+
+# =========================
 # Bot commands
 # =========================
 async def send_start_screen(update: Update, context: ContextTypes.DEFAULT_TYPE, referrer: Optional[int] = None):
@@ -258,6 +290,7 @@ async def send_start_screen(update: Update, context: ContextTypes.DEFAULT_TYPE, 
     if user:
         ensure_user(user.id, user.username, user.full_name)
 
+    # אין כפתור שמוביל לקהילה לפני אישור – רק תשלום/מידע
     buttons = []
 
     if Config.PAYBOX_URL:
@@ -267,23 +300,54 @@ async def send_start_screen(update: Update, context: ContextTypes.DEFAULT_TYPE, 
     if Config.PAYPAL_URL:
         buttons.append([InlineKeyboardButton("🌍 תשלום PayPal", url=Config.PAYPAL_URL)])
     if Config.LANDING_URL:
-        buttons.append([InlineKeyboardButton("🌐 דף נחיתה מפורט", url=Config.LANDING_URL)])
-    if Config.COMMUNITY_GROUP_LINK:
-        buttons.append([InlineKeyboardButton("👥 הצטרפות לקהילה (לאחר תשלום)", url=Config.COMMUNITY_GROUP_LINK)])
+        buttons.append([InlineKeyboardButton("🌐 דף נחיתה מלא באתר", url=Config.LANDING_URL)])
 
     keyboard = InlineKeyboardMarkup(buttons) if buttons else None
 
+    ton_address = get_ton_address()
+
     text = (
         "🎯 *ברוך הבא לשער הקהילה של SLH*\n\n"
-        "כרטיס כניסה חד-פעמי: *39₪*.\n"
+        "כרטיס כניסה חד-פעמי: *39₪*.\n\n"
         "לאחר התשלום ואישור ידני תקבל:\n"
         "✅ גישה לקבוצת העסקים הסגורה\n"
         "✅ בוטים וכלי רווח\n"
-        "✅ מערכת הפניות שמאפשרת לך להרוויח מחברים שתצרף\n\n"
-        "📷 שלח כאן צילום מסך של אישור התשלום\n"
-        "והמערכת תעביר אותו לאדמין לאישור.\n"
+        "✅ מערכת הפניות שמאפשרת להרוויח מחברים שתצרף\n\n"
+        "📷 *מה עושים עכשיו?*\n"
+        "1️⃣ מבצעים תשלום באחת מהאפשרויות הבאות.\n"
+        "2️⃣ שולחים לכאן צילום מסך של אישור התשלום.\n"
+        "3️⃣ לאחר אישור אדמין תקבל כאן קישור הצטרפות אישי לקהילה.\n\n"
+        "🏦 *תשלום בהעברה בנקאית:*\n"
+        "בנק הפועלים\n"
+        "סניף כפר גנים (153)\n"
+        "חשבון: 73462\n"
+        "שם המוטב: קאופמן צביקה\n\n"
+        "💎 *תשלום ב-TON (ארנק דיגיטלי):*\n"
+        f"שלח לכתובת:\n`{ton_address}`\n"
+        "איך זה עובד?\n"
+        "1. הורד ארנק TON (למשל *Tonkeeper* או *Telegram Wallet*).\n"
+        "2. טען את הארנק במטבע TON.\n"
+        "3. בצע העברה לכתובת למעלה.\n"
+        "4. צלם מסך של האישור ושלח לכאן.\n\n"
+        "לאחר שנאשר את התשלום – תקבל כאן את\n"
+        "*קישור ההצטרפות לקהילת העסקים של SLH*.\n"
     )
 
+    img_path = get_start_image_path()
+    if img_path is not None:
+        try:
+            with img_path.open("rb") as f:
+                await chat.send_photo(
+                    photo=InputFile(f),
+                    caption=text,
+                    reply_markup=keyboard,
+                    parse_mode="Markdown",
+                )
+            return
+        except Exception as e:
+            logger.error("failed to send start image: %s", e)
+
+    # fallback – בלי תמונה
     await chat.send_message(text=text, reply_markup=keyboard, parse_mode="Markdown")
 
 
@@ -337,7 +401,8 @@ async def stats_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
     chat = update.effective_chat
     text = (
         "📊 סטטיסטיקות בסיסיות יגיעו לכאן בהמשך.\n"
-        "כרגע הפוקוס: לוודא שכל ליד מהקמפיין מגיע לבוט ושולח אישור תשלום."
+        "כרגע הפוקוס: לוודא שכל ליד מהקמפיין מגיע לבוט, "
+        "מבצע תשלום ושולח אישור."
     )
     await chat.send_message(text=text)
 
@@ -354,7 +419,8 @@ async def text_message_handler(update: Update, context: ContextTypes.DEFAULT_TYP
     chat = update.effective_chat
     await chat.send_message(
         "תודה על ההודעה 🙏\n"
-        "להצטרפות – שלח צילום מסך של אישור תשלום 39₪ או השתמש ב-/start.",
+        "להצטרפות – בצע תשלום 39₪ (בנק / Bit / PayBox / TON), "
+        "צלם מסך של האישור ושלח לכאן, או כתוב /start לקבלת ההנחיות שוב.",
     )
 
 
@@ -363,7 +429,7 @@ async def unknown_command(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
     await chat.send_message("פקודה לא מוכרת. השתמש ב-/start כדי לראות את האפשרויות.")
 
 # =========================
-# Referrals JSON (אפשר להרחיב בהמשך)
+# Referrals JSON (דמו)
 # =========================
 REFERRAL_FILE = BASE_DIR / "data" / "referrals.json"
 REFERRAL_FILE.parent.mkdir(exist_ok=True)
@@ -394,6 +460,13 @@ class HealthResponse(BaseModel):
     status: str
     telegram_ready: bool
     db_connected: bool
+    bot_username: Optional[str] = None
+    webhook_url: Optional[str] = None
+    has_bot_token: bool
+    has_database_url: bool
+    db_available: bool
+    admin_owner_ids: List[int]
+    admin_alert_chat_id: int
 
 
 @app.on_event("startup")
@@ -415,13 +488,27 @@ async def on_shutdown():
 
 @app.get("/healthz", response_model=HealthResponse)
 async def healthz():
-    db_ok = bool(Config.DATABASE_URL)
+    has_bot_token = bool(Config.BOT_TOKEN)
+    has_database_url = bool(Config.DATABASE_URL)
+    db_connected = has_database_url and DB_AVAILABLE
     try:
         app_instance = TelegramAppHolder.get_app()
         telegram_ok = app_instance is not None and TelegramAppHolder._started
     except Exception:
         telegram_ok = False
-    return HealthResponse(status="ok", telegram_ready=telegram_ok, db_connected=db_ok)
+
+    return HealthResponse(
+        status="ok",
+        telegram_ready=telegram_ok,
+        db_connected=db_connected,
+        bot_username=Config.BOT_USERNAME or None,
+        webhook_url=Config.WEBHOOK_URL or None,
+        has_bot_token=has_bot_token,
+        has_database_url=has_database_url,
+        db_available=DB_AVAILABLE,
+        admin_owner_ids=Config.ADMIN_OWNER_IDS,
+        admin_alert_chat_id=Config.ADMIN_ALERT_CHAT_ID,
+    )
 
 
 @app.get("/meta", response_class=JSONResponse)
@@ -431,6 +518,9 @@ async def meta():
         "webhook_url": Config.WEBHOOK_URL,
         "community_group_link": Config.COMMUNITY_GROUP_LINK,
         "support_group_link": Config.SUPPORT_GROUP_LINK,
+        "has_bot_token": bool(Config.BOT_TOKEN),
+        "has_database_url": bool(Config.DATABASE_URL),
+        "db_available": DB_AVAILABLE,
     }
 
 
