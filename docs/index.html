@@ -1,198 +1,399 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="he" dir="rtl">
 <head>
   <meta charset="utf-8" />
-  <title>SLHNET  שער הכניסה לנכס הדיגיטלי שלך</title>
+  <title>SLHNET - שער הכניסה לנכס הדיגיטלי שלך</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <meta name="description" content="קהילת עסקים, טוקן SLH, חנויות דיגיטליות ומודל ריפרל שקוף. תשלום חדפעמי של 39  פותח לך עולם של הכנסות, חשיפה והזדמנויות." />
-
-  <!-- Open Graph for social sharing -->
+  <meta name="description" content="קהילת עסקים, טוקן SLH, חנויות דיגיטליות ומודל ריפרל שקוף. תשלום חדפעמי של 39₪ פותח לך עולם של הכנסות, חשיפה והזדמנויות." />
+  
+  <!-- Open Graph improvements -->
   <meta property="og:type" content="website" />
-  <meta property="og:title" content="SLHNET  שער הכניסה לנכס הדיגיטלי שלך" />
-  <meta property="og:description" content="שלם 39  פעם אחת, קבל גישה לקבוצת עסקים, חנות דיגיטלית אישית, לינק ריפרל ועתיד של סטייקינג וטוקני SLH." />
+  <meta property="og:title" content="SLHNET - שער הכניסה לנכס הדיגיטלי שלך" />
+  <meta property="og:description" content="שלם 39₪ פעם אחת, קבל גישה לקבוצת עסקים, חנות דיגיטלית אישית, לינק ריפרל ועתיד של סטייקינג וטוקני SLH." />
   <meta property="og:url" content="https://slh-nft.com/" />
-  <meta property="og:image" content="https://slh-nft.com/assets/start_banner.jpg" />
+  <meta property="og:image" content="https://slh-nft.com/assets/og-image.jpg" />
   <meta property="og:image:width" content="1200">
   <meta property="og:image:height" content="630">
+  <meta property="og:locale" content="he_IL" />
 
-  <link rel="icon" href="https://slh-nft.com/assets/start_banner.jpg" type="image/svg+xml" />
+  <!-- Twitter Card -->
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="SLHNET - שער הכניסה לנכס הדיגיטלי שלך">
+  <meta name="twitter:description" content="קהילת עסקים, טוקן SLH, חנויות דיגיטליות ומודל ריפרל שקוף">
+
+  <!-- Favicon -->
+  <link rel="icon" href="https://slh-nft.com/assets/favicon.ico" type="image/x-icon" />
+  <link rel="apple-touch-icon" href="https://slh-nft.com/assets/apple-touch-icon.png">
+
+  <!-- Preload critical resources -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 
   <style>
+    /* CSS Variables for consistent theming */
+    :root {
+      --primary-color: #22c55e;
+      --primary-dark: #16a34a;
+      --secondary-color: #3b82f6;
+      --text-primary: #f9fafb;
+      --text-secondary: #cbd5f5;
+      --text-muted: #9ca3af;
+      --bg-primary: #020617;
+      --bg-secondary: #0f172a;
+      --bg-card: rgba(15, 23, 42, 0.95);
+      --border-color: rgba(148, 163, 184, 0.4);
+      --border-radius: 18px;
+      --shadow: 0 12px 40px rgba(15, 23, 42, 0.65);
+    }
+
+    /* Reset and base styles */
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    html {
+      scroll-behavior: smooth;
+    }
+
     body {
       margin: 0;
       font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
       background: radial-gradient(circle at top, #111827 0, #020617 55%, #000 100%);
-      color: #e5e7eb;
+      color: var(--text-primary);
+      line-height: 1.6;
+      overflow-x: hidden;
     }
-    a { color: inherit; text-decoration: none; }
+
+    /* Improved focus styles for accessibility */
+    a:focus-visible,
+    button:focus-visible {
+      outline: 2px solid var(--primary-color);
+      outline-offset: 2px;
+    }
+
+    /* Skip link for accessibility */
+    .skip-link {
+      position: absolute;
+      top: -40px;
+      right: 0;
+      background: var(--primary-color);
+      color: white;
+      padding: 8px;
+      text-decoration: none;
+      z-index: 1000;
+      border-radius: 4px;
+    }
+
+    .skip-link:focus {
+      top: 0;
+    }
+
+    a { 
+      color: inherit; 
+      text-decoration: none;
+      transition: color 0.2s ease;
+    }
+
+    a:hover {
+      color: var(--primary-color);
+    }
+
     .page {
-      max-width: 1000px;
+      max-width: 1200px;
       margin: 0 auto;
       padding: 24px 16px 48px;
     }
+
+    /* Enhanced hero section */
     .hero {
       display: grid;
       grid-template-columns: minmax(0, 3fr) minmax(0, 2fr);
-      gap: 24px;
+      gap: 32px;
       align-items: center;
+      margin-bottom: 60px;
     }
+
     @media (max-width: 768px) {
-      .hero { grid-template-columns: minmax(0, 1fr); }
+      .hero { 
+        grid-template-columns: 1fr;
+        gap: 24px;
+        margin-bottom: 40px;
+      }
     }
+
     .badge {
       display: inline-flex;
       align-items: center;
       gap: 8px;
-      padding: 4px 10px;
+      padding: 6px 12px;
       border-radius: 999px;
-      border: 1px solid rgba(148, 163, 184, 0.4);
+      border: 1px solid var(--border-color);
       font-size: 12px;
-      color: #cbd5f5;
-      background: rgba(15, 23, 42, 0.75);
+      color: var(--text-secondary);
+      background: var(--bg-card);
       backdrop-filter: blur(14px);
+      font-weight: 500;
     }
+
     .title {
-      font-size: clamp(26px, 4vw, 34px);
-      font-weight: 700;
-      margin: 18px 0 8px;
-      color: #f9fafb;
+      font-size: clamp(28px, 5vw, 42px);
+      font-weight: 800;
+      margin: 20px 0 12px;
+      color: var(--text-primary);
+      line-height: 1.2;
     }
+
     .subtitle {
-      font-size: 16px;
+      font-size: 18px;
       line-height: 1.7;
-      color: #cbd5f5;
-      margin-bottom: 20px;
+      color: var(--text-secondary);
+      margin-bottom: 24px;
     }
+
     .pill-row {
       display: flex;
       flex-wrap: wrap;
       gap: 8px;
-      font-size: 13px;
-      margin-bottom: 18px;
+      font-size: 14px;
+      margin-bottom: 24px;
     }
+
     .pill {
-      padding: 4px 10px;
+      padding: 6px 12px;
       border-radius: 999px;
       background: rgba(30, 64, 175, 0.25);
       border: 1px solid rgba(129, 140, 248, 0.35);
       color: #e0e7ff;
+      font-size: 13px;
     }
+
+    /* Improved CTA section */
     .cta-main {
       display: flex;
       flex-wrap: wrap;
-      gap: 10px;
-      margin-bottom: 14px;
+      gap: 12px;
+      margin-bottom: 16px;
     }
-    .btn-primary {
-      padding: 10px 16px;
+
+    .btn {
+      padding: 12px 24px;
       border-radius: 999px;
       border: none;
       cursor: pointer;
       font-weight: 600;
-      font-size: 14px;
-      background: linear-gradient(135deg, #22c55e, #16a34a);
+      font-size: 15px;
+      transition: all 0.3s ease;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .btn-primary {
+      background: linear-gradient(135deg, var(--primary-color), var(--primary-dark));
       color: #022c22;
       box-shadow: 0 10px 30px rgba(34, 197, 94, 0.45);
     }
+
+    .btn-primary:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 15px 40px rgba(34, 197, 94, 0.6);
+    }
+
     .btn-secondary {
-      padding: 9px 14px;
+      padding: 11px 22px;
       border-radius: 999px;
-      border: 1px solid rgba(148, 163, 184, 0.5);
+      border: 1px solid var(--border-color);
       background: transparent;
-      color: #e5e7eb;
-      font-size: 14px;
+      color: var(--text-primary);
+      font-size: 15px;
       cursor: pointer;
     }
+
+    .btn-secondary:hover {
+      background: rgba(255, 255, 255, 0.05);
+      border-color: var(--primary-color);
+    }
+
     .mini-note {
-      font-size: 12px;
-      color: #9ca3af;
-    }
-    .card {
-      border-radius: 18px;
-      padding: 16px 18px;
-      background: radial-gradient(circle at top, rgba(15, 23, 42, 0.95) 0, rgba(15, 23, 42, 0.9) 40%, rgba(15, 23, 42, 0.92) 100%);
-      border: 1px solid rgba(148, 163, 184, 0.4);
-      box-shadow: 0 12px 40px rgba(15, 23, 42, 0.65);
-    }
-    .card h3 {
-      margin: 0 0 8px;
-      font-size: 16px;
-      color: #e5e7eb;
-    }
-    .card p {
-      margin: 0 0 10px;
       font-size: 13px;
-      color: #cbd5f5;
+      color: var(--text-muted);
+      line-height: 1.5;
+    }
+
+    /* Enhanced card design */
+    .card {
+      border-radius: var(--border-radius);
+      padding: 24px;
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      box-shadow: var(--shadow);
+      transition: transform 0.3s ease, box-shadow 0.3s ease;
+    }
+
+    .card:hover {
+      transform: translateY(-4px);
+      box-shadow: 0 20px 50px rgba(15, 23, 42, 0.8);
+    }
+
+    .card h3 {
+      margin: 0 0 12px;
+      font-size: 18px;
+      color: var(--text-primary);
+      font-weight: 700;
+    }
+
+    .card p {
+      margin: 0 0 12px;
+      font-size: 14px;
+      color: var(--text-secondary);
       line-height: 1.6;
     }
+
     .card ul {
       margin: 0;
-      padding-inline-start: 18px;
-      font-size: 13px;
-      color: #e5e7eb;
+      padding-inline-start: 20px;
+      font-size: 14px;
+      color: var(--text-primary);
+      line-height: 1.6;
     }
+
+    .card li {
+      margin-bottom: 8px;
+    }
+
+    .card li:last-child {
+      margin-bottom: 0;
+    }
+
     .section-title {
-      margin: 32px 0 8px;
-      font-size: 18px;
-      font-weight: 600;
+      margin: 48px 0 16px;
+      font-size: 28px;
+      font-weight: 700;
+      text-align: center;
+      color: var(--text-primary);
     }
+
     .section-sub {
-      margin: 0 0 18px;
-      font-size: 13px;
-      color: #9ca3af;
+      margin: 0 0 32px;
+      font-size: 16px;
+      color: var(--text-muted);
+      text-align: center;
+      max-width: 600px;
+      margin-left: auto;
+      margin-right: auto;
     }
+
     .grid-3 {
       display: grid;
-      grid-template-columns: repeat(3, minmax(0, 1fr));
-      gap: 16px;
+      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+      gap: 24px;
+      margin-bottom: 40px;
     }
-    @media (max-width: 900px) {
-      .grid-3 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-    }
-    @media (max-width: 640px) {
-      .grid-3 { grid-template-columns: minmax(0, 1fr); }
-    }
+
     .stacked {
       display: flex;
       flex-direction: column;
-      gap: 10px;
-      font-size: 13px;
-      color: #cbd5f5;
+      gap: 12px;
+      font-size: 14px;
+      color: var(--text-secondary);
+      max-width: 500px;
+      margin: 0 auto;
     }
+
+    .stacked div {
+      padding: 12px 0;
+      border-bottom: 1px solid var(--border-color);
+    }
+
+    .stacked div:last-child {
+      border-bottom: none;
+    }
+
     .investor-card {
-      margin-top: 12px;
+      margin-top: 20px;
       border-radius: 16px;
-      padding: 12px 14px;
+      padding: 16px;
       background: rgba(15, 23, 42, 0.9);
       border: 1px dashed rgba(250, 204, 21, 0.7);
-      font-size: 13px;
+      font-size: 14px;
       color: #fef9c3;
     }
+
     .investor-card strong {
       color: #fde68a;
+      display: block;
+      margin-bottom: 8px;
     }
+
+    /* Footer improvements */
     footer {
-      margin-top: 32px;
-      font-size: 11px;
-      color: #6b7280;
+      margin-top: 60px;
+      font-size: 12px;
+      color: var(--text-muted);
       text-align: center;
+      padding: 20px 0;
+      border-top: 1px solid var(--border-color);
+    }
+
+    /* Back to top button */
+    .back-to-top {
+      position: fixed;
+      bottom: 20px;
+      left: 20px;
+      background: var(--primary-color);
+      color: white;
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      text-decoration: none;
+      opacity: 0;
+      transition: opacity 0.3s ease;
+      z-index: 1000;
+    }
+
+    .back-to-top.visible {
+      opacity: 1;
+    }
+
+    /* Loading animation for better perceived performance */
+    .skeleton {
+      background: linear-gradient(90deg, #1e293b 25%, #334155 50%, #1e293b 75%);
+      background-size: 200% 100%;
+      animation: loading 1.5s infinite;
+      border-radius: 4px;
+    }
+
+    @keyframes loading {
+      0% {
+        background-position: 200% 0;
+      }
+      100% {
+        background-position: -200% 0;
+      }
     }
   </style>
 </head>
 <body>
+  <a href="#main-content" class="skip-link">דלג לתוכן הראשי</a>
+  
   <div class="page">
     <section class="hero" id="top">
       <div>
         <div class="badge">
           <span>SLHNET</span>
-          <span></span>
+          <span>•</span>
           <span>נכס דיגיטלי לכל אחד</span>
         </div>
-        <h1 class="title">שלם 39  פעם אחת  וקבל נכס דיגיטלי שיכול לעבוד בשבילך כל החיים.</h1>
+        <h1 class="title">שלם 39₪ פעם אחת וקבל נכס דיגיטלי שיכול לעבוד בשבילך כל החיים.</h1>
         <p class="subtitle">
           SLHNET מחברת בין בעלי עסקים, יוצרים ומשווקים לרשת ריפרל חכמה סביב טוקן
           <strong>SLH</strong>, חנויות דיגיטליות וקהילת עסקים פעילה. כל מי שנכנס דרך הלינק שלך
-          מתועד בעץ הפניות שקוף  ואתה הראשון ליהנות.
+          מתועד בעץ הפניות שקוף ואתה הראשון ליהנות.
         </p>
         <div class="pill-row">
           <div class="pill">גישה לקבוצת עסקים פרטית</div>
@@ -201,95 +402,676 @@
           <div class="pill">איירדרופים וסטייקינג עתידי</div>
         </div>
         <div class="cta-main" id="join39">
-          <a href="https://links.payboxapp.com/1SNfaJ6XcYb" target="_blank" rel="noopener">
-            <button class="btn-primary"> תשלום חדפעמי 39  וגישה מלאה</button>
+          <a href="https://links.payboxapp.com/1SNfaJ6XcYb" target="_blank" rel="noopener noreferrer">
+            <button class="btn btn-primary">
+              <span>תשלום חדפעמי 39₪ וגישה מלאה</span>
+            </button>
           </a>
-          <a href="https://t.me/Buy_My_Shop_bot" target="_blank" rel="noopener">
-            <button class="btn-secondary"> כניסה לבוט SLHNET</button>
+          <a href="https://t.me/Buy_My_Shop_bot" target="_blank" rel="noopener noreferrer">
+            <button class="btn btn-secondary">
+              <span>כניסה לבוט SLHNET</span>
+            </button>
           </a>
         </div>
         <div class="mini-note">
-          אפשר לשלם גם בביט / PayPal  כל הפרטים בבוט ובקבוצת העסקים אחרי ההצטרפות.
+          אפשר לשלם גם בביט / PayPal. כל הפרטים בבוט ובקבוצת העסקים אחרי ההצטרפות.
         </div>
       </div>
       <div>
         <div class="card">
-          <h3>מה קורה אחרי שאתה משלים תשלום 39 ?</h3>
+          <h3>מה קורה אחרי שאתה משלים תשלום 39₪?</h3>
           <p>זו לא עוד "קבוצת וואטסאפ". אתה מקבל <strong>נכס דיגיטלי</strong> שממשיך לעבוד בשבילך:</p>
           <ul>
-            <li>גישה לקבוצת עסקים סגורה עם הדרכות, שיתופי פעולה ותוכן איכותי.</li>
-            <li>פתיחת חנות דיגיטלית אישית שתוכל למכור דרכה מוצרים/שירותים.</li>
-            <li>לינק ריפרל אישי  כל מי שנכנס דרכך מתועד ברשת SLHNET.</li>
-            <li>השתתפות עתידית בסטייקינג, איירדרופים ותגמולים נוספים בטוקני SLH.</li>
+            <li>גישה לקבוצת עסקים סגורה עם הדרכות, שיתופי פעולה ותוכן איכותי</li>
+            <li>פתיחת חנות דיגיטלית אישית שתוכל למכור דרכה מוצרים/שירותים</li>
+            <li>לינק ריפרל אישי - כל מי שנכנס דרכך מתועד ברשת SLHNET</li>
+            <li>השתתפות עתידית בסטייקינג, איירדרופים ותגמולים נוספים בטוקני SLH</li>
           </ul>
-          <p class="small">
+          <p class="mini-note">
             📊 <strong>49% מכל תשלום</strong> נכנס אוטומטית לרזרבות המערכת – קרן ביטחון שמטרתה להגדיל את היציבות והרווחיות לטווח הארוך עבור כל המצטרפים.
           </p>
 
           <div class="investor-card">
-            <strong>משקיעים / שותפים אסטרטגיים</strong><br/>
-            יוצרים מודל ריפרל שקוף וסטייקינג חכם סביב אקו-סיסטם אמיתי של עסקים  לא סביב "אוויר".<br/>
-            קשר ישיר: טלפון 058-420-3384  טלגרם <a href="https://t.me/Osif83" target="_blank">@Osif83</a>
+            <strong>משקיעים / שותפים אסטרטגיים</strong>
+            יוצרים מודל ריפרל שקוף וסטייקינג חכם סביב אקו-סיסטם אמיתי של עסקים - לא סביב "אוויר".<br/>
+            קשר ישיר: טלפון 058-420-3384 | טלגרם <a href="https://t.me/Osif83" target="_blank" rel="noopener noreferrer">@Osif83</a>
           </div>
         </div>
       </div>
     </section>
 
-    <section>
-      <h2 class="section-title">איך מרוויחים ב-SLHNET בפועל?</h2>
-      <p class="section-sub">מודל ריפרל מדורג + נכסים דיגיטליים אמיתיים + טוקן SLH על Binance Smart Chain.</p>
-      <div class="grid-3">
-        <div class="card">
-          <h3>1. מצטרפים ומשלימים 39 </h3>
-          <p>פותחים לעצמכם "שער כניסה" אישי לרשת  כולל קישור שיתוף, חנות ופרופיל עסקי.</p>
+    <main id="main-content">
+      <section>
+        <h2 class="section-title">איך מרוויחים ב-SLHNET בפועל?</h2>
+        <p class="section-sub">מודל ריפרל מדורג + נכסים דיגיטליים אמיתיים + טוקן SLH על Binance Smart Chain</p>
+        <div class="grid-3">
+          <div class="card">
+            <h3>1. מצטרפים ומשלימים 39₪</h3>
+            <p>פותחים לעצמכם "שער כניסה" אישי לרשת - כולל קישור שיתוף, חנות ופרופיל עסקי.</p>
+          </div>
+          <div class="card">
+            <h3>2. בונים עץ הפניות</h3>
+            <p>כל מי שנכנס דרך הקישור שלך מתועד. אנחנו בונים עץ קשרים שקוף - מי הביא את מי, ומתי.</p>
+          </div>
+          <div class="card">
+            <h3>3. נהנים מחשיפה ותגמולים</h3>
+            <p>הקהילה, הפוסטים, החנויות והסטייקינג מייצרים עבורך ערך מתמשך - גם כשאתה לא "רודף" אחרי לידים.</p>
+          </div>
         </div>
-        <div class="card">
-          <h3>2. בונים עץ הפניות</h3>
-          <p>כל מי שנכנס דרך הקישור שלך מתועד. אנחנו בונים עץ קשרים שקוף  מי הביא את מי, ומתי.</p>
-        </div>
-        <div class="card">
-          <h3>3. נהנים מחשיפה ותגמולים</h3>
-          <p>הקהילה, הפוסטים, החנויות והסטייקינג מייצרים עבורך ערך מתמשך  גם כשאתה לא "רודף" אחרי לידים.</p>
-        </div>
-      </div>
-    </section>
+      </section>
 
-    <section>
-      <h2 class="section-title">SLHNET + SLH Token</h2>
-      <p class="section-sub">השילוב בין טוקן על BSC לבין רשת חברתית-עסקית מייצר מודל חדש של Social-Fi.</p>
-      <div class="grid-3">
-        <div class="card">
-          <h3>טוקן SLH על BSC</h3>
-          <p>Contract: <code>0xACb0A09414CEA1C879c67bB7A877E4e19480f022</code></p>
-          <p>ניתן להחזקה בכל ארנק שתומך ב-BSC. בהמשך  סטייקינג, תגמולים והצבעות קהילה.</p>
+      <section>
+        <h2 class="section-title">SLHNET + SLH Token</h2>
+        <p class="section-sub">השילוב בין טוקן על BSC לבין רשת חברתית-עסקית מייצר מודל חדש של Social-Fi</p>
+        <div class="grid-3">
+          <div class="card">
+            <h3>טוקן SLH על BSC</h3>
+            <p>Contract: <code style="font-size: 12px; background: rgba(255,255,255,0.1); padding: 4px 8px; border-radius: 4px;">0xACb0A09414CEA1C879c67bB7A877E4e19480f022</code></p>
+            <p>ניתן להחזקה בכל ארנק שתומך ב-BSC. בהמשך - סטייקינג, תגמולים והצבעות קהילה.</p>
+          </div>
+          <div class="card">
+            <h3>סטייקינג (פאזה 1)</h3>
+            <p>מתחילים ממודל נקודות פנימי על בסיס פעילות, שיתופים והפניות. בהמשך - קישור ישיר לסטייקינג ב-SLH.</p>
+          </div>
+          <div class="card">
+            <h3>DAO קהילתי</h3>
+            <p>שקיפות מלאה: מי הרוויח, כמה, ועל בסיס מה. כל זה נבנה בהדרגה לתוך לוגיקת המערכת.</p>
+          </div>
         </div>
-        <div class="card">
-          <h3>סטייקינג (פאזה 1)</h3>
-          <p>מתחילים ממודל נקודות פנימי על בסיס פעילות, שיתופים והפניות. בהמשך  קישור ישיר לסטייקינג ב-SLH.</p>
-        </div>
-        <div class="card">
-          <h3>DAO קהילתי</h3>
-          <p>שקיפות מלאה: מי הרוויח, כמה, ועל בסיס מה. כל זה נבנה בהדרגה לתוך לוגיקת המערכת.</p>
-        </div>
-      </div>
-    </section>
+      </section>
 
-    <section>
-      <h2 class="section-title">מוכן להתחיל?</h2>
-      <div class="stacked">
-        <div>1. לוחצים על כפתור <strong>תשלום 39 </strong> ומבצעים רכישה מאובטחת.</div>
-        <div>2. נכנסים לבוט: <a href="https://t.me/Buy_My_Shop_bot" target="_blank">@Buy_My_Shop_bot</a> ומבצעים /start.</div>
-        <div>3. מצטרפים לקבוצת העסקים, מקבלים קישורים ייחודיים ומתחילים להפיץ את הנכס הדיגיטלי שלכם.</div>
-      </div>
-      <div style="margin-top:16px;">
-        <a href="#top"><span style="font-size:12px;color:#9ca3af;"> חזרה למעלה</span></a>
-      </div>
-    </section>
+      <section>
+        <h2 class="section-title">מוכן להתחיל?</h2>
+        <div class="stacked">
+          <div>1. לוחצים על כפתור <strong>תשלום 39₪</strong> ומבצעים רכישה מאובטחת</div>
+          <div>2. נכנסים לבוט: <a href="https://t.me/Buy_My_Shop_bot" target="_blank" rel="noopener noreferrer">@Buy_My_Shop_bot</a> ומבצעים /start</div>
+          <div>3. מצטרפים לקבוצת העסקים, מקבלים קישורים ייחודיים ומתחילים להפיץ את הנכס הדיגיטלי שלכם</div>
+        </div>
+      </section>
+    </main>
 
     <footer>
-      SLHNET  Social-Fi for real-world businesses  Powered by SLH token on BSC
+      SLHNET - Social-Fi for real-world businesses - Powered by SLH token on BSC
     </footer>
   </div>
+
+  <a href="#top" class="back-to-top" aria-label="חזרה למעלה">↑</a>
+
+  <script>
+    // Back to top button functionality
+    const backToTopButton = document.querySelector('.back-to-top');
+    
+    window.addEventListener('scroll', () => {
+      if (window.pageYOffset > 300) {
+        backToTopButton.classList.add('visible');
+      } else {
+        backToTopButton.classList.remove('visible');
+      }
+    });
+
+    // Smooth scroll for anchor links
+    document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+      anchor.addEventListener('click', function (e) {
+        e.preventDefault();
+        const target = document.querySelector(this.getAttribute('href'));
+        if (target) {
+          target.scrollIntoView({
+            behavior: 'smooth',
+            block: 'start'
+          });
+        }
+      });
+    });
+
+    // Add loading state to buttons
+    document.querySelectorAll('.btn').forEach(button => {
+      button.addEventListener('click', function(e) {
+        if (this.href || this.closest('a')) {
+          this.style.opacity = '0.7';
+          setTimeout(() => {
+            this.style.opacity = '1';
+          }, 2000);
+        }
+      });
+    });
+  </script>
+</body>
+</html><!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+  <meta charset="utf-8" />
+  <title>SLHNET - שער הכניסה לנכס הדיגיטלי שלך</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="description" content="קהילת עסקים, טוקן SLH, חנויות דיגיטליות ומודל ריפרל שקוף. תשלום חדפעמי של 39₪ פותח לך עולם של הכנסות, חשיפה והזדמנויות." />
+  
+  <!-- Open Graph improvements -->
+  <meta property="og:type" content="website" />
+  <meta property="og:title" content="SLHNET - שער הכניסה לנכס הדיגיטלי שלך" />
+  <meta property="og:description" content="שלם 39₪ פעם אחת, קבל גישה לקבוצת עסקים, חנות דיגיטלית אישית, לינק ריפרל ועתיד של סטייקינג וטוקני SLH." />
+  <meta property="og:url" content="https://slh-nft.com/" />
+  <meta property="og:image" content="https://slh-nft.com/assets/og-image.jpg" />
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta property="og:locale" content="he_IL" />
+
+  <!-- Twitter Card -->
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="SLHNET - שער הכניסה לנכס הדיגיטלי שלך">
+  <meta name="twitter:description" content="קהילת עסקים, טוקן SLH, חנויות דיגיטליות ומודל ריפרל שקוף">
+
+  <!-- Favicon -->
+  <link rel="icon" href="https://slh-nft.com/assets/favicon.ico" type="image/x-icon" />
+  <link rel="apple-touch-icon" href="https://slh-nft.com/assets/apple-touch-icon.png">
+
+  <!-- Preload critical resources -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+
+  <style>
+    /* CSS Variables for consistent theming */
+    :root {
+      --primary-color: #22c55e;
+      --primary-dark: #16a34a;
+      --secondary-color: #3b82f6;
+      --text-primary: #f9fafb;
+      --text-secondary: #cbd5f5;
+      --text-muted: #9ca3af;
+      --bg-primary: #020617;
+      --bg-secondary: #0f172a;
+      --bg-card: rgba(15, 23, 42, 0.95);
+      --border-color: rgba(148, 163, 184, 0.4);
+      --border-radius: 18px;
+      --shadow: 0 12px 40px rgba(15, 23, 42, 0.65);
+    }
+
+    /* Reset and base styles */
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    html {
+      scroll-behavior: smooth;
+    }
+
+    body {
+      margin: 0;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: radial-gradient(circle at top, #111827 0, #020617 55%, #000 100%);
+      color: var(--text-primary);
+      line-height: 1.6;
+      overflow-x: hidden;
+    }
+
+    /* Improved focus styles for accessibility */
+    a:focus-visible,
+    button:focus-visible {
+      outline: 2px solid var(--primary-color);
+      outline-offset: 2px;
+    }
+
+    /* Skip link for accessibility */
+    .skip-link {
+      position: absolute;
+      top: -40px;
+      right: 0;
+      background: var(--primary-color);
+      color: white;
+      padding: 8px;
+      text-decoration: none;
+      z-index: 1000;
+      border-radius: 4px;
+    }
+
+    .skip-link:focus {
+      top: 0;
+    }
+
+    a { 
+      color: inherit; 
+      text-decoration: none;
+      transition: color 0.2s ease;
+    }
+
+    a:hover {
+      color: var(--primary-color);
+    }
+
+    .page {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 24px 16px 48px;
+    }
+
+    /* Enhanced hero section */
+    .hero {
+      display: grid;
+      grid-template-columns: minmax(0, 3fr) minmax(0, 2fr);
+      gap: 32px;
+      align-items: center;
+      margin-bottom: 60px;
+    }
+
+    @media (max-width: 768px) {
+      .hero { 
+        grid-template-columns: 1fr;
+        gap: 24px;
+        margin-bottom: 40px;
+      }
+    }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 12px;
+      border-radius: 999px;
+      border: 1px solid var(--border-color);
+      font-size: 12px;
+      color: var(--text-secondary);
+      background: var(--bg-card);
+      backdrop-filter: blur(14px);
+      font-weight: 500;
+    }
+
+    .title {
+      font-size: clamp(28px, 5vw, 42px);
+      font-weight: 800;
+      margin: 20px 0 12px;
+      color: var(--text-primary);
+      line-height: 1.2;
+    }
+
+    .subtitle {
+      font-size: 18px;
+      line-height: 1.7;
+      color: var(--text-secondary);
+      margin-bottom: 24px;
+    }
+
+    .pill-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      font-size: 14px;
+      margin-bottom: 24px;
+    }
+
+    .pill {
+      padding: 6px 12px;
+      border-radius: 999px;
+      background: rgba(30, 64, 175, 0.25);
+      border: 1px solid rgba(129, 140, 248, 0.35);
+      color: #e0e7ff;
+      font-size: 13px;
+    }
+
+    /* Improved CTA section */
+    .cta-main {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      margin-bottom: 16px;
+    }
+
+    .btn {
+      padding: 12px 24px;
+      border-radius: 999px;
+      border: none;
+      cursor: pointer;
+      font-weight: 600;
+      font-size: 15px;
+      transition: all 0.3s ease;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .btn-primary {
+      background: linear-gradient(135deg, var(--primary-color), var(--primary-dark));
+      color: #022c22;
+      box-shadow: 0 10px 30px rgba(34, 197, 94, 0.45);
+    }
+
+    .btn-primary:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 15px 40px rgba(34, 197, 94, 0.6);
+    }
+
+    .btn-secondary {
+      padding: 11px 22px;
+      border-radius: 999px;
+      border: 1px solid var(--border-color);
+      background: transparent;
+      color: var(--text-primary);
+      font-size: 15px;
+      cursor: pointer;
+    }
+
+    .btn-secondary:hover {
+      background: rgba(255, 255, 255, 0.05);
+      border-color: var(--primary-color);
+    }
+
+    .mini-note {
+      font-size: 13px;
+      color: var(--text-muted);
+      line-height: 1.5;
+    }
+
+    /* Enhanced card design */
+    .card {
+      border-radius: var(--border-radius);
+      padding: 24px;
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      box-shadow: var(--shadow);
+      transition: transform 0.3s ease, box-shadow 0.3s ease;
+    }
+
+    .card:hover {
+      transform: translateY(-4px);
+      box-shadow: 0 20px 50px rgba(15, 23, 42, 0.8);
+    }
+
+    .card h3 {
+      margin: 0 0 12px;
+      font-size: 18px;
+      color: var(--text-primary);
+      font-weight: 700;
+    }
+
+    .card p {
+      margin: 0 0 12px;
+      font-size: 14px;
+      color: var(--text-secondary);
+      line-height: 1.6;
+    }
+
+    .card ul {
+      margin: 0;
+      padding-inline-start: 20px;
+      font-size: 14px;
+      color: var(--text-primary);
+      line-height: 1.6;
+    }
+
+    .card li {
+      margin-bottom: 8px;
+    }
+
+    .card li:last-child {
+      margin-bottom: 0;
+    }
+
+    .section-title {
+      margin: 48px 0 16px;
+      font-size: 28px;
+      font-weight: 700;
+      text-align: center;
+      color: var(--text-primary);
+    }
+
+    .section-sub {
+      margin: 0 0 32px;
+      font-size: 16px;
+      color: var(--text-muted);
+      text-align: center;
+      max-width: 600px;
+      margin-left: auto;
+      margin-right: auto;
+    }
+
+    .grid-3 {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+      gap: 24px;
+      margin-bottom: 40px;
+    }
+
+    .stacked {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      font-size: 14px;
+      color: var(--text-secondary);
+      max-width: 500px;
+      margin: 0 auto;
+    }
+
+    .stacked div {
+      padding: 12px 0;
+      border-bottom: 1px solid var(--border-color);
+    }
+
+    .stacked div:last-child {
+      border-bottom: none;
+    }
+
+    .investor-card {
+      margin-top: 20px;
+      border-radius: 16px;
+      padding: 16px;
+      background: rgba(15, 23, 42, 0.9);
+      border: 1px dashed rgba(250, 204, 21, 0.7);
+      font-size: 14px;
+      color: #fef9c3;
+    }
+
+    .investor-card strong {
+      color: #fde68a;
+      display: block;
+      margin-bottom: 8px;
+    }
+
+    /* Footer improvements */
+    footer {
+      margin-top: 60px;
+      font-size: 12px;
+      color: var(--text-muted);
+      text-align: center;
+      padding: 20px 0;
+      border-top: 1px solid var(--border-color);
+    }
+
+    /* Back to top button */
+    .back-to-top {
+      position: fixed;
+      bottom: 20px;
+      left: 20px;
+      background: var(--primary-color);
+      color: white;
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      text-decoration: none;
+      opacity: 0;
+      transition: opacity 0.3s ease;
+      z-index: 1000;
+    }
+
+    .back-to-top.visible {
+      opacity: 1;
+    }
+
+    /* Loading animation for better perceived performance */
+    .skeleton {
+      background: linear-gradient(90deg, #1e293b 25%, #334155 50%, #1e293b 75%);
+      background-size: 200% 100%;
+      animation: loading 1.5s infinite;
+      border-radius: 4px;
+    }
+
+    @keyframes loading {
+      0% {
+        background-position: 200% 0;
+      }
+      100% {
+        background-position: -200% 0;
+      }
+    }
+  </style>
+</head>
+<body>
+  <a href="#main-content" class="skip-link">דלג לתוכן הראשי</a>
+  
+  <div class="page">
+    <section class="hero" id="top">
+      <div>
+        <div class="badge">
+          <span>SLHNET</span>
+          <span>•</span>
+          <span>נכס דיגיטלי לכל אחד</span>
+        </div>
+        <h1 class="title">שלם 39₪ פעם אחת וקבל נכס דיגיטלי שיכול לעבוד בשבילך כל החיים.</h1>
+        <p class="subtitle">
+          SLHNET מחברת בין בעלי עסקים, יוצרים ומשווקים לרשת ריפרל חכמה סביב טוקן
+          <strong>SLH</strong>, חנויות דיגיטליות וקהילת עסקים פעילה. כל מי שנכנס דרך הלינק שלך
+          מתועד בעץ הפניות שקוף ואתה הראשון ליהנות.
+        </p>
+        <div class="pill-row">
+          <div class="pill">גישה לקבוצת עסקים פרטית</div>
+          <div class="pill">חנות דיגיטלית אישית</div>
+          <div class="pill">לינק ריפרל ייחודי</div>
+          <div class="pill">איירדרופים וסטייקינג עתידי</div>
+        </div>
+        <div class="cta-main" id="join39">
+          <a href="https://links.payboxapp.com/1SNfaJ6XcYb" target="_blank" rel="noopener noreferrer">
+            <button class="btn btn-primary">
+              <span>תשלום חדפעמי 39₪ וגישה מלאה</span>
+            </button>
+          </a>
+          <a href="https://t.me/Buy_My_Shop_bot" target="_blank" rel="noopener noreferrer">
+            <button class="btn btn-secondary">
+              <span>כניסה לבוט SLHNET</span>
+            </button>
+          </a>
+        </div>
+        <div class="mini-note">
+          אפשר לשלם גם בביט / PayPal. כל הפרטים בבוט ובקבוצת העסקים אחרי ההצטרפות.
+        </div>
+      </div>
+      <div>
+        <div class="card">
+          <h3>מה קורה אחרי שאתה משלים תשלום 39₪?</h3>
+          <p>זו לא עוד "קבוצת וואטסאפ". אתה מקבל <strong>נכס דיגיטלי</strong> שממשיך לעבוד בשבילך:</p>
+          <ul>
+            <li>גישה לקבוצת עסקים סגורה עם הדרכות, שיתופי פעולה ותוכן איכותי</li>
+            <li>פתיחת חנות דיגיטלית אישית שתוכל למכור דרכה מוצרים/שירותים</li>
+            <li>לינק ריפרל אישי - כל מי שנכנס דרכך מתועד ברשת SLHNET</li>
+            <li>השתתפות עתידית בסטייקינג, איירדרופים ותגמולים נוספים בטוקני SLH</li>
+          </ul>
+          <p class="mini-note">
+            📊 <strong>49% מכל תשלום</strong> נכנס אוטומטית לרזרבות המערכת – קרן ביטחון שמטרתה להגדיל את היציבות והרווחיות לטווח הארוך עבור כל המצטרפים.
+          </p>
+
+          <div class="investor-card">
+            <strong>משקיעים / שותפים אסטרטגיים</strong>
+            יוצרים מודל ריפרל שקוף וסטייקינג חכם סביב אקו-סיסטם אמיתי של עסקים - לא סביב "אוויר".<br/>
+            קשר ישיר: טלפון 058-420-3384 | טלגרם <a href="https://t.me/Osif83" target="_blank" rel="noopener noreferrer">@Osif83</a>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <main id="main-content">
+      <section>
+        <h2 class="section-title">איך מרוויחים ב-SLHNET בפועל?</h2>
+        <p class="section-sub">מודל ריפרל מדורג + נכסים דיגיטליים אמיתיים + טוקן SLH על Binance Smart Chain</p>
+        <div class="grid-3">
+          <div class="card">
+            <h3>1. מצטרפים ומשלימים 39₪</h3>
+            <p>פותחים לעצמכם "שער כניסה" אישי לרשת - כולל קישור שיתוף, חנות ופרופיל עסקי.</p>
+          </div>
+          <div class="card">
+            <h3>2. בונים עץ הפניות</h3>
+            <p>כל מי שנכנס דרך הקישור שלך מתועד. אנחנו בונים עץ קשרים שקוף - מי הביא את מי, ומתי.</p>
+          </div>
+          <div class="card">
+            <h3>3. נהנים מחשיפה ותגמולים</h3>
+            <p>הקהילה, הפוסטים, החנויות והסטייקינג מייצרים עבורך ערך מתמשך - גם כשאתה לא "רודף" אחרי לידים.</p>
+          </div>
+        </div>
+      </section>
+
+      <section>
+        <h2 class="section-title">SLHNET + SLH Token</h2>
+        <p class="section-sub">השילוב בין טוקן על BSC לבין רשת חברתית-עסקית מייצר מודל חדש של Social-Fi</p>
+        <div class="grid-3">
+          <div class="card">
+            <h3>טוקן SLH על BSC</h3>
+            <p>Contract: <code style="font-size: 12px; background: rgba(255,255,255,0.1); padding: 4px 8px; border-radius: 4px;">0xACb0A09414CEA1C879c67bB7A877E4e19480f022</code></p>
+            <p>ניתן להחזקה בכל ארנק שתומך ב-BSC. בהמשך - סטייקינג, תגמולים והצבעות קהילה.</p>
+          </div>
+          <div class="card">
+            <h3>סטייקינג (פאזה 1)</h3>
+            <p>מתחילים ממודל נקודות פנימי על בסיס פעילות, שיתופים והפניות. בהמשך - קישור ישיר לסטייקינג ב-SLH.</p>
+          </div>
+          <div class="card">
+            <h3>DAO קהילתי</h3>
+            <p>שקיפות מלאה: מי הרוויח, כמה, ועל בסיס מה. כל זה נבנה בהדרגה לתוך לוגיקת המערכת.</p>
+          </div>
+        </div>
+      </section>
+
+      <section>
+        <h2 class="section-title">מוכן להתחיל?</h2>
+        <div class="stacked">
+          <div>1. לוחצים על כפתור <strong>תשלום 39₪</strong> ומבצעים רכישה מאובטחת</div>
+          <div>2. נכנסים לבוט: <a href="https://t.me/Buy_My_Shop_bot" target="_blank" rel="noopener noreferrer">@Buy_My_Shop_bot</a> ומבצעים /start</div>
+          <div>3. מצטרפים לקבוצת העסקים, מקבלים קישורים ייחודיים ומתחילים להפיץ את הנכס הדיגיטלי שלכם</div>
+        </div>
+      </section>
+    </main>
+
+    <footer>
+      SLHNET - Social-Fi for real-world businesses - Powered by SLH token on BSC
+    </footer>
+  </div>
+
+  <a href="#top" class="back-to-top" aria-label="חזרה למעלה">↑</a>
+
+  <script>
+    // Back to top button functionality
+    const backToTopButton = document.querySelector('.back-to-top');
+    
+    window.addEventListener('scroll', () => {
+      if (window.pageYOffset > 300) {
+        backToTopButton.classList.add('visible');
+      } else {
+        backToTopButton.classList.remove('visible');
+      }
+    });
+
+    // Smooth scroll for anchor links
+    document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+      anchor.addEventListener('click', function (e) {
+        e.preventDefault();
+        const target = document.querySelector(this.getAttribute('href'));
+        if (target) {
+          target.scrollIntoView({
+            behavior: 'smooth',
+            block: 'start'
+          });
+        }
+      });
+    });
+
+    // Add loading state to buttons
+    document.querySelectorAll('.btn').forEach(button => {
+      button.addEventListener('click', function(e) {
+        if (this.href || this.closest('a')) {
+          this.style.opacity = '0.7';
+          setTimeout(() => {
+            this.style.opacity = '1';
+          }, 2000);
+        }
+      });
+    });
+  </script>
 </body>
 </html>
-
