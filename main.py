@@ -129,40 +129,76 @@ class BotTexts:
 
 BotTexts.load_from_file(BASE_DIR / "bot_messages_slhnet.txt")
 
+
 # =========================
-# DB layer (stubs only – no direct db import to avoid SyntaxError in db.py)
+# DB layer – safe adapter around db.py
 # =========================
 DB_AVAILABLE = False
 
-def init_schema():
-    logger.info("init_schema skipped (no db)")
+try:
+    import db as _db
 
-def log_payment(*args, **kwargs):
-    logger.info("log_payment skipped: %s %s", args, kwargs)
+    def init_schema() -> None:
+        try:
+            _db.init_schema()
+        except Exception as e:
+            logger.error("DB init_schema error: %s", e)
 
-def update_payment_status(*args, **kwargs):
-    logger.info("update_payment_status skipped: %s %s", args, kwargs)
+    def log_payment(user_id: int, username: Optional[str], pay_method: str) -> None:
+        try:
+            _db.log_payment(user_id, username, pay_method)
+        except Exception as e:
+            logger.error("DB log_payment error: %s", e)
 
-def ensure_user(*args, **kwargs):
-    logger.info("ensure_user skipped: %s %s", args, kwargs)
+    def update_payment_status(user_id: int, status: str) -> None:
+        try:
+            _db.update_payment_status(user_id, status)
+        except Exception as e:
+            logger.error("DB update_payment_status error: %s", e)
 
-def add_referral(*args, **kwargs):
-    logger.info("add_referral skipped: %s %s", args, kwargs)
+    def ensure_user(user_id: int, username: Optional[str]) -> None:
+        try:
+            _db.store_user(user_id, username)
+        except Exception as e:
+            logger.error("DB store_user error: %s", e)
 
-def get_referrals(*args, **kwargs):
-    return []
+    def add_referral(referrer_id: int, referred_id: int, source: str) -> None:
+        try:
+            _db.add_referral(referrer_id, referred_id, source)
+        except Exception as e:
+            logger.error("DB add_referral error: %s", e)
 
-def get_top_referrers(*args, **kwargs):
-    return []
+    def get_top_referrers(limit: int = 10):
+        try:
+            return _db.get_top_referrers(limit=limit)
+        except Exception as e:
+            logger.error("DB get_top_referrers error: %s", e)
+            return []
 
-def increment_metric(*args, **kwargs):
-    logger.info("increment_metric skipped: %s %s", args, kwargs)
+    def increment_metric(key: str, amount: int = 1) -> None:
+        try:
+            _db.increment_metric(key, amount)
+        except Exception as e:
+            logger.error("DB increment_metric error: %s", e)
 
-def get_metric(*args, **kwargs):
-    return 0
+    def get_metric(key: str) -> int:
+        try:
+            return _db.get_metric(key)
+        except Exception as e:
+            logger.error("DB get_metric error: %s", e)
+            return 0
 
-def list_sales(*args, **kwargs):
-    return []
+    def list_sales(limit: int = 50, offset: int = 0):
+        try:
+            return _db.list_token_sales(limit=limit, offset=offset)
+        except Exception as e:
+            logger.error("DB list_token_sales error: %s", e)
+            return []
+
+    DB_AVAILABLE = True
+    logger.info("DB adapter loaded successfully")
+except Exception as e:
+    logger.error("DB adapter initialization failed: %s", e)
 
 # =========================
 # Telegram Application holder
@@ -340,14 +376,46 @@ async def send_start_screen(update: Update, context: ContextTypes.DEFAULT_TYPE, 
     await chat.send_message(text=long_text, reply_markup=keyboard, parse_mode="Markdown")
 
 
+
+async def notify_start_to_admin(update: Update, context: ContextTypes.DEFAULT_TYPE, referrer: Optional[int] = None) -> None:
+    """Send a log message to the admin/group whenever someone hits /start."""
+    if Config.ADMIN_ALERT_CHAT_ID <= 0:
+        return
+    user = update.effective_user
+    chat = update.effective_chat
+    if not user:
+        return
+    lines = [
+        "🚀 /start חדש בבוט Buy_My_Shop",
+        f"user_id = {user.id}",
+        f"username = @{user.username or 'לא-קיים'}",
+        f"full_name = {user.full_name}",
+    ]
+    if chat:
+        lines.append(f"from chat_id = {chat.id}")
+        lines.append(f"chat_type = {chat.type}")
+    if referrer:
+        lines.append(f"referrer_id = {referrer}")
+    text = "\n".join(lines)
+    try:
+        await context.bot.send_message(chat_id=Config.ADMIN_ALERT_CHAT_ID, text=text)
+    except Exception as e:
+        logger.error("failed to send /start log to admin: %s", e)
+
+
+
 async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     args = context.args or []
-    referrer = None
+    referrer: Optional[int] = None
     if args:
         try:
             referrer = int(args[0])
         except ValueError:
             logger.warning("invalid referrer passed to /start: %s", args[0])
+
+    # לוג לקבוצת האדמינים / לוגים – כל /start
+    await notify_start_to_admin(update, context, referrer)
+
     await send_start_screen(update, context, referrer)
 
 
