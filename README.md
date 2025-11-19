@@ -51,3 +51,20 @@ export BOT_TOKEN="123:ABC"
 export WEBHOOK_URL="https://your-public-url/webhook"
 
 uvicorn main:app --host 0.0.0.0 --port 8000
+
+
+
+## SLH – בדיקת חיבור לרשת (BSC)
+
+להפעלה מקומית:
+
+```bash
+python check_slh_connection.py
+```
+
+הסקריפט בודק:
+- חיבור ל-RPC של Binance Smart Chain
+- התאמת Chain ID (אמור להיות 56)
+- זמינות חוזה ה-SLH ופרטי הטוקן (Symbol / Decimals)
+
+אם הכל תקין – אפשר להמשיך לחיבור הארנקים, סטייקינג וכל שאר המודולים על אותו חוזה SLH.
