@@ -1,50 +1,53 @@
-# SLHNET Telegram Gateway – Enterprise Pack
+# Buy My Shop – Telegram Gateway Bot
 
-זהו פרויקט Python מלא שמוכן לדחיפה ל‑Git ולהעלאה ל‑Railway כשער טלגרם מתקדם
-עבור Buy_My_Shop / SLH / SELA – כולל:
+בוט טלגרם שמשמש כ"שער כניסה" לקהילת עסקים, עם:
 
-- FastAPI + python‑telegram‑bot (async, webhook)
-- הגנת SPAM ו‑duplicate updates
-- Rate limiting ל‑/webhook
-- Health checks בסיסיים ומורחבים
-- metrics ל‑Prometheus
-- חיבור אופציונלי ל‑Postgres למדדי אישורים / Reserve
-- מערכת הודעות חכמה מ‑messages/messages.md
-- תפריט /start מלא שמציג את עולם ההשקעות והחיסכון שלך
+- תשלום חד־פעמי (39 ₪) במספר ערוצים (בנק, פייבוקס, ביט, PayPal, TON).
+- אישור תשלום ידני + שליחת קישור לקהילת העסקים.
+- העברת לוגים של תשלומים לקבוצת ניהול.
+- תמונת שער עם מונים (כמה פעמים הוצגה, כמה עותקים נשלחו אחרי אישור).
+- תפריט אדמין עם סטטוס מערכת, מונים ורעיונות לפיתוח עתידי.
+- אינטגרציה אופציונלית ל-PostgreSQL דרך `db.py`.
+- דף נחיתה סטטי ב-GitHub Pages לשיתוף ברשתות:
+  - `https://osifeu-prog.github.io/botshop/`
 
-## איך מרימים מקומית
+## קבצים עיקריים
+
+- `main.py` – לוגיקת הבוט + FastAPI + webhook + JobQueue.
+- `requirements.txt` – ספריות נדרשות.
+- `Procfile` – פקודת הרצה ל-PaaS (Railway).
+- `.gitignore` – הגדרות גיט.
+- `assets/start_banner.jpg` – תמונת שער ל-/start (הבוט משתמש בה).
+- `docs/index.html` – דף נחיתה ל-GitHub Pages (עם Open Graph לתמונה).
+- `db.py` (אופציונלי) – חיבור ל-PostgreSQL ללוגים של תשלומים.
+- `.env.example` – דוגמה למשתני סביבה.
+
+## משתני סביבה (Railway → Variables)
+
+חובה:
+
+- `BOT_TOKEN` – הטוקן שקיבלת מ-@BotFather.
+- `WEBHOOK_URL` – ה-URL המלא של ה-webhook, לדוגמה:  
+  `https://webwook-production-4861.up.railway.app/webhook`
+
+אופציונלי, אבל מומלץ:
+
+- `PAYBOX_URL` – לינק תשלום לפייבוקס (אפשר להחליף מדי פעם).
+- `BIT_URL` – לינק תשלום לביט.
+- `PAYPAL_URL` – לינק ל-PayPal.
+- `LANDING_URL` – לינק לדף הנחיתה (ברירת מחדל: GitHub Pages).
+- `START_IMAGE_PATH` – נתיב לתמונת השער (ברירת מחדל: `assets/start_banner.jpg`).
+- `DATABASE_URL` – אם משתמשים ב-PostgreSQL (מבנה: `postgres://user:pass@host:port/dbname`).
+
+## הרצה לוקאלית
 
 ```bash
 python -m venv .venv
-source .venv/bin/activate  # ב‑Windows: .venv\Scripts\activate
+source .venv/bin/activate  # ב-Windows: .venv\Scripts\activate
 pip install -r requirements.txt
 
-cp .env.example .env
-# עדכן BOT_TOKEN, WEBHOOK_URL, ADMIN_ALERT_CHAT_ID וכו'
+# הגדרת משתני סביבה לדוגמה:
+export BOT_TOKEN="123:ABC"
+export WEBHOOK_URL="https://your-public-url/webhook"
 
-uvicorn main:app --host 0.0.0.0 --port 8080 --reload
-```
-
-## פריסה ל‑Railway
-
-1. צור שירות חדש מסוג Python והצב את root של ה‑repo הזה.
-2. ודא שיש משתנה סביבה `PORT` (Railway מוסיף לבד).
-3. קבע פקודת הרצה:
-   ```bash
-   uvicorn main:app --host 0.0.0.0 --port $PORT
-   ```
-4. עדכן ENV:
-   - `BOT_TOKEN`
-   - `WEBHOOK_URL=https://<your-service>.up.railway.app/webhook`
-   - `ADMIN_ALERT_CHAT_ID` (לדוגמה: 224223270)
-   - אופציונלי: `DATABASE_URL`
-
-אחרי הדיפלוי:
-- בדוק `GET /healthz`
-- בדוק `GET /health/detailed`
-- הגדר webhook בבוט (אם אינך עושה זאת אוטומטית):
-  ```bash
-  curl -X POST "https://api.telegram.org/bot<token>/setWebhook"        -d "url=https://<your-service>.up.railway.app/webhook"
-  ```
-
-משם – כל /start בבוט אמור להציג את ההודעה המלאה ואת כפתורי התשלום / קהילה.
+uvicorn main:app --host 0.0.0.0 --port 8000
