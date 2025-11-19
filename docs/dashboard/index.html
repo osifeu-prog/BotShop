@@ -1,657 +1,785 @@
 <!DOCTYPE html>
 <html lang="he" dir="rtl">
 <head>
-    <meta charset="UTF-8">
-    <title>Dashboard - Buy My Shop</title>
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <style>
-        :root {
-            --primary: #4361ee;
-            --primary-dark: #3a56d4;
-            --secondary: #7209b7;
-            --success: #4cc9f0;
-            --light: #f8f9fa;
-            --dark: #212529;
-            --gray: #6c757d;
-            --light-gray: #e9ecef;
-            --border-radius: 12px;
-            --box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
-            --transition: all 0.3s ease;
-        }
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Dashboard - Buy My Shop</title>
 
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-        }
+  <!-- Font Awesome CDN -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" integrity="" crossorigin="anonymous" />
 
-        body {
-            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
-            color: var(--dark);
-            line-height: 1.6;
-            min-height: 100vh;
-            padding: 20px;
-        }
+  <!-- QRCode library (lightweight) -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js" defer></script>
 
-        .container {
-            max-width: 1200px;
-            margin: 0 auto;
-        }
+  <style>
+    :root{
+      /* Primary palette (light theme) */
+      --bg: #f5f7fa;
+      --surface: #ffffff;
+      --text: #1f2933;
+      --muted: #6c757d;
+      --primary: #4361ee;
+      --primary-600: #3a56d4;
+      --accent: #7209b7;
+      --success: #16a34a;
+      --light-gray: #e9ecef;
+      --radius: 12px;
+      --shadow: 0 6px 18px rgba(16,24,40,0.08);
+      --glass: rgba(255,255,255,0.6);
+      --transition: 200ms ease;
+      --card-border: rgba(0,0,0,0.04);
+      --icon-color: var(--primary);
+      --focus-ring: rgba(67,97,238,0.18);
+      --contrast-text: #ffffff;
+    }
 
-        .header {
-            text-align: center;
-            margin-bottom: 30px;
-            padding: 20px;
-            background: white;
-            border-radius: var(--border-radius);
-            box-shadow: var(--box-shadow);
-            position: relative;
-            overflow: hidden;
-        }
+    /* Dark theme variables */
+    :root[data-theme="dark"]{
+      --bg: linear-gradient(180deg,#0b1220 0%, #071225 100%);
+      --surface: #0f1724;
+      --text: #e6eef8;
+      --muted: #9aa7b7;
+      --primary: #82a9ff;
+      --primary-600: #5f86ff;
+      --accent: #b084ff;
+      --success: #34d399;
+      --light-gray: #172033;
+      --glass: rgba(255,255,255,0.03);
+      --shadow: 0 8px 24px rgba(2,6,23,0.6);
+      --card-border: rgba(255,255,255,0.04);
+      --icon-color: var(--primary);
+      --focus-ring: rgba(130,169,255,0.14);
+      --contrast-text: #0b1220;
+    }
 
-        .header::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            right: 0;
-            width: 100%;
-            height: 4px;
-            background: linear-gradient(to left, var(--primary), var(--secondary));
-        }
+    /* Accessibility: prefer dark if user prefers */
+    @media (prefers-color-scheme: dark){
+      :root { /* keep root default light; JS will set theme if desired; this media is fallback-less for browsers without JS */
+      }
+    }
 
-        .header h1 {
-            font-size: 2.2rem;
-            margin-bottom: 10px;
-            color: var(--primary);
-        }
+    /* Global reset + typography */
+    *{box-sizing:border-box}
+    html,body{height:100%}
+    body{
+      margin:0;
+      font-family: "Segoe UI", Tahoma, Arial, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      -webkit-font-smoothing:antialiased;
+      -moz-osx-font-smoothing:grayscale;
+      line-height:1.45;
+      padding:20px;
+      transition: background var(--transition), color var(--transition);
+    }
 
-        .header p {
-            color: var(--gray);
-            font-size: 1.1rem;
-        }
+    .container{
+      max-width:1200px;
+      margin:0 auto;
+    }
 
-        .dashboard-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-            gap: 25px;
-            margin-bottom: 30px;
-        }
+    header.header{
+      background:linear-gradient(90deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01)), var(--surface);
+      border-radius: var(--radius);
+      padding:18px 20px;
+      box-shadow: var(--shadow);
+      display:flex;
+      gap:16px;
+      align-items:center;
+      justify-content:space-between;
+      border:1px solid var(--card-border);
+    }
 
-        .card {
-            background: white;
-            border-radius: var(--border-radius);
-            box-shadow: var(--box-shadow);
-            padding: 25px;
-            transition: var(--transition);
-            position: relative;
-            overflow: hidden;
-        }
+    .header-left{
+      display:flex;
+      gap:12px;
+      align-items:center;
+    }
 
-        .card:hover {
-            transform: translateY(-5px);
-            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.12);
-        }
+    .brand {
+      display:flex;
+      gap:10px;
+      align-items:center;
+    }
 
-        .card::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            right: 0;
-            width: 5px;
-            height: 100%;
-            background: linear-gradient(to bottom, var(--primary), var(--secondary));
-        }
+    .brand i{
+      font-size:28px;
+      color:var(--icon-color);
+    }
 
-        .card h2, .card h3 {
-            color: var(--primary);
-            margin-bottom: 20px;
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            font-size: 1.4rem;
-        }
+    .brand h1{
+      font-size:1.2rem;
+      margin:0;
+      color:var(--text);
+    }
 
-        .card h2 i, .card h3 i {
-            font-size: 1.2rem;
-        }
+    .header p{
+      margin:0;
+      color:var(--muted);
+      font-size:0.95rem;
+    }
 
-        .qr-container {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            padding: 15px;
-            background: var(--light);
-            border-radius: var(--border-radius);
-            margin-bottom: 20px;
-        }
+    /* Theme toggle controls */
+    .controls{
+      display:flex;
+      gap:10px;
+      align-items:center;
+    }
 
-        .qr-code {
-            width: 180px;
-            height: 180px;
-            background: white;
-            border-radius: 10px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            margin-bottom: 15px;
-            border: 1px solid var(--light-gray);
-            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
-        }
+    .theme-toggle{
+      display:inline-flex;
+      align-items:center;
+      gap:8px;
+      background:transparent;
+      color:var(--text);
+      border:1px solid var(--card-border);
+      padding:8px 12px;
+      border-radius:999px;
+      cursor:pointer;
+      transition: all var(--transition);
+    }
 
-        .qr-code canvas {
-            border-radius: 8px;
-        }
+    .theme-toggle:focus{outline:none; box-shadow:0 0 0 4px var(--focus-ring)}
 
-        .personal-link {
-            background: var(--light);
-            padding: 12px 15px;
-            border-radius: var(--border-radius);
-            word-break: break-all;
-            margin: 15px 0;
-            font-size: 0.9rem;
-            border: 1px solid var(--light-gray);
-        }
+    main.dashboard-grid{
+      margin-top:20px;
+      display:grid;
+      grid-template-columns: repeat(12, 1fr);
+      gap:20px;
+    }
 
-        .form-group {
-            margin-bottom: 20px;
-        }
+    /* Card base */
+    .card{
+      background: linear-gradient(180deg, transparent, rgba(0,0,0,0.02)), var(--surface);
+      border-radius: 12px;
+      padding:18px;
+      box-shadow: var(--shadow);
+      border:1px solid var(--card-border);
+      transition: transform 220ms ease, box-shadow 220ms ease;
+      overflow:hidden;
+    }
 
-        .form-group label {
-            display: block;
-            margin-bottom: 8px;
-            font-weight: 600;
-            color: var(--dark);
-            display: flex;
-            align-items: center;
-            gap: 8px;
-        }
+    .card:focus-within, .card:hover{ transform: translateY(-6px) }
 
-        .form-input {
-            width: 100%;
-            padding: 12px 15px;
-            border: 1px solid var(--light-gray);
-            border-radius: var(--border-radius);
-            font-size: 1rem;
-            transition: var(--transition);
-        }
+    /* Grid spans */
+    .col-4{grid-column: span 4}
+    .col-8{grid-column: span 8}
+    .col-6{grid-column: span 6}
+    .col-12{grid-column: span 12}
+    .col-3{grid-column: span 3}
 
-        .form-input:focus {
-            outline: none;
-            border-color: var(--primary);
-            box-shadow: 0 0 0 3px rgba(67, 97, 238, 0.2);
-        }
+    /* Responsive */
+    @media (max-width: 980px){
+      .col-4,.col-6,.col-8,.col-3{grid-column: span 12}
+    }
 
-        .btn {
-            background: var(--primary);
-            color: white;
-            border: none;
-            padding: 12px 20px;
-            border-radius: var(--border-radius);
-            cursor: pointer;
-            font-size: 1rem;
-            font-weight: 600;
-            transition: var(--transition);
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            gap: 8px;
-            width: 100%;
-            margin-top: 10px;
-        }
+    /* Headings inside cards */
+    .card h2, .card h3{
+      margin:0 0 12px 0;
+      font-size:1.05rem;
+      color:var(--primary);
+      display:flex;
+      gap:10px;
+      align-items:center;
+    }
 
-        .btn:hover {
-            background: var(--primary-dark);
-            transform: translateY(-2px);
-        }
+    .card h2 i, .card h3 i{font-size:1.05rem;color:var(--icon-color)}
 
-        .btn-secondary {
-            background: var(--secondary);
-        }
+    /* QR container */
+    .qr-container{
+      display:flex;
+      gap:14px;
+      align-items:center;
+      justify-content:flex-start;
+      padding:12px;
+      background:var(--glass);
+      border-radius:10px;
+      border:1px solid var(--card-border);
+    }
 
-        .btn-secondary:hover {
-            background: #6511a0;
-        }
+    .qr-box{
+      width:160px;
+      height:160px;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      background:var(--surface);
+      border-radius:8px;
+      border:1px solid var(--light-gray);
+      padding:6px;
+    }
 
-        .btn-success {
-            background: var(--success);
-        }
+    .personal-link{
+      display:block;
+      width:100%;
+      padding:10px 12px;
+      background:transparent;
+      border-radius:10px;
+      border:1px dashed var(--card-border);
+      color:var(--muted);
+      font-size:0.95rem;
+      overflow-wrap:break-word;
+    }
 
-        .btn-success:hover {
-            background: #3ab3d6;
-        }
+    /* Forms */
+    label{
+      display:block;
+      font-weight:600;
+      color:var(--text);
+      margin-bottom:8px;
+    }
 
-        .btn-outline {
-            background: transparent;
-            color: var(--primary);
-            border: 2px solid var(--primary);
-        }
+    .form-row{display:flex;gap:10px;align-items:center}
+    .form-input{
+      width:100%;
+      padding:10px 12px;
+      border-radius:10px;
+      border:1px solid var(--card-border);
+      background:transparent;
+      color:var(--text);
+      transition: box-shadow var(--transition), border-color var(--transition);
+    }
 
-        .btn-outline:hover {
-            background: var(--primary);
-            color: white;
-        }
+    .form-input:focus{outline:none; box-shadow:0 0 0 4px var(--focus-ring); border-color:var(--primary)}
 
-        .stats-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-            gap: 15px;
-            margin-top: 15px;
-        }
+    /* Buttons */
+    .btn{
+      display:inline-flex;
+      gap:8px;
+      align-items:center;
+      justify-content:center;
+      padding:10px 14px;
+      border-radius:10px;
+      border:none;
+      cursor:pointer;
+      background:var(--primary);
+      color:var(--contrast-text);
+      font-weight:700;
+      transition:transform var(--transition), box-shadow var(--transition), background var(--transition);
+    }
 
-        .stat-card {
-            background: var(--light);
-            padding: 20px;
-            border-radius: var(--border-radius);
-            text-align: center;
-            transition: var(--transition);
-        }
+    .btn.secondary{background:var(--accent)}
+    .btn.ghost{background:transparent;color:var(--primary);border:1px solid var(--card-border)}
 
-        .stat-card:hover {
-            transform: translateY(-3px);
-            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.08);
-        }
+    .btn:focus{outline:none; box-shadow:0 0 0 4px var(--focus-ring)}
 
-        .stat-number {
-            font-size: 2rem;
-            font-weight: 700;
-            color: var(--primary);
-            margin-bottom: 5px;
-        }
+    /* Stats */
+    .stats-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+    .stat-card{padding:12px;border-radius:10px;background:var(--glass);text-align:center}
+    .stat-number{font-size:1.4rem;font-weight:800;color:var(--text)}
+    .stat-label{color:var(--muted);font-size:0.9rem;margin-top:4px}
 
-        .groups-container {
-            display: flex;
-            flex-direction: column;
-            gap: 15px;
-            margin-top: 15px;
-        }
+    @media (max-width:680px){ .stats-grid{grid-template-columns:repeat(2,1fr)} }
+    @media (max-width:420px){ .stats-grid{grid-template-columns:1fr} }
 
-        .group-btn {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 10px;
-            padding: 15px;
-            border-radius: var(--border-radius);
-            text-decoration: none;
-            color: white;
-            font-weight: 600;
-            transition: var(--transition);
-        }
+    /* Progress */
+    .progress-wrap{margin-top:12px}
+    .progress-bar{
+      width:100%;
+      height:12px;
+      background:linear-gradient(90deg, rgba(0,0,0,0.03), rgba(0,0,0,0.02));
+      border-radius:10px;
+      overflow:hidden;
+      border:1px solid var(--card-border);
+    }
 
-        .group-btn:hover {
-            transform: translateY(-3px);
-            box-shadow: 0 6px 12px rgba(0, 0, 0, 0.15);
-        }
+    .progress{
+      height:100%;
+      width:0%;
+      background:linear-gradient(90deg,var(--primary),var(--accent));
+      transition:width 900ms ease;
+      border-radius:10px;
+    }
 
-        .whatsapp {
-            background: #25D366;
-        }
+    /* Groups */
+    .groups{display:flex;flex-direction:column;gap:10px}
+    .group-btn{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:10px;color:#fff;text-decoration:none;font-weight:700}
+    .whatsapp{background:#25D366}
+    .telegram{background:#0088cc}
 
-        .telegram {
-            background: #0088cc;
-        }
+    /* Notification toast */
+    .toast{
+      position:fixed;
+      left:20px;
+      top:20px;
+      background:var(--surface);
+      color:var(--text);
+      padding:12px 14px;
+      border-radius:10px;
+      box-shadow:var(--shadow);
+      border:1px solid var(--card-border);
+      transform:translateX(-150%);
+      transition:transform 300ms ease;
+      z-index:9999;
+      display:flex;
+      gap:10px;
+      align-items:center;
+    }
 
-        .notification {
-            position: fixed;
-            top: 20px;
-            left: 20px;
-            padding: 15px 20px;
-            background: white;
-            border-radius: var(--border-radius);
-            box-shadow: var(--box-shadow);
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            z-index: 1000;
-            transform: translateX(-150%);
-            transition: transform 0.4s ease;
-            border-right: 4px solid var(--success);
-        }
+    .toast.show{transform:translateX(0)}
 
-        .notification.show {
-            transform: translateX(0);
-        }
+    /* Tooltip small */
+    .info{
+      color:var(--muted);
+      font-size:0.95rem;
+    }
 
-        .notification i {
-            color: var(--success);
-            font-size: 1.2rem;
-        }
+    /* Reduced motion for users */
+    @media (prefers-reduced-motion: reduce){
+      *{transition:none!important;animation:none!important}
+    }
 
-        @media (max-width: 768px) {
-            .dashboard-grid {
-                grid-template-columns: 1fr;
-            }
-            
-            .header h1 {
-                font-size: 1.8rem;
-            }
-            
-            .stats-grid {
-                grid-template-columns: repeat(2, 1fr);
-            }
-        }
-
-        @media (max-width: 480px) {
-            .stats-grid {
-                grid-template-columns: 1fr;
-            }
-            
-            .header h1 {
-                font-size: 1.5rem;
-            }
-            
-            .card {
-                padding: 20px 15px;
-            }
-        }
-
-        .progress-bar {
-            height: 8px;
-            background: var(--light-gray);
-            border-radius: 4px;
-            margin: 15px 0;
-            overflow: hidden;
-        }
-
-        .progress {
-            height: 100%;
-            background: linear-gradient(to right, var(--primary), var(--secondary));
-            border-radius: 4px;
-            width: 0%;
-            transition: width 1s ease;
-        }
-
-        .badge {
-            display: inline-block;
-            padding: 4px 10px;
-            background: var(--success);
-            color: white;
-            border-radius: 20px;
-            font-size: 0.8rem;
-            font-weight: 600;
-            margin-right: 8px;
-        }
-
-        .tooltip {
-            position: relative;
-            display: inline-block;
-        }
-
-        .tooltip .tooltiptext {
-            visibility: hidden;
-            width: 200px;
-            background-color: var(--dark);
-            color: white;
-            text-align: center;
-            border-radius: var(--border-radius);
-            padding: 10px;
-            position: absolute;
-            z-index: 1;
-            bottom: 125%;
-            right: 50%;
-            margin-right: -100px;
-            opacity: 0;
-            transition: opacity 0.3s;
-            font-size: 0.8rem;
-        }
-
-        .tooltip:hover .tooltiptext {
-            visibility: visible;
-            opacity: 1;
-        }
-
-        .tooltip .tooltiptext::after {
-            content: "";
-            position: absolute;
-            top: 100%;
-            right: 50%;
-            margin-right: -5px;
-            border-width: 5px;
-            border-style: solid;
-            border-color: var(--dark) transparent transparent transparent;
-        }
-    </style>
+    /* Small helpers */
+    .flex{display:flex;align-items:center;gap:8px}
+    .muted{color:var(--muted)}
+  </style>
 </head>
 <body>
-    <div class="container">
-        <div class="header">
-            <h1><i class="fas fa-user-circle"></i> דשבורד אישי</h1>
-            <p>ניהול הנכס הדיגיטלי שלך - הכל במקום אחד</p>
+  <div class="container" id="app">
+    <header class="header" role="banner" aria-label="כותרת הדשבורד">
+      <div class="header-left">
+        <div class="brand" aria-hidden="false">
+          <i class="fas fa-user-circle" aria-hidden="true"></i>
+          <div>
+            <h1>דשבורד אישי</h1>
+            <p class="muted" id="brand-sub">ניהול הנכס הדיגיטלי שלך - הכל במקום אחד</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="controls" role="region" aria-label="בקרות">
+        <button class="theme-toggle" id="themeToggle" aria-pressed="false" title="שנה מצב צבע">
+          <i class="fas fa-moon"></i>
+          <span id="themeLabel">מצב כהה</span>
+        </button>
+        <button class="btn ghost" id="resetBtn" title="אתחול תצוגה">איפוס</button>
+      </div>
+    </header>
+
+    <main class="dashboard-grid" role="main" aria-live="polite">
+      <!-- כרטיס כרטיס ביקור דיגיטלי -->
+      <section class="card col-4" aria-labelledby="card-business-title">
+        <h2 id="card-business-title"><i class="fas fa-id-card"></i> כרטיס ביקור דיגיטלי</h2>
+        <div class="qr-container" aria-hidden="false">
+          <div class="qr-box" id="qr-box" aria-label="QR קוד הפרופיל">
+            <div id="qrcode" role="img" aria-label="קוד QR"></div>
+          </div>
+
+          <div style="flex:1">
+            <p class="muted">סרוק כדי לגשת לפרופיל ולשתף</p>
+            <div class="personal-link" id="personal-link-display" tabindex="0" aria-label="קישור אישי">https://buymyshop.com/user/12345</div>
+
+            <div style="display:flex;gap:8px;margin-top:10px">
+              <button class="btn" id="copyBtn"><i class="fas fa-copy" aria-hidden="true"></i><span> העתק לינק</span></button>
+              <button class="btn ghost" id="shareBtn" title="שתף"><i class="fas fa-share-alt" aria-hidden="true"></i><span> שתף</span></button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- הגדרות אישיות -->
+      <section class="card col-4" aria-labelledby="card-settings-title">
+        <h3 id="card-settings-title"><i class="fas fa-cog"></i> הגדרות אישיות</h3>
+
+        <form id="settingsForm" onsubmit="return false;" aria-describedby="settings-desc">
+          <div id="settings-desc" class="muted" style="margin-bottom:10px">הגדרות ישמרו בדפדפן</div>
+
+          <div style="margin-bottom:12px">
+            <label for="bank-account"><i class="fas fa-university"></i> חשבון בנק לקבלת תשלומים</label>
+            <input id="bank-account" class="form-input" placeholder="בנק, סניף, חשבון" autocomplete="off" />
+          </div>
+
+          <div style="margin-bottom:12px">
+            <label for="group-link"><i class="fas fa-users"></i> לינק לקבוצה</label>
+            <input id="group-link" type="url" class="form-input" placeholder="https://t.me/yourgroup" />
+          </div>
+
+          <div style="margin-bottom:12px">
+            <label for="custom-price"><i class="fas fa-tag"></i> מחיר להפצה (ש"ח)</label>
+            <input id="custom-price" type="number" min="1" class="form-input" value="39" />
+          </div>
+
+          <div style="display:flex;gap:8px">
+            <button class="btn secondary" id="saveSettingsBtn" type="button"><i class="fas fa-save"></i> שמור הגדרות</button>
+            <button class="btn ghost" id="clearSettingsBtn" type="button"><i class="fas fa-trash"></i> נקה</button>
+          </div>
+        </form>
+      </section>
+
+      <!-- סטטיסטיקות -->
+      <section class="card col-4" aria-labelledby="card-stats-title">
+        <h3 id="card-stats-title"><i class="fas fa-chart-bar"></i> סטטיסטיקות</h3>
+
+        <div class="stats-grid" role="list" aria-label="סטטיסטיקות כלליות">
+          <div class="stat-card" role="listitem" aria-label="לחיצות">
+            <div class="stat-number" id="total-clicks" aria-live="polite">—</div>
+            <div class="stat-label"><i class="fas fa-mouse-pointer" aria-hidden="true"></i> לחיצות על הלינק</div>
+          </div>
+
+          <div class="stat-card" role="listitem" aria-label="מכירות">
+            <div class="stat-number" id="total-sales" aria-live="polite">—</div>
+            <div class="stat-label"><i class="fas fa-shopping-cart" aria-hidden="true"></i> מכירות</div>
+          </div>
+
+          <div class="stat-card" role="listitem" aria-label="רווחים">
+            <div class="stat-number" id="total-earnings" aria-live="polite">—</div>
+            <div class="stat-label"><i class="fas fa-money-bill-wave" aria-hidden="true"></i> רווחים</div>
+          </div>
         </div>
 
-        <div class="dashboard-grid">
-            <div class="card business-card">
-                <h2><i class="fas fa-id-card"></i> כרטיס ביקור דיגיטלי</h2>
-                <div class="qr-container">
-                    <div id="personal-qr" class="qr-code">
-                        <!-- QR code will be generated here -->
-                        <canvas id="qr-canvas"></canvas>
-                    </div>
-                    <p>סרוק כדי לגשת לפרופיל שלך</p>
-                </div>
-                <div class="personal-link" id="personal-link-display">https://buymyshop.com/user/12345</div>
-                <button class="btn" onclick="copyPersonalLink()">
-                    <i class="fas fa-copy"></i> העתק לינק
-                </button>
-                <button class="btn btn-outline" onclick="sharePersonalLink()">
-                    <i class="fas fa-share-alt"></i> שתף
-                </button>
-            </div>
-
-            <div class="card dashboard-card">
-                <h3><i class="fas fa-cog"></i> הגדרות אישיות</h3>
-                
-                <div class="form-group">
-                    <label><i class="fas fa-university"></i> חשבון בנק לקבלת תשלומים:</label>
-                    <input type="text" id="bank-account" placeholder="בנק, סניף, חשבון" class="form-input">
-                    <div class="tooltip">
-                        <i class="fas fa-info-circle" style="color: var(--gray); font-size: 0.9rem;"></i>
-                        <span class="tooltiptext">הפרטים הבנקאיים שלך ישמשו להעברת התשלומים שהרווחת</span>
-                    </div>
-                </div>
-                
-                <div class="form-group">
-                    <label><i class="fas fa-users"></i> לינק לקבוצה שלך:</label>
-                    <input type="url" id="group-link" placeholder="https://t.me/yourgroup" class="form-input">
-                </div>
-                
-                <div class="form-group">
-                    <label><i class="fas fa-tag"></i> מחיר להפצה (ש"ח):</label>
-                    <input type="number" id="custom-price" value="39" min="39" class="form-input">
-                </div>
-                
-                <button class="btn btn-secondary" onclick="saveSettings()">
-                    <i class="fas fa-save"></i> שמור הגדרות
-                </button>
-            </div>
-
-            <div class="card dashboard-card">
-                <h3><i class="fas fa-chart-bar"></i> סטטיסטיקות</h3>
-                <div class="stats-grid">
-                    <div class="stat-card">
-                        <div class="stat-number" id="total-clicks">1,247</div>
-                        <div><i class="fas fa-mouse-pointer"></i> לחיצות על הלינק</div>
-                    </div>
-                    <div class="stat-card">
-                        <div class="stat-number" id="total-sales">42</div>
-                        <div><i class="fas fa-shopping-cart"></i> מכירות</div>
-                    </div>
-                    <div class="stat-card">
-                        <div class="stat-number" id="total-earnings">1,638₪</div>
-                        <div><i class="fas fa-money-bill-wave"></i> רווחים</div>
-                    </div>
-                </div>
-                <div class="progress-bar">
-                    <div class="progress" id="progress-bar" style="width: 65%"></div>
-                </div>
-                <p style="text-align: center; font-size: 0.9rem; color: var(--gray);">
-                    <span class="badge">מטרה: 2,500₪</span> 
-                    התקדמות: 65%
-                </p>
-            </div>
-
-            <div class="card dashboard-card">
-                <h3><i class="fas fa-users"></i> קבוצות הפרויקט</h3>
-                <p>הצטרף לקבוצות כדי להתעדכן ולתמוך:</p>
-                <div class="groups-container">
-                    <a href="https://chat.whatsapp.com/CCKTtCu9BFPHZTZC6L9Bdh" class="group-btn whatsapp" target="_blank">
-                        <i class="fab fa-whatsapp"></i> קבוצת וואטסאפ
-                    </a>
-                    <a href="https://t.me/+HIzvM8sEgh1kNWY0" class="group-btn telegram" target="_blank">
-                        <i class="fab fa-telegram"></i> קבוצת טלגרם
-                    </a>
-                </div>
-            </div>
-
-            <div class="card dashboard-card">
-                <h3><i class="fas fa-history"></i> פעילות אחרונה</h3>
-                <div id="recent-activity">
-                    <div style="padding: 10px 0; border-bottom: 1px solid var(--light-gray);">
-                        <div><i class="fas fa-mouse-pointer" style="color: var(--primary);"></i> לחיצה על הלינק שלך</div>
-                        <div style="font-size: 0.8rem; color: var(--gray);">לפני 2 שעות</div>
-                    </div>
-                    <div style="padding: 10px 0; border-bottom: 1px solid var(--light-gray);">
-                        <div><i class="fas fa-shekel-sign" style="color: var(--success);"></i> מכירה חדשה +39₪</div>
-                        <div style="font-size: 0.8rem; color: var(--gray);">אתמול</div>
-                    </div>
-                    <div style="padding: 10px 0;">
-                        <div><i class="fas fa-user-plus" style="color: var(--secondary);"></i> משתמש חדש הצטרף דרך הלינק שלך</div>
-                        <div style="font-size: 0.8rem; color: var(--gray);">לפני 3 ימים</div>
-                    </div>
-                </div>
-            </div>
-
-            <div class="card dashboard-card">
-                <h3><i class="fas fa-award"></i> הישגים</h3>
-                <div style="display: flex; gap: 15px; margin-top: 15px;">
-                    <div style="text-align: center;">
-                        <div style="width: 60px; height: 60px; background: var(--light); border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 10px;">
-                            <i class="fas fa-medal" style="color: gold; font-size: 1.5rem;"></i>
-                        </div>
-                        <div style="font-size: 0.8rem;">מפיץ מצטיין</div>
-                    </div>
-                    <div style="text-align: center;">
-                        <div style="width: 60px; height: 60px; background: var(--light); border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 10px;">
-                            <i class="fas fa-bolt" style="color: var(--secondary); font-size: 1.5rem;"></i>
-                        </div>
-                        <div style="font-size: 0.8rem;">התחלה מהירה</div>
-                    </div>
-                    <div style="text-align: center;">
-                        <div style="width: 60px; height: 60px; background: var(--light); border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 10px;">
-                            <i class="fas fa-share" style="color: var(--primary); font-size: 1.5rem;"></i>
-                        </div>
-                        <div style="font-size: 0.8rem;">משתף פעיל</div>
-                    </div>
-                </div>
-            </div>
+        <div class="progress-wrap" aria-hidden="false">
+          <div class="progress-bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="65">
+            <div id="progress" class="progress" style="width:65%"></div>
+          </div>
+          <p style="margin-top:8px;text-align:center;font-size:0.95rem;color:var(--muted)">
+            <span style="font-weight:800;color:var(--primary)">מטרה: </span><span class="muted">2,500₪</span> &nbsp;&nbsp; התקדמות: <span id="progressPct">65%</span>
+          </p>
         </div>
-    </div>
+      </section>
 
-    <div class="notification" id="notification">
-        <i class="fas fa-check-circle"></i>
-        <span id="notification-text">הפעולה בוצעה בהצלחה!</span>
-    </div>
+      <!-- קבוצות -->
+      <section class="card col-6" aria-labelledby="card-groups-title">
+        <h3 id="card-groups-title"><i class="fas fa-users"></i> קבוצות הפרויקט</h3>
+        <p class="muted">הצטרף כדי להתעדכן ולשתף</p>
+        <div class="groups" aria-hidden="false">
+          <a class="group-btn whatsapp" href="#" id="whatsappLink" target="_blank" rel="noopener noreferrer"><i class="fab fa-whatsapp"></i> קבוצת וואטסאפ</a>
+          <a class="group-btn telegram" href="#" id="telegramLink" target="_blank" rel="noopener noreferrer"><i class="fab fa-telegram"></i> קבוצת טלגרם</a>
+        </div>
+      </section>
 
-    <script>
-        // יצירת קוד QR בסיסי (בפועל צריך להשתמש בספריה כמו QRCode.js)
-        function generateQRCode() {
-            const canvas = document.getElementById('qr-canvas');
-            const ctx = canvas.getContext('2d');
-            canvas.width = 160;
-            canvas.height = 160;
-            
-            // ציור רקע
-            ctx.fillStyle = 'white';
-            ctx.fillRect(0, 0, canvas.width, canvas.height);
-            
-            // ציור קוד QR פשוט (דמה)
-            ctx.fillStyle = 'black';
-            
-            // פינות
-            ctx.fillRect(10, 10, 30, 30);
-            ctx.fillRect(120, 10, 30, 30);
-            ctx.fillRect(10, 120, 30, 30);
-            
-            // נקודות אקראיות לדוגמה
-            for (let i = 0; i < 50; i++) {
-                const x = Math.floor(Math.random() * 140) + 10;
-                const y = Math.floor(Math.random() * 140) + 10;
-                const size = Math.floor(Math.random() * 5) + 2;
-                ctx.fillRect(x, y, size, size);
-            }
+      <!-- פעילות אחרונה והישגים -->
+      <section class="card col-6" aria-labelledby="card-activity-title">
+        <h3 id="card-activity-title"><i class="fas fa-history"></i> פעילות אחרונה</h3>
+        <div id="recent-activity" aria-live="polite" style="display:flex;flex-direction:column;gap:10px;margin-top:10px">
+          <div class="flex" style="justify-content:space-between;padding:8px;border-radius:8px;background:var(--glass);border:1px solid var(--card-border)">
+            <div><i class="fas fa-mouse-pointer" style="color:var(--primary)"></i> לחיצה על הלינק שלך</div>
+            <div class="muted">לפני 2 שעות</div>
+          </div>
+          <div class="flex" style="justify-content:space-between;padding:8px;border-radius:8px;background:var(--glass);border:1px solid var(--card-border)">
+            <div><i class="fas fa-shekel-sign" style="color:var(--success)"></i> מכירה חדשה +39₪</div>
+            <div class="muted">אתמול</div>
+          </div>
+          <div class="flex" style="justify-content:space-between;padding:8px;border-radius:8px;background:var(--glass);border:1px solid var(--card-border)">
+            <div><i class="fas fa-user-plus" style="color:var(--accent)"></i> משתמש חדש הצטרף דרך הלינק שלך</div>
+            <div class="muted">לפני 3 ימים</div>
+          </div>
+        </div>
+
+        <h3 style="margin-top:14px"><i class="fas fa-award"></i> הישגים</h3>
+        <div style="display:flex;gap:12px;margin-top:10px;flex-wrap:wrap">
+          <div style="text-align:center;min-width:90px">
+            <div style="width:60px;height:60px;border-radius:50%;display:flex;align-items:center;justify-content:center;background:var(--glass);border:1px solid var(--card-border);margin:0 auto 8px">
+              <i class="fas fa-medal" style="color:gold;font-size:1.3rem"></i>
+            </div>
+            <div class="muted" style="font-size:0.9rem">מפיץ מצטיין</div>
+          </div>
+          <div style="text-align:center;min-width:90px">
+            <div style="width:60px;height:60px;border-radius:50%;display:flex;align-items:center;justify-content:center;background:var(--glass);border:1px solid var(--card-border);margin:0 auto 8px">
+              <i class="fas fa-bolt" style="color:var(--accent);font-size:1.3rem"></i>
+            </div>
+            <div class="muted" style="font-size:0.9rem">התחלה מהירה</div>
+          </div>
+          <div style="text-align:center;min-width:90px">
+            <div style="width:60px;height:60px;border-radius:50%;display:flex;align-items:center;justify-content:center;background:var(--glass);border:1px solid var(--card-border);margin:0 auto 8px">
+              <i class="fas fa-share" style="color:var(--primary);font-size:1.3rem"></i>
+            </div>
+            <div class="muted" style="font-size:0.9rem">משתף פעיל</div>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <!-- Toast -->
+  <div class="toast" id="toast" role="status" aria-live="polite" aria-atomic="true">
+    <i class="fas fa-check-circle" style="color:var(--success)"></i>
+    <div id="toastText">פעולה בוצעה בהצלחה</div>
+  </div>
+
+  <script>
+    (function () {
+      // אלמנטים
+      const themeToggle = document.getElementById('themeToggle');
+      const themeLabel = document.getElementById('themeLabel');
+      const appRoot = document.documentElement;
+      const toast = document.getElementById('toast');
+      const toastText = document.getElementById('toastText');
+      const copyBtn = document.getElementById('copyBtn');
+      const shareBtn = document.getElementById('shareBtn');
+      const personalLinkDisplay = document.getElementById('personal-link-display');
+      const saveSettingsBtn = document.getElementById('saveSettingsBtn');
+      const clearSettingsBtn = document.getElementById('clearSettingsBtn');
+      const bankInput = document.getElementById('bank-account');
+      const groupLink = document.getElementById('group-link');
+      const customPrice = document.getElementById('custom-price');
+      const totalClicks = document.getElementById('total-clicks');
+      const totalSales = document.getElementById('total-sales');
+      const totalEarnings = document.getElementById('total-earnings');
+      const progressEl = document.getElementById('progress');
+      const progressPct = document.getElementById('progressPct');
+      const qrcodeContainer = document.getElementById('qrcode');
+      const resetBtn = document.getElementById('resetBtn');
+
+      // Default data (could be replaced with API)
+      const defaultState = {
+        link: personalLinkDisplay.textContent.trim(),
+        clicks: 1247,
+        sales: 42,
+        earnings: 1638,
+        progress: 65,
+        bank: '',
+        group: '',
+        price: 39,
+        whatsapp: 'https://chat.whatsapp.com/CCKTtCu9BFPHZTZC6L9Bdh',
+        telegram: 'https://t.me/+HIzvM8sEgh1kNWY0'
+      };
+
+      // Load state from localStorage
+      function loadState() {
+        try {
+          const saved = JSON.parse(localStorage.getItem('dashboard_state') || 'null');
+          return saved ? Object.assign({}, defaultState, saved) : defaultState;
+        } catch (e) {
+          return defaultState;
         }
+      }
 
-        // פונקציית העתקת הלינק
-        function copyPersonalLink() {
-            const linkText = document.getElementById('personal-link-display').textContent;
-            navigator.clipboard.writeText(linkText).then(() => {
-                showNotification('הלינק הועתק ללוח!');
-            });
-        }
+      const state = loadState();
 
-        // פונקציית שיתוף הלינק
-        function sharePersonalLink() {
-            const linkText = document.getElementById('personal-link-display').textContent;
-            if (navigator.share) {
-                navigator.share({
-                    title: 'הפרופיל שלי ב-Buy My Shop',
-                    text: 'בקרו בפרופיל שלי ב-Buy My Shop',
-                    url: linkText,
-                })
-                .then(() => showNotification('הלינק שותף בהצלחה!'))
-                .catch((error) => console.log('Error sharing:', error));
-            } else {
-                copyPersonalLink();
-            }
-        }
+      // Apply state to UI
+      function applyState() {
+        personalLinkDisplay.textContent = state.link;
+        totalClicks.textContent = formatNumber(state.clicks);
+        totalSales.textContent = formatNumber(state.sales);
+        totalEarnings.textContent = formatCurrency(state.earnings);
+        progressEl.style.width = Math.max(0, Math.min(100, state.progress)) + '%';
+        progressEl.parentElement.setAttribute('aria-valuenow', String(state.progress));
+        progressPct.textContent = state.progress + '%';
+        bankInput.value = state.bank || '';
+        groupLink.value = state.group || '';
+        customPrice.value = state.price || 39;
+        // Update group links
+        document.getElementById('whatsappLink').href = state.whatsapp;
+        document.getElementById('telegramLink').href = state.telegram;
+      }
 
-        // פונקציית שמירת הגדרות
-        function saveSettings() {
-            // כאן תהיה הלוגיקה לשמירת ההגדרות
-            showNotification('ההגדרות נשמרו בהצלחה!');
-        }
+      applyState();
 
-        // פונקציית הצגת התראה
-        function showNotification(message) {
-            const notification = document.getElementById('notification');
-            const notificationText = document.getElementById('notification-text');
-            
-            notificationText.textContent = message;
-            notification.classList.add('show');
-            
-            setTimeout(() => {
-                notification.classList.remove('show');
-            }, 3000);
-        }
-
-        // אתחול הדף
-        document.addEventListener('DOMContentLoaded', function() {
-            generateQRCode();
-            
-            // אנימציה לסטטיסטיקות
-            animateValue('total-clicks', 0, 1247, 1500);
-            animateValue('total-sales', 0, 42, 1500);
-            animateValue('total-earnings', 0, 1638, 1500);
+      // QR generation using qrcodejs (cdnd)
+      function generateQRCode(url) {
+        qrcodeContainer.innerHTML = ''; // clear
+        // eslint-disable-next-line no-undef
+        new QRCode(qrcodeContainer, {
+          text: url,
+          width: 160,
+          height: 160,
+          colorDark: getComputedStyle(document.documentElement).getPropertyValue('--text').trim() || '#000',
+          colorLight: getComputedStyle(document.documentElement).getPropertyValue('--surface').trim() || '#fff',
+          correctLevel: QRCode.CorrectLevel.H
         });
+      }
 
-        // פונקציה לאנימציית מספרים
-        function animateValue(id, start, end, duration) {
-            const obj = document.getElementById(id);
-            let startTimestamp = null;
-            const step = (timestamp) => {
-                if (!startTimestamp) startTimestamp = timestamp;
-                const progress = Math.min((timestamp - startTimestamp) / duration, 1);
-                const value = Math.floor(progress * (end - start) + start);
-                obj.innerHTML = id === 'total-earnings' ? value + '₪' : value.toLocaleString();
-                if (progress < 1) {
-                    window.requestAnimationFrame(step);
-                }
-            };
-            window.requestAnimationFrame(step);
+      // Format helpers
+      function formatNumber(n) {
+        return Number(n).toLocaleString('he-IL');
+      }
+      function formatCurrency(n) {
+        return Number(n).toLocaleString('he-IL') + '₪';
+      }
+
+      // Toast
+      let toastTimeout = null;
+      function showToast(msg, timeout = 2500) {
+        toastText.textContent = msg;
+        toast.classList.add('show');
+        if (toastTimeout) clearTimeout(toastTimeout);
+        toastTimeout = setTimeout(() => toast.classList.remove('show'), timeout);
+      }
+
+      // Copy link
+      copyBtn.addEventListener('click', async () => {
+        const text = personalLinkDisplay.textContent.trim();
+        try {
+          await navigator.clipboard.writeText(text);
+          showToast('הלינק הועתק ללוח');
+        } catch (e) {
+          // fallback
+          const ta = document.createElement('textarea');
+          ta.value = text;
+          document.body.appendChild(ta);
+          ta.select();
+          try {
+            document.execCommand('copy');
+            showToast('הלינק הועתק (fallback)');
+          } catch (_) {
+            showToast('לא ניתן להעתיק אוטומטית');
+          }
+          ta.remove();
         }
-    </script>
+      });
+
+      // Share
+      shareBtn.addEventListener('click', async () => {
+        const url = personalLinkDisplay.textContent.trim();
+        if (navigator.share) {
+          try {
+            await navigator.share({ title: 'הפרופיל שלי ב-Buy My Shop', text: 'בקרו בפרופיל שלי', url });
+            showToast('הלינק שותף בהצלחה');
+          } catch (e) {
+            showToast('שיתוף בוטל');
+          }
+        } else {
+          // fallback: copy
+          try {
+            await navigator.clipboard.writeText(url);
+            showToast('שיתוף לא נתמך — הקישור הועתק');
+          } catch {
+            showToast('לא ניתן לשתף או להעתיק');
+          }
+        }
+      });
+
+      // Save settings
+      saveSettingsBtn.addEventListener('click', () => {
+        state.bank = bankInput.value.trim();
+        state.group = groupLink.value.trim();
+        state.price = Number(customPrice.value) || defaultState.price;
+        // persist
+        localStorage.setItem('dashboard_state', JSON.stringify(state));
+        showToast('ההגדרות נשמרו בהצלחה');
+      });
+
+      clearSettingsBtn.addEventListener('click', () => {
+        bankInput.value = '';
+        groupLink.value = '';
+        customPrice.value = defaultState.price;
+        state.bank = '';
+        state.group = '';
+        state.price = defaultState.price;
+        localStorage.setItem('dashboard_state', JSON.stringify(state));
+        showToast('ההגדרות נוקו');
+      });
+
+      // Reset button: restore defaults (except theme)
+      resetBtn.addEventListener('click', () => {
+        Object.assign(state, defaultState);
+        localStorage.setItem('dashboard_state', JSON.stringify(state));
+        applyState();
+        generateQRCode(state.link);
+        showToast('הדשבורד אותחל לערכים ברירת מחדל');
+      });
+
+      // Theme handling
+      const THEME_KEY = 'dashboard_theme';
+      function setTheme(theme) {
+        if (theme === 'dark') {
+          document.documentElement.setAttribute('data-theme', 'dark');
+          themeToggle.setAttribute('aria-pressed', 'true');
+          themeLabel.textContent = 'מואר';
+          themeToggle.querySelector('i').className = 'fas fa-sun';
+          localStorage.setItem(THEME_KEY, 'dark');
+        } else {
+          document.documentElement.removeAttribute('data-theme');
+          themeToggle.setAttribute('aria-pressed', 'false');
+          themeLabel.textContent = 'מצב כהה';
+          themeToggle.querySelector('i').className = 'fas fa-moon';
+          localStorage.setItem(THEME_KEY, 'light');
+        }
+        // regenerate QR colors to match theme contrast
+        generateQRCode(personalLinkDisplay.textContent.trim());
+      }
+
+      // Initialize theme based on saved or prefers-color-scheme
+      (function initTheme() {
+        const saved = localStorage.getItem(THEME_KEY);
+        if (saved) setTheme(saved);
+        else {
+          const prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+          setTheme(prefersDark ? 'dark' : 'light');
+        }
+      })();
+
+      themeToggle.addEventListener('click', () => {
+        const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+        setTheme(isDark ? 'light' : 'dark');
+      });
+
+      // Animate numbers (simple, accessible)
+      function animateNumber(el, start, end, duration = 900) {
+        if (!el) return;
+        const startTime = performance.now();
+        function tick(now) {
+          const elapsed = Math.min((now - startTime) / duration, 1);
+          const value = Math.floor(start + (end - start) * elapsed);
+          el.textContent = el === totalEarnings ? formatCurrency(value) : formatNumber(value);
+          if (elapsed < 1) requestAnimationFrame(tick);
+        }
+        requestAnimationFrame(tick);
+      }
+
+      // On initial load animate stats
+      animateNumber(totalClicks, 0, state.clicks, 1200);
+      animateNumber(totalSales, 0, state.sales, 1200);
+      animateNumber(totalEarnings, 0, state.earnings, 1200);
+
+      // Initial QR
+      generateQRCode(state.link);
+
+      // Live update when link content is edited (if user changes link via console or other)
+      const observer = new MutationObserver(() => generateQRCode(personalLinkDisplay.textContent.trim()));
+      observer.observe(personalLinkDisplay, { childList: true, subtree: true, characterData: true });
+
+      // Ensure progress aria and display correct
+      function updateProgress(pct) {
+        pct = Math.max(0, Math.min(100, Number(pct)));
+        progressEl.style.width = pct + '%';
+        progressEl.parentElement.setAttribute('aria-valuenow', String(pct));
+        progressPct.textContent = pct + '%';
+      }
+      updateProgress(state.progress);
+
+      // Accessibility: keyboard accessible copy (Enter on focused link)
+      personalLinkDisplay.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          copyBtn.click();
+        }
+      });
+
+      // Keyboard shortcut: T toggles theme, S saves (only when not typing)
+      document.addEventListener('keydown', (e) => {
+        const active = document.activeElement;
+        const typing = active && (active.tagName === 'INPUT' || active.tagName === 'TEXTAREA');
+        if (!typing && (e.key === 't' || e.key === 'T')) {
+          themeToggle.click();
+        }
+        if (!typing && (e.key === 's' || e.key === 'S')) {
+          saveSettingsBtn.click();
+          showToast('נשמר באמצעות קיצור מקלדת');
+        }
+      });
+
+      // Expose small API for potential integration
+      window.DashboardAPI = {
+        setStats: (clicks, sales, earnings, progress) => {
+          state.clicks = Number(clicks) || state.clicks;
+          state.sales = Number(sales) || state.sales;
+          state.earnings = Number(earnings) || state.earnings;
+          state.progress = Number(progress) || state.progress;
+          localStorage.setItem('dashboard_state', JSON.stringify(state));
+          animateNumber(totalClicks, 0, state.clicks, 900);
+          animateNumber(totalSales, 0, state.sales, 900);
+          animateNumber(totalEarnings, 0, state.earnings, 900);
+          updateProgress(state.progress);
+        },
+        setLink: (link) => {
+          state.link = link;
+          personalLinkDisplay.textContent = link;
+          localStorage.setItem('dashboard_state', JSON.stringify(state));
+          generateQRCode(link);
+        }
+      };
+    })();
+  </script>
 </body>
 </html>
