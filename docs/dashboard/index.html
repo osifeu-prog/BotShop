@@ -1,958 +1,931 @@
 <!DOCTYPE html>
 <html lang="he" dir="rtl">
 <head>
-    <meta charset="UTF-8">
-    <title>דשבורד - SLHNET | Buy My Shop</title>
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <meta name="description" content="דשבורד ניהול אישי ל-SLHNET - עקוב אחרי הסטטיסטיקות, הרווחים והפעילות שלך">
-    
-    <!-- Icons -->
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    
-    <!-- QRCode library -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
-    
-    <style>
-        /* CSS Variables */
-        :root {
-            --primary: #4361ee;
-            --primary-dark: #3a56d4;
-            --secondary: #7209b7;
-            --success: #4cc9f0;
-            --warning: #f59e0b;
-            --error: #ef4444;
-            --light: #f8f9fa;
-            --dark: #212529;
-            --gray: #6c757d;
-            --light-gray: #e9ecef;
-            --border-radius: 12px;
-            --border-radius-lg: 16px;
-            --shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
-            --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.12);
-            --transition: all 0.3s ease;
-        }
-
-        /* Dark mode */
-        [data-theme="dark"] {
-            --light: #121212;
-            --dark: #f8f9fa;
-            --gray: #adb5bd;
-            --light-gray: #343a40;
-            --shadow: 0 4px 16px rgba(0, 0, 0, 0.6);
-            --shadow-lg: 0 8px 32px rgba(0, 0, 0, 0.8);
-            background: radial-gradient(circle at top, #1f2933 0%, #050608 60%, #000 100%);
-            color: var(--dark);
-        }
-
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-            font-family: 'Segoe UI', 'Noto Sans Hebrew', Tahoma, Geneva, Verdana, sans-serif;
-        }
-
-        body {
-            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
-            color: var(--dark);
-            line-height: 1.6;
-            min-height: 100vh;
-            padding: 20px;
-            transition: var(--transition);
-        }
-
-        [data-theme="dark"] body {
-            background: radial-gradient(circle at top, #1f2933 0%, #050608 60%, #000 100%);
-        }
-
-        /* Layout */
-        .container {
-            max-width: 1200px;
-            margin: 0 auto;
-        }
-
-        .header {
-            text-align: center;
-            margin-bottom: 2rem;
-            padding: 2rem 3rem 2rem 1rem;
-            background: var(--light);
-            border-radius: var(--border-radius-lg);
-            box-shadow: var(--shadow);
-            position: relative;
-            overflow: hidden;
-        }
-
-        [data-theme="dark"] .header {
-            background: #111827;
-        }
-
-        .header::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            right: 0;
-            width: 100%;
-            height: 4px;
-            background: linear-gradient(to left, var(--primary), var(--secondary));
-        }
-
-        .header h1 {
-            font-size: clamp(1.75rem, 4vw, 2.5rem);
-            margin-bottom: 0.5rem;
-            color: var(--primary);
-        }
-
-        .header p {
-            color: var(--gray);
-            font-size: 1.1rem;
-        }
-
-        /* Theme Toggle */
-        .theme-toggle-wrapper {
-            position: absolute;
-            top: 1rem;
-            left: 1rem;
-        }
-
-        /* Dashboard Grid */
-        .dashboard-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
-            gap: 1.5rem;
-            margin-bottom: 2rem;
-        }
-
-        /* Cards */
-        .card {
-            background: var(--light);
-            border-radius: var(--border-radius-lg);
-            box-shadow: var(--shadow);
-            padding: 1.5rem;
-            transition: var(--transition);
-            position: relative;
-            overflow: hidden;
-            border: 1px solid transparent;
-        }
-
-        [data-theme="dark"] .card {
-            background: #0b1120;
-            border-color: rgba(148, 163, 184, 0.3);
-        }
-
-        .card:hover {
-            transform: translateY(-4px);
-            box-shadow: var(--shadow-lg);
-        }
-
-        .card::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            right: 0;
-            width: 5px;
-            height: 100%;
-            background: linear-gradient(to bottom, var(--primary), var(--secondary));
-        }
-
-        .card h2, .card h3 {
-            color: var(--primary);
-            margin-bottom: 1.25rem;
-            display: flex;
-            align-items: center;
-            gap: 0.75rem;
-            font-size: 1.3rem;
-        }
-
-        .card h2 i, .card h3 i {
-            font-size: 1.2rem;
-        }
-
-        /* QR Code Section */
-        .qr-container {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            padding: 1.25rem;
-            background: var(--light);
-            border-radius: var(--border-radius);
-            margin-bottom: 1.25rem;
-            border: 1px solid var(--light-gray);
-        }
-
-        [data-theme="dark"] .qr-container {
-            background: #020617;
-        }
-
-        .qr-code {
-            width: 180px;
-            height: 180px;
-            background: white;
-            border-radius: 10px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            margin-bottom: 1rem;
-            border: 1px solid var(--light-gray);
-            box-shadow: var(--shadow);
-        }
-
-        [data-theme="dark"] .qr-code {
-            background: #020617;
-        }
-
-        .personal-link {
-            background: var(--light);
-            padding: 1rem;
-            border-radius: var(--border-radius);
-            word-break: break-all;
-            margin: 1rem 0;
-            font-size: 0.9rem;
-            border: 1px solid var(--light-gray);
-            font-family: monospace;
-        }
-
-        [data-theme="dark"] .personal-link {
-            background: #020617;
-        }
-
-        /* Forms */
-        .form-group {
-            margin-bottom: 1.25rem;
-        }
-
-        .form-group label {
-            display: block;
-            margin-bottom: 0.5rem;
-            font-weight: 600;
-            color: var(--dark);
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
-        }
-
-        [data-theme="dark"] .form-group label {
-            color: var(--dark);
-        }
-
-        .form-input {
-            width: 100%;
-            padding: 0.75rem 1rem;
-            border: 1px solid var(--light-gray);
-            border-radius: var(--border-radius);
-            font-size: 1rem;
-            transition: var(--transition);
-            background: var(--light);
-            color: var(--dark);
-        }
-
-        [data-theme="dark"] .form-input {
-            background: #020617;
-            color: var(--dark);
-            border-color: #475569;
-        }
-
-        .form-input:focus {
-            outline: none;
-            border-color: var(--primary);
-            box-shadow: 0 0 0 3px rgba(67, 97, 238, 0.2);
-        }
-
-        /* Buttons */
-        .btn {
-            background: var(--primary);
-            color: white;
-            border: none;
-            padding: 0.75rem 1.5rem;
-            border-radius: var(--border-radius);
-            cursor: pointer;
-            font-size: 1rem;
-            font-weight: 600;
-            transition: var(--transition);
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            gap: 0.5rem;
-            width: 100%;
-            margin-top: 0.5rem;
-        }
-
-        .btn:hover {
-            background: var(--primary-dark);
-            transform: translateY(-2px);
-        }
-
-        .btn-secondary {
-            background: var(--secondary);
-        }
-
-        .btn-secondary:hover {
-            background: #6511a0;
-        }
-
-        .btn-success {
-            background: var(--success);
-        }
-
-        .btn-outline {
-            background: transparent;
-            color: var(--primary);
-            border: 2px solid var(--primary);
-            width: auto;
-            padding: 0.5rem 1rem;
-        }
-
-        .btn-outline:hover {
-            background: var(--primary);
-            color: white;
-        }
-
-        /* Stats */
-        .stats-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
-            gap: 1rem;
-            margin-top: 1rem;
-        }
-
-        .stat-card {
-            background: var(--light);
-            padding: 1.25rem;
-            border-radius: var(--border-radius);
-            text-align: center;
-            transition: var(--transition);
-            border: 1px solid var(--light-gray);
-        }
-
-        [data-theme="dark"] .stat-card {
-            background: #020617;
-        }
-
-        .stat-card:hover {
-            transform: translateY(-2px);
-            box-shadow: var(--shadow);
-        }
-
-        .stat-number {
-            font-size: 2rem;
-            font-weight: 700;
-            color: var(--primary);
-            margin-bottom: 0.25rem;
-        }
-
-        /* Groups */
-        .groups-container {
-            display: flex;
-            flex-direction: column;
-            gap: 1rem;
-            margin-top: 1rem;
-        }
-
-        .group-btn {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 0.75rem;
-            padding: 1rem;
-            border-radius: var(--border-radius);
-            text-decoration: none;
-            color: white;
-            font-weight: 600;
-            transition: var(--transition);
-        }
-
-        .group-btn:hover {
-            transform: translateY(-2px);
-            box-shadow: var(--shadow-lg);
-        }
-
-        .whatsapp {
-            background: #25D366;
-        }
-
-        .telegram {
-            background: #0088cc;
-        }
-
-        /* Notifications */
-        .notification {
-            position: fixed;
-            top: 1.25rem;
-            left: 1.25rem;
-            padding: 1rem 1.25rem;
-            background: var(--light);
-            border-radius: var(--border-radius);
-            box-shadow: var(--shadow-lg);
-            display: flex;
-            align-items: center;
-            gap: 0.75rem;
-            z-index: 1000;
-            transform: translateX(-150%);
-            transition: transform 0.4s ease;
-            border-right: 4px solid var(--success);
-        }
-
-        [data-theme="dark"] .notification {
-            background: #020617;
-        }
-
-        .notification.show {
-            transform: translateX(0);
-        }
-
-        .notification i {
-            color: var(--success);
-            font-size: 1.2rem;
-        }
-
-        /* Progress Bars */
-        .progress-bar {
-            height: 8px;
-            background: var(--light-gray);
-            border-radius: 4px;
-            margin: 1rem 0;
-            overflow: hidden;
-        }
-
-        .progress {
-            height: 100%;
-            background: linear-gradient(to right, var(--primary), var(--secondary));
-            border-radius: 4px;
-            width: 0%;
-            transition: width 1s ease;
-        }
-
-        /* Badges */
-        .badge {
-            display: inline-block;
-            padding: 0.25rem 0.75rem;
-            background: var(--success);
-            color: white;
-            border-radius: 20px;
-            font-size: 0.8rem;
-            font-weight: 600;
-            margin-left: 0.5rem;
-        }
-
-        /* Tooltips */
-        .tooltip {
-            position: relative;
-            display: inline-block;
-        }
-
-        .tooltip .tooltiptext {
-            visibility: hidden;
-            width: 200px;
-            background-color: var(--dark);
-            color: white;
-            text-align: center;
-            border-radius: var(--border-radius);
-            padding: 0.75rem;
-            position: absolute;
-            z-index: 1;
-            bottom: 125%;
-            right: 50%;
-            margin-right: -100px;
-            opacity: 0;
-            transition: opacity 0.3s;
-            font-size: 0.8rem;
-        }
-
-        .tooltip:hover .tooltiptext {
-            visibility: visible;
-            opacity: 1;
-        }
-
-        .tooltip .tooltiptext::after {
-            content: "";
-            position: absolute;
-            top: 100%;
-            right: 50%;
-            margin-right: -5px;
-            border-width: 5px;
-            border-style: solid;
-            border-color: var(--dark) transparent transparent transparent;
-        }
-
-        /* Responsive */
-        @media (max-width: 768px) {
-            .dashboard-grid {
-                grid-template-columns: 1fr;
-            }
-
-            .header {
-                padding: 1.5rem 2rem 1.5rem 1rem;
-            }
-
-            .stats-grid {
-                grid-template-columns: repeat(2, 1fr);
-            }
-            
-            .theme-toggle-wrapper {
-                position: static;
-                margin-bottom: 1rem;
-            }
-        }
-
-        @media (max-width: 480px) {
-            body {
-                padding: 1rem;
-            }
-            
-            .stats-grid {
-                grid-template-columns: 1fr;
-            }
-
-            .card {
-                padding: 1.25rem;
-            }
-            
-            .header h1 {
-                font-size: 1.5rem;
-            }
-        }
-
-        /* Loading States */
-        .loading {
-            display: inline-block;
-            width: 20px;
-            height: 20px;
-            border: 3px solid rgba(255,255,255,.3);
-            border-radius: 50%;
-            border-top-color: #fff;
-            animation: spin 1s ease-in-out infinite;
-        }
-
-        @keyframes spin {
-            to { transform: rotate(360deg); }
-        }
-
-        .skeleton {
-            background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
-            background-size: 200% 100%;
-            animation: loading 1.5s infinite;
-            border-radius: 4px;
-        }
-
-        [data-theme="dark"] .skeleton {
-            background: linear-gradient(90deg, #374151 25%, #4b5563 50%, #374151 75%);
-        }
-
-        @keyframes loading {
-            0% {
-                background-position: 200% 0;
-            }
-            100% {
-                background-position: -200% 0;
-            }
-        }
-    </style>
+  <meta charset="utf-8" />
+  <title>SLHNET - שער הכניסה לנכס הדיגיטלי שלך</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="description" content="קהילת עסקים, טוקן SLH, חנויות דיגיטליות ומודל ריפרל שקוף. תשלום חדפעמי של 39₪ פותח לך עולם של הכנסות, חשיפה והזדמנויות." />
+  
+  <!-- Open Graph improvements -->
+  <meta property="og:type" content="website" />
+  <meta property="og:title" content="SLHNET - שער הכניסה לנכס הדיגיטלי שלך" />
+  <meta property="og:description" content="שלם 39₪ פעם אחת, קבל גישה לקבוצת עסקים, חנות דיגיטלית אישית, לינק ריפרל ועתיד של סטייקינג וטוקני SLH." />
+  <meta property="og:url" content="https://slh-nft.com/" />
+  <meta property="og:image" content="https://slh-nft.com/assets/og-image.jpg" />
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta property="og:locale" content="he_IL" />
+
+  <!-- Twitter Card -->
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="SLHNET - שער הכניסה לנכס הדיגיטלי שלך">
+  <meta name="twitter:description" content="קהילת עסקים, טוקן SLH, חנויות דיגיטליות ומודל ריפרל שקוף">
+
+  <!-- Favicon -->
+  <link rel="icon" href="https://slh-nft.com/assets/favicon.ico" type="image/x-icon" />
+  <link rel="apple-touch-icon" href="https://slh-nft.com/assets/apple-touch-icon.png">
+
+  <!-- Font Awesome for icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+
+  <style>
+    /* CSS Variables for consistent theming */
+    :root {
+      --primary-color: #00ff88;
+      --primary-dark: #00cc6a;
+      --primary-light: #66ffb8;
+      --secondary-color: #6c63ff;
+      --accent-color: #ff6b6b;
+      --text-primary: #ffffff;
+      --text-secondary: #b0b8d0;
+      --text-muted: #8a94b0;
+      --bg-primary: #0a0f1e;
+      --bg-secondary: #131a2e;
+      --bg-card: rgba(19, 26, 46, 0.85);
+      --border-color: rgba(255, 255, 255, 0.1);
+      --border-radius: 20px;
+      --border-radius-lg: 30px;
+      --shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+      --shadow-glow: 0 0 30px rgba(0, 255, 136, 0.3);
+    }
+
+    /* Reset and base styles */
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    html {
+      scroll-behavior: smooth;
+    }
+
+    body {
+      margin: 0;
+      font-family: 'Heebo', system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: radial-gradient(ellipse at top, #1a2a4a 0%, #0a0f1e 60%, #050814 100%);
+      color: var(--text-primary);
+      line-height: 1.6;
+      overflow-x: hidden;
+      position: relative;
+    }
+
+    /* Animated background */
+    .bg-animation {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      z-index: -1;
+      opacity: 0.6;
+    }
+
+    .bg-circle {
+      position: absolute;
+      border-radius: 50%;
+      background: radial-gradient(circle, var(--primary-color) 0%, transparent 70%);
+      filter: blur(40px);
+      opacity: 0.15;
+    }
+
+    .circle-1 {
+      width: 600px;
+      height: 600px;
+      top: -200px;
+      right: -200px;
+      animation: float 15s ease-in-out infinite;
+    }
+
+    .circle-2 {
+      width: 400px;
+      height: 400px;
+      bottom: -100px;
+      left: -100px;
+      animation: float 12s ease-in-out infinite reverse;
+    }
+
+    .circle-3 {
+      width: 300px;
+      height: 300px;
+      top: 50%;
+      left: 20%;
+      animation: float 10s ease-in-out infinite;
+    }
+
+    @keyframes float {
+      0%, 100% { transform: translateY(0) scale(1); }
+      50% { transform: translateY(-20px) scale(1.05); }
+    }
+
+    /* Particles */
+    .particles {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      z-index: -1;
+      pointer-events: none;
+    }
+
+    .particle {
+      position: absolute;
+      width: 4px;
+      height: 4px;
+      background: var(--primary-light);
+      border-radius: 50%;
+      opacity: 0.3;
+      animation: particle-float 20s infinite linear;
+    }
+
+    @keyframes particle-float {
+      0% { transform: translateY(100vh) translateX(0); opacity: 0; }
+      10% { opacity: 0.7; }
+      90% { opacity: 0.7; }
+      100% { transform: translateY(-100px) translateX(20px); opacity: 0; }
+    }
+
+    /* Improved focus styles for accessibility */
+    a:focus-visible,
+    button:focus-visible {
+      outline: 2px solid var(--primary-color);
+      outline-offset: 4px;
+      border-radius: 8px;
+    }
+
+    /* Skip link for accessibility */
+    .skip-link {
+      position: absolute;
+      top: -40px;
+      right: 0;
+      background: var(--primary-color);
+      color: #000;
+      padding: 12px 16px;
+      text-decoration: none;
+      z-index: 1000;
+      border-radius: 4px;
+      font-weight: 600;
+      transition: top 0.3s ease;
+    }
+
+    .skip-link:focus {
+      top: 0;
+    }
+
+    a { 
+      color: inherit; 
+      text-decoration: none;
+      transition: all 0.3s ease;
+    }
+
+    a:hover {
+      color: var(--primary-color);
+    }
+
+    .page {
+      max-width: 1300px;
+      margin: 0 auto;
+      padding: 30px 20px 60px;
+      position: relative;
+      z-index: 1;
+    }
+
+    /* Enhanced hero section */
+    .hero {
+      display: grid;
+      grid-template-columns: minmax(0, 3fr) minmax(0, 2fr);
+      gap: 50px;
+      align-items: center;
+      margin-bottom: 80px;
+      padding-top: 40px;
+    }
+
+    @media (max-width: 768px) {
+      .hero { 
+        grid-template-columns: 1fr;
+        gap: 40px;
+        margin-bottom: 60px;
+        padding-top: 20px;
+      }
+    }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      padding: 8px 16px;
+      border-radius: 50px;
+      border: 1px solid var(--border-color);
+      font-size: 14px;
+      color: var(--text-secondary);
+      background: var(--bg-card);
+      backdrop-filter: blur(20px);
+      font-weight: 500;
+      margin-bottom: 20px;
+      box-shadow: var(--shadow);
+    }
+
+    .badge::before {
+      content: '';
+      width: 8px;
+      height: 8px;
+      background: var(--primary-color);
+      border-radius: 50%;
+      animation: pulse 2s infinite;
+    }
+
+    @keyframes pulse {
+      0% { box-shadow: 0 0 0 0 rgba(0, 255, 136, 0.7); }
+      70% { box-shadow: 0 0 0 10px rgba(0, 255, 136, 0); }
+      100% { box-shadow: 0 0 0 0 rgba(0, 255, 136, 0); }
+    }
+
+    .title {
+      font-size: clamp(32px, 6vw, 56px);
+      font-weight: 900;
+      margin: 20px 0 16px;
+      color: var(--text-primary);
+      line-height: 1.1;
+      background: linear-gradient(135deg, var(--text-primary) 0%, var(--primary-color) 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    .subtitle {
+      font-size: 20px;
+      line-height: 1.7;
+      color: var(--text-secondary);
+      margin-bottom: 30px;
+      font-weight: 400;
+    }
+
+    .pill-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      font-size: 15px;
+      margin-bottom: 30px;
+    }
+
+    .pill {
+      padding: 8px 16px;
+      border-radius: 50px;
+      background: linear-gradient(135deg, rgba(108, 99, 255, 0.2) 0%, rgba(0, 255, 136, 0.1) 100%);
+      border: 1px solid rgba(108, 99, 255, 0.3);
+      color: var(--text-primary);
+      font-size: 14px;
+      font-weight: 500;
+      backdrop-filter: blur(10px);
+      transition: all 0.3s ease;
+    }
+
+    .pill:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 5px 15px rgba(108, 99, 255, 0.2);
+    }
+
+    /* Enhanced CTA section */
+    .cta-main {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 15px;
+      margin-bottom: 20px;
+    }
+
+    .btn {
+      padding: 16px 32px;
+      border-radius: 50px;
+      border: none;
+      cursor: pointer;
+      font-weight: 700;
+      font-size: 16px;
+      transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .btn::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: -100%;
+      width: 100%;
+      height: 100%;
+      background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+      transition: left 0.7s;
+    }
+
+    .btn:hover::before {
+      left: 100%;
+    }
+
+    .btn-primary {
+      background: linear-gradient(135deg, var(--primary-color) 0%, var(--primary-dark) 100%);
+      color: #000;
+      box-shadow: 0 10px 30px rgba(0, 255, 136, 0.4);
+    }
+
+    .btn-primary:hover {
+      transform: translateY(-5px) scale(1.05);
+      box-shadow: 0 15px 40px rgba(0, 255, 136, 0.6);
+    }
+
+    .btn-secondary {
+      padding: 15px 30px;
+      border-radius: 50px;
+      border: 2px solid var(--secondary-color);
+      background: transparent;
+      color: var(--text-primary);
+      font-size: 16px;
+      cursor: pointer;
+      backdrop-filter: blur(10px);
+    }
+
+    .btn-secondary:hover {
+      background: rgba(108, 99, 255, 0.1);
+      transform: translateY(-5px);
+      box-shadow: 0 10px 25px rgba(108, 99, 255, 0.3);
+    }
+
+    .mini-note {
+      font-size: 14px;
+      color: var(--text-muted);
+      line-height: 1.6;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    /* Enhanced card design */
+    .card {
+      border-radius: var(--border-radius-lg);
+      padding: 30px;
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      box-shadow: var(--shadow);
+      transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+      backdrop-filter: blur(20px);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .card::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 4px;
+      background: linear-gradient(90deg, var(--primary-color), var(--secondary-color));
+    }
+
+    .card:hover {
+      transform: translateY(-10px) scale(1.02);
+      box-shadow: 0 30px 60px rgba(0, 0, 0, 0.6), var(--shadow-glow);
+    }
+
+    .card h3 {
+      margin: 0 0 16px;
+      font-size: 22px;
+      color: var(--text-primary);
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .card h3 i {
+      color: var(--primary-color);
+      font-size: 24px;
+    }
+
+    .card p {
+      margin: 0 0 16px;
+      font-size: 16px;
+      color: var(--text-secondary);
+      line-height: 1.7;
+    }
+
+    .card ul {
+      margin: 0;
+      padding-inline-start: 24px;
+      font-size: 15px;
+      color: var(--text-primary);
+      line-height: 1.7;
+    }
+
+    .card li {
+      margin-bottom: 10px;
+      position: relative;
+    }
+
+    .card li::marker {
+      color: var(--primary-color);
+    }
+
+    .card li:last-child {
+      margin-bottom: 0;
+    }
+
+    .section-title {
+      margin: 80px 0 20px;
+      font-size: 42px;
+      font-weight: 800;
+      text-align: center;
+      color: var(--text-primary);
+      position: relative;
+    }
+
+    .section-title::after {
+      content: '';
+      display: block;
+      width: 80px;
+      height: 4px;
+      background: linear-gradient(90deg, var(--primary-color), var(--secondary-color));
+      margin: 20px auto;
+      border-radius: 2px;
+    }
+
+    .section-sub {
+      margin: 0 0 50px;
+      font-size: 18px;
+      color: var(--text-muted);
+      text-align: center;
+      max-width: 700px;
+      margin-left: auto;
+      margin-right: auto;
+      line-height: 1.6;
+    }
+
+    .grid-3 {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+      gap: 30px;
+      margin-bottom: 60px;
+    }
+
+    .stacked {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      font-size: 16px;
+      color: var(--text-secondary);
+      max-width: 600px;
+      margin: 0 auto;
+      background: var(--bg-card);
+      padding: 30px;
+      border-radius: var(--border-radius);
+      border: 1px solid var(--border-color);
+      backdrop-filter: blur(20px);
+    }
+
+    .stacked div {
+      padding: 16px 0;
+      border-bottom: 1px solid var(--border-color);
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .stacked div:last-child {
+      border-bottom: none;
+    }
+
+    .stacked div::before {
+      content: '';
+      width: 8px;
+      height: 8px;
+      background: var(--primary-color);
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+
+    .investor-card {
+      margin-top: 25px;
+      border-radius: var(--border-radius);
+      padding: 20px;
+      background: linear-gradient(135deg, rgba(255, 215, 0, 0.1) 0%, rgba(255, 140, 0, 0.05) 100%);
+      border: 1px dashed rgba(255, 215, 0, 0.5);
+      font-size: 15px;
+      color: #ffeb99;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .investor-card::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: url("data:image/svg+xml,%3Csvg width='100' height='100' viewBox='0 0 100 100' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M11 18c3.866 0 7-3.134 7-7s-3.134-7-7-7-7 3.134-7 7 3.134 7 7 7zm48 25c3.866 0 7-3.134 7-7s-3.134-7-7-7-7 3.134-7 7 3.134 7 7 7zm-43-7c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3zm63 31c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3zM34 90c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3zm56-76c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3zM12 86c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm28-65c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm23-11c2.76 0 5-2.24 5-5s-2.24-5-5-5-5 2.24-5 5 2.24 5 5 5zm-6 60c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm29 22c2.76 0 5-2.24 5-5s-2.24-5-5-5-5 2.24-5 5 2.24 5 5 5zM32 63c2.76 0 5-2.24 5-5s-2.24-5-5-5-5 2.24-5 5 2.24 5 5 5zm57-13c2.76 0 5-2.24 5-5s-2.24-5-5-5-5 2.24-5 5 2.24 5 5 5zm-9-21c1.105 0 2-.895 2-2s-.895-2-2-2-2 .895-2 2 .895 2 2 2zM60 91c1.105 0 2-.895 2-2s-.895-2-2-2-2 .895-2 2 .895 2 2 2zM35 41c1.105 0 2-.895 2-2s-.895-2-2-2-2 .895-2 2 .895 2 2 2zM12 60c1.105 0 2-.895 2-2s-.895-2-2-2-2 .895-2 2 .895 2 2 2z' fill='%23ffd700' fill-opacity='0.1' fill-rule='evenodd'/%3E%3C/svg%3E");
+      opacity: 0.3;
+    }
+
+    .investor-card strong {
+      color: #ffd700;
+      display: block;
+      margin-bottom: 8px;
+      font-size: 16px;
+    }
+
+    /* Footer improvements */
+    footer {
+      margin-top: 80px;
+      font-size: 14px;
+      color: var(--text-muted);
+      text-align: center;
+      padding: 30px 0;
+      border-top: 1px solid var(--border-color);
+      position: relative;
+    }
+
+    footer::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 100px;
+      height: 3px;
+      background: linear-gradient(90deg, var(--primary-color), var(--secondary-color));
+      border-radius: 0 0 2px 2px;
+    }
+
+    /* Back to top button */
+    .back-to-top {
+      position: fixed;
+      bottom: 30px;
+      left: 30px;
+      background: var(--primary-color);
+      color: #000;
+      width: 50px;
+      height: 50px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      text-decoration: none;
+      opacity: 0;
+      transition: all 0.3s ease;
+      z-index: 1000;
+      box-shadow: 0 5px 15px rgba(0, 255, 136, 0.4);
+      font-weight: bold;
+      font-size: 18px;
+    }
+
+    .back-to-top.visible {
+      opacity: 1;
+    }
+
+    .back-to-top:hover {
+      transform: translateY(-5px);
+      box-shadow: 0 8px 20px rgba(0, 255, 136, 0.6);
+    }
+
+    /* Floating elements */
+    .floating-element {
+      position: absolute;
+      z-index: -1;
+      opacity: 0.1;
+    }
+
+    .float-1 {
+      top: 10%;
+      left: 5%;
+      width: 100px;
+      height: 100px;
+      border-radius: 30% 70% 70% 30% / 30% 30% 70% 70%;
+      background: var(--primary-color);
+      animation: float-element 20s infinite linear;
+    }
+
+    .float-2 {
+      bottom: 20%;
+      right: 10%;
+      width: 150px;
+      height: 150px;
+      border-radius: 63% 37% 54% 46% / 55% 48% 52% 45%;
+      background: var(--secondary-color);
+      animation: float-element 25s infinite linear reverse;
+    }
+
+    @keyframes float-element {
+      0% { transform: translate(0, 0) rotate(0deg); border-radius: 63% 37% 54% 46% / 55% 48% 52% 45%; }
+      25% { transform: translate(20px, 20px) rotate(90deg); border-radius: 30% 70% 70% 30% / 30% 30% 70% 70%; }
+      50% { transform: translate(0, 40px) rotate(180deg); border-radius: 76% 24% 33% 67% / 68% 55% 45% 32%; }
+      75% { transform: translate(-20px, 20px) rotate(270deg); border-radius: 40% 60% 66% 34% / 40% 40% 60% 60%; }
+      100% { transform: translate(0, 0) rotate(360deg); border-radius: 63% 37% 54% 46% / 55% 48% 52% 45%; }
+    }
+
+    /* Loading animation for better perceived performance */
+    .skeleton {
+      background: linear-gradient(90deg, #1a243a 25%, #24304d 50%, #1a243a 75%);
+      background-size: 200% 100%;
+      animation: loading 1.5s infinite;
+      border-radius: 4px;
+    }
+
+    @keyframes loading {
+      0% {
+        background-position: 200% 0;
+      }
+      100% {
+        background-position: -200% 0;
+      }
+    }
+
+    /* Responsive adjustments */
+    @media (max-width: 768px) {
+      .page {
+        padding: 20px 15px 40px;
+      }
+      
+      .hero {
+        gap: 30px;
+        margin-bottom: 50px;
+      }
+      
+      .title {
+        font-size: clamp(28px, 8vw, 42px);
+      }
+      
+      .subtitle {
+        font-size: 18px;
+      }
+      
+      .card {
+        padding: 25px;
+      }
+      
+      .section-title {
+        font-size: 36px;
+        margin: 60px 0 15px;
+      }
+      
+      .section-sub {
+        font-size: 16px;
+        margin-bottom: 40px;
+      }
+      
+      .grid-3 {
+        grid-template-columns: 1fr;
+        gap: 25px;
+      }
+      
+      .btn {
+        padding: 14px 28px;
+        font-size: 15px;
+      }
+      
+      .back-to-top {
+        bottom: 20px;
+        left: 20px;
+        width: 45px;
+        height: 45px;
+      }
+    }
+  </style>
 </head>
 <body>
-    <div class="container">
-        <div class="header">
-            <h1><i class="fas fa-user-circle"></i> דשבורד אישי - SLHNET</h1>
-            <p>ניהול הנכס הדיגיטלי שלך - הכל במקום אחד</p>
-            <div class="theme-toggle-wrapper">
-                <button class="btn btn-outline" id="theme-toggle" aria-label="החלף מצב צבע">
-                    <i class="fas fa-moon"></i> מצב כהה
-                </button>
-            </div>
+  <!-- Animated Background -->
+  <div class="bg-animation">
+    <div class="bg-circle circle-1"></div>
+    <div class="bg-circle circle-2"></div>
+    <div class="bg-circle circle-3"></div>
+  </div>
+  
+  <!-- Floating Elements -->
+  <div class="floating-element float-1"></div>
+  <div class="floating-element float-2"></div>
+  
+  <!-- Particles -->
+  <div class="particles" id="particles-container"></div>
+  
+  <a href="#main-content" class="skip-link">דלג לתוכן הראשי</a>
+  
+  <div class="page">
+    <section class="hero" id="top">
+      <div>
+        <div class="badge">
+          <span>SLHNET</span>
+          <span>•</span>
+          <span>נכס דיגיטלי לכל אחד</span>
         </div>
-
-        <div class="dashboard-grid">
-            <!-- כרטיס ביקור דיגיטלי -->
-            <div class="card business-card">
-                <h2><i class="fas fa-id-card"></i> כרטיס ביקור דיגיטלי</h2>
-                <div class="qr-container">
-                    <div id="personal-qr" class="qr-code" aria-label="קוד QR לפרופיל האישי">
-                        <!-- QR code יופעל כאן -->
-                    </div>
-                    <p>סרוק כדי לגשת לפרופיל שלך</p>
-                </div>
-                <div class="personal-link" id="personal-link-display">https://slhnet.com/user/12345</div>
-                <button class="btn" onclick="copyPersonalLink()" aria-label="העתק קישור אישי">
-                    <i class="fas fa-copy"></i> העתק לינק
-                </button>
-                <button class="btn btn-outline" onclick="sharePersonalLink()" aria-label="שתף קישור אישי">
-                    <i class="fas fa-share-alt"></i> שתף
-                </button>
-            </div>
-
-            <!-- הגדרות אישיות -->
-            <div class="card dashboard-card">
-                <h3><i class="fas fa-cog"></i> הגדרות אישיות</h3>
-
-                <div class="form-group">
-                    <label for="bank-account"><i class="fas fa-university"></i> חשבון בנק לקבלת תשלומים:</label>
-                    <input type="text" id="bank-account" placeholder="בנק, סניף, חשבון" class="form-input" aria-describedby="bank-help">
-                    <div class="tooltip">
-                        <i class="fas fa-info-circle" style="color: var(--gray); font-size: 0.9rem;"></i>
-                        <span class="tooltiptext">הפרטים הבנקאיים שלך ישמשו להעברת התשלומים שהרווחת</span>
-                    </div>
-                </div>
-
-                <div class="form-group">
-                    <label for="group-link"><i class="fas fa-users"></i> לינק לקבוצה שלך:</label>
-                    <input type="url" id="group-link" placeholder="https://t.me/yourgroup" class="form-input">
-                </div>
-
-                <div class="form-group">
-                    <label for="custom-price"><i class="fas fa-tag"></i> מחיר להפצה (ש"ח):</label>
-                    <input type="number" id="custom-price" value="39" min="39" class="form-input">
-                </div>
-
-                <button class="btn btn-secondary" onclick="saveSettings()">
-                    <i class="fas fa-save"></i> שמור הגדרות
-                </button>
-            </div>
-
-            <!-- סטטיסטיקות -->
-            <div class="card dashboard-card">
-                <h3><i class="fas fa-chart-bar"></i> סטטיסטיקות</h3>
-                <div class="stats-grid">
-                    <div class="stat-card">
-                        <div class="stat-number" id="total-clicks">0</div>
-                        <div><i class="fas fa-mouse-pointer"></i> לחיצות על הלינק</div>
-                    </div>
-                    <div class="stat-card">
-                        <div class="stat-number" id="total-sales">0</div>
-                        <div><i class="fas fa-shopping-cart"></i> מכירות</div>
-                    </div>
-                    <div class="stat-card">
-                        <div class="stat-number" id="total-earnings">0₪</div>
-                        <div><i class="fas fa-money-bill-wave"></i> רווחים</div>
-                    </div>
-                </div>
-                <div class="progress-bar">
-                    <div class="progress" id="progress-bar" style="width: 0%" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100"></div>
-                </div>
-                <p style="text-align: center; font-size: 0.9rem; color: var(--gray);">
-                    <span class="badge">מטרה: 2,500₪</span> 
-                    התקדמות: <span id="goal-progress-label">0%</span>
-                </p>
-            </div>
-
-            <!-- קבוצות הפרויקט -->
-            <div class="card dashboard-card">
-                <h3><i class="fas fa-users"></i> קבוצות הקהילה</h3>
-                <p>הצטרף לקבוצות כדי להתעדכן ולתמוך:</p>
-                <div class="groups-container">
-                    <a href="https://chat.whatsapp.com/CCKTtCu9BFPHZTZC6L9Bdh" class="group-btn whatsapp" target="_blank" rel="noopener">
-                        <i class="fab fa-whatsapp"></i> קבוצת וואטסאפ
-                    </a>
-                    <a href="https://t.me/+HIzvM8sEgh1kNWY0" class="group-btn telegram" target="_blank" rel="noopener">
-                        <i class="fab fa-telegram"></i> קבוצת טלגרם
-                    </a>
-                </div>
-            </div>
-
-            <!-- פעילות אחרונה -->
-            <div class="card dashboard-card">
-                <h3><i class="fas fa-history"></i> פעילות אחרונה</h3>
-                <div id="recent-activity">
-                    <div class="activity-item">
-                        <div><i class="fas fa-mouse-pointer" style="color: var(--primary);"></i> לחיצה על הלינק שלך</div>
-                        <div class="activity-time">לפני 2 שעות</div>
-                    </div>
-                    <div class="activity-item">
-                        <div><i class="fas fa-shekel-sign" style="color: var(--success);"></i> מכירה חדשה +39₪</div>
-                        <div class="activity-time">אתמול</div>
-                    </div>
-                    <div class="activity-item">
-                        <div><i class="fas fa-user-plus" style="color: var(--secondary);"></i> משתמש חדש הצטרף דרך הלינק שלך</div>
-                        <div class="activity-time">לפני 3 ימים</div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- הישגים -->
-            <div class="card dashboard-card">
-                <h3><i class="fas fa-award"></i> הישגים</h3>
-                <div class="achievements-grid">
-                    <div class="achievement-item">
-                        <div class="achievement-icon">
-                            <i class="fas fa-medal" style="color: gold;"></i>
-                        </div>
-                        <div class="achievement-text">מפיץ מצטיין</div>
-                    </div>
-                    <div class="achievement-item">
-                        <div class="achievement-icon">
-                            <i class="fas fa-bolt" style="color: var(--secondary);"></i>
-                        </div>
-                        <div class="achievement-text">התחלה מהירה</div>
-                    </div>
-                    <div class="achievement-item">
-                        <div class="achievement-icon">
-                            <i class="fas fa-share" style="color: var(--primary);"></i>
-                        </div>
-                        <div class="achievement-text">משתף פעיל</div>
-                    </div>
-                </div>
-            </div>
+        <h1 class="title">שלם 39₪ פעם אחת וקבל נכס דיגיטלי שיכול לעבוד בשבילך כל החיים.</h1>
+        <p class="subtitle">
+          SLHNET מחברת בין בעלי עסקים, יוצרים ומשווקים לרשת ריפרל חכמה סביב טוקן
+          <strong>SLH</strong>, חנויות דיגיטליות וקהילת עסקים פעילה. כל מי שנכנס דרך הלינק שלך
+          מתועד בעץ הפניות שקוף ואתה הראשון ליהנות.
+        </p>
+        <div class="pill-row">
+          <div class="pill"><i class="fas fa-users"></i> גישה לקבוצת עסקים פרטית</div>
+          <div class="pill"><i class="fas fa-store"></i> חנות דיגיטלית אישית</div>
+          <div class="pill"><i class="fas fa-link"></i> לינק ריפרל ייחודי</div>
+          <div class="pill"><i class="fas fa-coins"></i> איירדרופים וסטייקינג עתידי</div>
         </div>
-    </div>
+        <div class="cta-main" id="join39">
+          <a href="https://links.payboxapp.com/1SNfaJ6XcYb" target="_blank" rel="noopener noreferrer">
+            <button class="btn btn-primary">
+              <i class="fas fa-bolt"></i>
+              <span>תשלום חדפעמי 39₪ וגישה מלאה</span>
+            </button>
+          </a>
+          <a href="https://t.me/Buy_My_Shop_bot" target="_blank" rel="noopener noreferrer">
+            <button class="btn btn-secondary">
+              <i class="fab fa-telegram"></i>
+              <span>כניסה לבוט SLHNET</span>
+            </button>
+          </a>
+        </div>
+        <div class="mini-note">
+          <i class="fas fa-info-circle"></i>
+          אפשר לשלם גם בביט / PayPal. כל הפרטים בבוט ובקבוצת העסקים אחרי ההצטרפות.
+        </div>
+      </div>
+      <div>
+        <div class="card">
+          <h3><i class="fas fa-rocket"></i> מה קורה אחרי שאתה משלים תשלום 39₪?</h3>
+          <p>זו לא עוד "קבוצת וואטסאפ". אתה מקבל <strong>נכס דיגיטלי</strong> שממשיך לעבוד בשבילך:</p>
+          <ul>
+            <li>גישה לקבוצת עסקים סגורה עם הדרכות, שיתופי פעולה ותוכן איכותי</li>
+            <li>פתיחת חנות דיגיטלית אישית שתוכל למכור דרכה מוצרים/שירותים</li>
+            <li>לינק ריפרל אישי - כל מי שנכנס דרכך מתועד ברשת SLHNET</li>
+            <li>השתתפות עתידית בסטייקינג, איירדרופים ותגמולים נוספים בטוקני SLH</li>
+          </ul>
+          <p class="mini-note">
+            <i class="fas fa-chart-bar"></i>
+            <strong>49% מכל תשלום</strong> נכנס אוטומטית לרזרבות המערכת – קרן ביטחון שמטרתה להגדיל את היציבות והרווחיות לטווח הארוך עבור כל המצטרפים.
+          </p>
 
-    <!-- התראות -->
-    <div class="notification" id="notification" role="alert" aria-live="polite">
-        <i class="fas fa-check-circle"></i>
-        <span id="notification-text">הפעולה בוצעה בהצלחה!</span>
-    </div>
+          <div class="investor-card">
+            <strong><i class="fas fa-handshake"></i> משקיעים / שותפים אסטרטגיים</strong>
+            יוצרים מודל ריפרל שקוף וסטייקינג חכם סביב אקו-סיסטם אמיתי של עסקים - לא סביב "אוויר".<br/>
+            קשר ישיר: טלפון 058-420-3384 | טלגרם <a href="https://t.me/Osif83" target="_blank" rel="noopener noreferrer">@Osif83</a>
+          </div>
+        </div>
+      </div>
+    </section>
 
-    <script>
-        const API_BASE = window.BOTSHOP_API_BASE || 'https://botshop-production.up.railway.app';
+    <main id="main-content">
+      <section>
+        <h2 class="section-title">איך מרוויחים ב-SLHNET בפועל?</h2>
+        <p class="section-sub">מודל ריפרל מדורג + נכסים דיגיטליים אמיתיים + טוקן SLH על Binance Smart Chain</p>
+        <div class="grid-3">
+          <div class="card">
+            <h3><i class="fas fa-user-plus"></i> 1. מצטרפים ומשלימים 39₪</h3>
+            <p>פותחים לעצמכם "שער כניסה" אישי לרשת - כולל קישור שיתוף, חנות ופרופיל עסקי.</p>
+          </div>
+          <div class="card">
+            <h3><i class="fas fa-network-wired"></i> 2. בונים עץ הפניות</h3>
+            <p>כל מי שנכנס דרך הקישור שלך מתועד. אנחנו בונים עץ קשרים שקוף - מי הביא את מי, ומתי.</p>
+          </div>
+          <div class="card">
+            <h3><i class="fas fa-money-bill-wave"></i> 3. נהנים מחשיפה ותגמולים</h3>
+            <p>הקהילה, הפוסטים, החנויות והסטייקינג מייצרים עבורך ערך מתמשך - גם כשאתה לא "רודף" אחרי לידים.</p>
+          </div>
+        </div>
+      </section>
 
-        // ניהול ערכת נושא
-        function applyTheme(theme) {
-            const body = document.body;
-            const toggle = document.getElementById('theme-toggle');
-            const isDark = theme === 'dark';
-            
-            document.documentElement.setAttribute('data-theme', isDark ? 'dark' : 'light');
-            localStorage.setItem('dashboard_theme', isDark ? 'dark' : 'light');
-            
-            if (toggle) {
-                toggle.innerHTML = isDark
-                    ? '<i class="fas fa-sun"></i> מצב בהיר'
-                    : '<i class="fas fa-moon"></i> מצב כהה';
-            }
+      <section>
+        <h2 class="section-title">SLHNET + SLH Token</h2>
+        <p class="section-sub">השילוב בין טוקן על BSC לבין רשת חברתית-עסקית מייצר מודל חדש של Social-Fi</p>
+        <div class="grid-3">
+          <div class="card">
+            <h3><i class="fab fa-ethereum"></i> טוקן SLH על BSC</h3>
+            <p>Contract: <code style="font-size: 12px; background: rgba(255,255,255,0.1); padding: 8px 12px; border-radius: 8px; font-family: monospace;">0xACb0A09414CEA1C879c67bB7A877E4e19480f022</code></p>
+            <p>ניתן להחזיק בכל ארנק שתומך ב-BSC. בהמשך - סטייקינג, תגמולים והצבעות קהילה.</p>
+          </div>
+          <div class="card">
+            <h3><i class="fas fa-lock"></i> סטייקינג (פאזה 1)</h3>
+            <p>מתחילים ממודל נקודות פנימי על בסיס פעילות, שיתופים והפניות. בהמשך - קישור ישיר לסטייקינג ב-SLH.</p>
+          </div>
+          <div class="card">
+            <h3><i class="fas fa-users-cog"></i> DAO קהילתי</h3>
+            <p>שקיפות מלאה: מי הרוויח, כמה, ועל בסיס מה. כל זה נבנה בהדרגה לתוך לוגיקת המערכת.</p>
+          </div>
+        </div>
+      </section>
+
+      <section>
+        <h2 class="section-title">מוכן להתחיל?</h2>
+        <div class="stacked">
+          <div><strong>1.</strong> לוחצים על כפתור <strong>תשלום 39₪</strong> ומבצעים רכישה מאובטחת</div>
+          <div><strong>2.</strong> נכנסים לבוט: <a href="https://t.me/Buy_My_Shop_bot" target="_blank" rel="noopener noreferrer">@Buy_My_Shop_bot</a> ומבצעים /start</div>
+          <div><strong>3.</strong> מצטרפים לקבוצת העסקים, מקבלים קישורים ייחודיים ומתחילים להפיץ את הנכס הדיגיטלי שלכם</div>
+        </div>
+      </section>
+    </main>
+
+    <footer>
+      SLHNET - Social-Fi for real-world businesses - Powered by SLH token on BSC
+    </footer>
+  </div>
+
+  <a href="#top" class="back-to-top" aria-label="חזרה למעלה">↑</a>
+
+  <script>
+    // Back to top button functionality
+    const backToTopButton = document.querySelector('.back-to-top');
+    
+    window.addEventListener('scroll', () => {
+      if (window.pageYOffset > 300) {
+        backToTopButton.classList.add('visible');
+      } else {
+        backToTopButton.classList.remove('visible');
+      }
+    });
+
+    // Smooth scroll for anchor links
+    document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+      anchor.addEventListener('click', function (e) {
+        e.preventDefault();
+        const target = document.querySelector(this.getAttribute('href'));
+        if (target) {
+          target.scrollIntoView({
+            behavior: 'smooth',
+            block: 'start'
+          });
         }
+      });
+    });
 
-        function initTheme() {
-            const stored = localStorage.getItem('dashboard_theme');
-            if (stored) {
-                applyTheme(stored);
-            } else {
-                const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-                applyTheme(prefersDark ? 'dark' : 'light');
-            }
-            
-            document.getElementById('theme-toggle').addEventListener('click', () => {
-                const current = document.documentElement.getAttribute('data-theme') === 'dark' ? 'dark' : 'light';
-                applyTheme(current === 'dark' ? 'light' : 'dark');
-            });
+    // Add loading state to buttons
+    document.querySelectorAll('.btn').forEach(button => {
+      button.addEventListener('click', function(e) {
+        if (this.href || this.closest('a')) {
+          const originalText = this.innerHTML;
+          this.innerHTML = '<i class="fas fa-spinner fa-spin"></i> טוען...';
+          this.style.opacity = '0.8';
+          
+          setTimeout(() => {
+            this.innerHTML = originalText;
+            this.style.opacity = '1';
+          }, 2000);
         }
+      });
+    });
 
-        // יצירת QR code
-        function generateQRCode() {
-            const linkText = document.getElementById('personal-link-display').textContent.trim();
-            const container = document.getElementById('personal-qr');
-            
-            if (!container || !window.QRCode) return;
-            
-            container.innerHTML = '';
-            new QRCode(container, {
-                text: linkText || window.location.href,
-                width: 160,
-                height: 160,
-                correctLevel: QRCode.CorrectLevel.H,
-                colorDark: '#000000',
-                colorLight: '#ffffff'
-            });
+    // Create particles
+    function createParticles() {
+      const container = document.getElementById('particles-container');
+      const particleCount = 50;
+      
+      for (let i = 0; i < particleCount; i++) {
+        const particle = document.createElement('div');
+        particle.classList.add('particle');
+        
+        // Random position
+        const left = Math.random() * 100;
+        const delay = Math.random() * 20;
+        const duration = 15 + Math.random() * 15;
+        
+        particle.style.left = `${left}%`;
+        particle.style.animationDelay = `${delay}s`;
+        particle.style.animationDuration = `${duration}s`;
+        
+        container.appendChild(particle);
+      }
+    }
+
+    // Initialize particles when page loads
+    document.addEventListener('DOMContentLoaded', function() {
+      createParticles();
+    });
+
+    // Add scroll animation for cards
+    const observerOptions = {
+      threshold: 0.1,
+      rootMargin: '0px 0px -50px 0px'
+    };
+
+    const observer = new IntersectionObserver((entries) => {
+      entries.forEach(entry => {
+        if (entry.isIntersecting) {
+          entry.target.style.opacity = '1';
+          entry.target.style.transform = 'translateY(0)';
         }
+      });
+    }, observerOptions);
 
-        // העתקת קישור
-        async function copyPersonalLink() {
-            const linkText = document.getElementById('personal-link-display').textContent.trim();
-            
-            if (!linkText) {
-                showNotification('לא נמצא קישור להעתקה', 'error');
-                return;
-            }
-
-            try {
-                await navigator.clipboard.writeText(linkText);
-                showNotification('הלינק הועתק ללוח בהצלחה!');
-            } catch (err) {
-                // Fallback for older browsers
-                const textArea = document.createElement('textarea');
-                textArea.value = linkText;
-                document.body.appendChild(textArea);
-                textArea.select();
-                document.execCommand('copy');
-                document.body.removeChild(textArea);
-                showNotification('הלינק הועתק ללוח!');
-            }
-        }
-
-        // שיתוף קישור
-        async function sharePersonalLink() {
-            const linkText = document.getElementById('personal-link-display').textContent.trim();
-            
-            if (!linkText) {
-                showNotification('לא נמצא קישור לשיתוף', 'error');
-                return;
-            }
-
-            if (navigator.share) {
-                try {
-                    await navigator.share({
-                        title: 'הפרופיל שלי ב-SLHNET',
-                        text: 'בקרו בפרופיל הדיגיטלי שלי ב-SLHNET',
-                        url: linkText,
-                    });
-                    showNotification('הלינק שותף בהצלחה!');
-                } catch (err) {
-                    if (err.name !== 'AbortError') {
-                        console.log('Error sharing:', err);
-                    }
-                }
-            } else {
-                // Fallback to copy
-                copyPersonalLink();
-            }
-        }
-
-        // שמירת הגדרות
-        function saveSettings() {
-            const settings = {
-                bank: document.getElementById('bank-account').value,
-                group: document.getElementById('group-link').value,
-                price: document.getElementById('custom-price').value,
-                link: document.getElementById('personal-link-display').textContent.trim(),
-                lastUpdated: new Date().toISOString()
-            };
-
-            try {
-                localStorage.setItem('slhnet_dashboard_settings', JSON.stringify(settings));
-                showNotification('ההגדרות נשמרו בהצלחה!');
-            } catch (e) {
-                showNotification('שגיאה בשמירת ההגדרות', 'error');
-            }
-        }
-
-        // טעינת הגדרות
-        function loadSettings() {
-            try {
-                const raw = localStorage.getItem('slhnet_dashboard_settings');
-                if (!raw) return;
-                
-                const data = JSON.parse(raw);
-                if (data.bank) document.getElementById('bank-account').value = data.bank;
-                if (data.group) document.getElementById('group-link').value = data.group;
-                if (data.price) document.getElementById('custom-price').value = data.price;
-                if (data.link) document.getElementById('personal-link-display').textContent = data.link;
-            } catch (e) {
-                console.warn('Failed to load settings:', e);
-            }
-        }
-
-        // הצגת התראות
-        function showNotification(message, type = 'success') {
-            const notification = document.getElementById('notification');
-            const notificationText = document.getElementById('notification-text');
-            
-            if (!notification || !notificationText) return;
-            
-            // עדכון סגנון לפי סוג ההתראה
-            notification.style.borderRightColor = type === 'error' ? 'var(--error)' : 'var(--success)';
-            notificationText.textContent = message;
-            
-            // הצגת ההתראה
-            notification.classList.add('show');
-            
-            // הסתרה אוטומטית לאחר 3 שניות
-            setTimeout(() => {
-                notification.classList.remove('show');
-            }, 3000);
-        }
-
-        // אנימציות לסטטיסטיקות
-        function animateValue(id, start, end, duration) {
-            const obj = document.getElementById(id);
-            if (!obj) return;
-            
-            let startTimestamp = null;
-            const step = (timestamp) => {
-                if (!startTimestamp) startTimestamp = timestamp;
-                const progress = Math.min((timestamp - startTimestamp) / duration, 1);
-                const value = Math.floor(progress * (end - start) + start);
-                
-                if (id === 'total-earnings') {
-                    obj.innerHTML = value.toLocaleString('he-IL') + '₪';
-                } else {
-                    obj.innerHTML = value.toLocaleString('he-IL');
-                }
-                
-                if (progress < 1) {
-                    window.requestAnimationFrame(step);
-                }
-            };
-            window.requestAnimationFrame(step);
-        }
-
-        // עדכון התקדמות מטרה
-        function updateGoalProgress(currentEarnings) {
-            const goal = 2500;
-            const pct = Math.max(0, Math.min(100, (currentEarnings / goal) * 100));
-            const bar = document.getElementById('progress-bar');
-            const label = document.getElementById('goal-progress-label');
-            
-            if (bar) {
-                bar.style.width = pct.toFixed(0) + '%';
-                bar.setAttribute('aria-valuenow', pct.toFixed(0));
-            }
-            if (label) {
-                label.textContent = pct.toFixed(0) + '%';
-            }
-        }
-
-        // טעינת נתוני פיננסים
-        async function loadFinanceMetrics() {
-            try {
-                // הצגת מצב טעינה
-                document.querySelectorAll('.stat-number').forEach(el => {
-                    el.innerHTML = '<span class="skeleton" style="width: 60px; height: 20px; display: inline-block;"></span>';
-                });
-
-                const res = await fetch(API_BASE + '/api/metrics/finance');
-                
-                if (!res.ok) throw new Error('Network response was not ok');
-                
-                const data = await res.json();
-                const reserve = data?.reserve || {};
-                
-                const totalPayments = reserve.total_payments || 0;
-                const approvedCount = reserve.approved_count || 0;
-                const totalNet = reserve.total_net || 0;
-                const estimatedClicks = totalPayments * 3;
-
-                // אנימציית הסטטיסטיקות
-                animateValue('total-clicks', 0, estimatedClicks, 1500);
-                animateValue('total-sales', 0, approvedCount, 1500);
-                animateValue('total-earnings', 0, Math.round(totalNet), 1500);
-                updateGoalProgress(totalNet);
-                
-            } catch (err) {
-                console.error('Error fetching finance metrics:', err);
-                // ערכי דמה במקרה של שגיאה
-                animateValue('total-clicks', 0, 1247, 1500);
-                animateValue('total-sales', 0, 42, 1500);
-                animateValue('total-earnings', 0, 1638, 1500);
-                updateGoalProgress(1638);
-                
-                showNotification('אין חיבור לרשת - מוצגים נתונים לא מקוונים', 'warning');
-            }
-        }
-
-        // אתחול האפליקציה
-        document.addEventListener('DOMContentLoaded', function() {
-            initTheme();
-            loadSettings();
-            generateQRCode();
-            loadFinanceMetrics();
-            
-            // האזנה לשינויים בשדות
-            document.querySelectorAll('.form-input').forEach(input => {
-                input.addEventListener('change', saveSettings);
-            });
-        });
-
-        // טעינת נתונים מחדש כאשר הדף חוזר להיות גלוי
-        document.addEventListener('visibilitychange', function() {
-            if (!document.hidden) {
-                loadFinanceMetrics();
-            }
-        });
-    </script>
+    // Observe cards for animation
+    document.querySelectorAll('.card').forEach(card => {
+      card.style.opacity = '0';
+      card.style.transform = 'translateY(30px)';
+      card.style.transition = 'opacity 0.6s ease, transform 0.6s ease';
+      observer.observe(card);
+    });
+  </script>
 </body>
 </html>
