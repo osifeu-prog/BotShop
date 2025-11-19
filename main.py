@@ -1,3 +1,4 @@
+
 from telegram.ext import MessageHandler, filters, CallbackQueryHandler
 import os
 import json
@@ -302,7 +303,8 @@ async def send_start_screen(update: Update, context: ContextTypes.DEFAULT_TYPE, 
 
     ton_address = get_ton_address()
 
-    text = (
+    # טקסט מלא (נשלח כהודעה נפרדת אחרי התמונה)
+    full_text = (
         "🎯 *ברוך הבא לשער הקהילה של SLH*\n\n"
         "זהו בוט שנועד לייצר לך *מקור הכנסה אישי*.\n"
         "אתה רוכש פעם אחת כניסה ב־*39₪*, ומקבל אזור אישי בבוט, "
@@ -344,15 +346,16 @@ async def send_start_screen(update: Update, context: ContextTypes.DEFAULT_TYPE, 
             with img_path.open("rb") as f:
                 await chat.send_photo(
                     photo=InputFile(f),
-                    caption=text,
-                    reply_markup=keyboard,
-                    parse_mode="Markdown",
+                    caption="🎯 ברוך הבא לשער הקהילה של SLH",
                 )
+            # טקסט + כפתורים בהודעה נפרדת
+            await chat.send_message(text=full_text, reply_markup=keyboard, parse_mode="Markdown")
             return
         except Exception as e:
             logger.error("failed to send start image: %s", e)
 
-    await chat.send_message(text=text, reply_markup=keyboard, parse_mode="Markdown")
+    # fallback – בלי תמונה
+    await chat.send_message(text=full_text, reply_markup=keyboard, parse_mode="Markdown")
 
 
 async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
