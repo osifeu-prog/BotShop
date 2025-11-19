@@ -1,295 +1,586 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="he" dir="rtl">
 <head>
   <meta charset="utf-8" />
-  <title>SLHNET  שער הכניסה לנכס הדיגיטלי שלך</title>
+  <title>SLHNET — שער הכניסה לנכס הדיגיטלי שלך</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <meta name="description" content="קהילת עסקים, טוקן SLH, חנויות דיגיטליות ומודל ריפרל שקוף. תשלום חדפעמי של 39  פותח לך עולם של הכנסות, חשיפה והזדמנויות." />
-
-  <!-- Open Graph for social sharing -->
+  <meta name="description" content="קהילת עסקים, טוקן SLH, חנויות דיגיטליות ומודל ריפרל שקוף. תשלום חדפעמי של 39₪ פותח לך עולם של הכנסות, חשיפה והזדמנויות." />
   <meta property="og:type" content="website" />
-  <meta property="og:title" content="SLHNET  שער הכניסה לנכס הדיגיטלי שלך" />
-  <meta property="og:description" content="שלם 39  פעם אחת, קבל גישה לקבוצת עסקים, חנות דיגיטלית אישית, לינק ריפרל ועתיד של סטייקינג וטוקני SLH." />
-  <meta property="og:url" content="https://slh-nft.com/" />
-  <meta property="og:image" content="https://slh-nft.com/assets/start_banner.jpg" />
-  <meta property="og:image:width" content="1200">
-  <meta property="og:image:height" content="630">
-
-  <link rel="icon" href="https://slh-nft.com/assets/start_banner.jpg" type="image/svg+xml" />
+  <meta property="og:title" content="SLHNET — שער הכניסה לנכס הדיגיטלי שלך" />
+  <meta property="og:description" content="שלם 39₪ פעם אחת, קבל גישה לקבוצת עסקים, חנות דיגיטלית אישית, לינק ריפרל ועתיד של סטייקינג וטוקני SLH." />
+  <link rel="icon" href="https://slh-nft.com/assets/start_banner.jpg" type="image/jpeg" />
 
   <style>
+    * { box-sizing: border-box; }
     body {
       margin: 0;
-      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-      background: radial-gradient(circle at top, #111827 0, #020617 55%, #000 100%);
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: #000;
       color: #e5e7eb;
+      overflow-x: hidden;
+      position: relative;
     }
-    a { color: inherit; text-decoration: none; }
+    
+    /* Matrix Canvas Background */
+    #matrix-canvas {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      z-index: 0;
+      opacity: 0.15;
+    }
+    
+    /* Glassmorphism overlay */
+    .glass-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: radial-gradient(ellipse at top, rgba(16, 185, 129, 0.03) 0%, rgba(0, 0, 0, 0.7) 50%);
+      backdrop-filter: blur(1px);
+      z-index: 1;
+      pointer-events: none;
+    }
+    
     .page {
-      max-width: 1000px;
+      position: relative;
+      z-index: 2;
+      max-width: 1200px;
       margin: 0 auto;
-      padding: 24px 16px 48px;
+      padding: 40px 20px 60px;
     }
+    
+    /* Animated gradient text */
+    @keyframes gradient-shift {
+      0% { background-position: 0% 50%; }
+      50% { background-position: 100% 50%; }
+      100% { background-position: 0% 50%; }
+    }
+    
+    .gradient-text {
+      background: linear-gradient(135deg, #10b981, #22c55e, #84cc16, #10b981);
+      background-size: 200% 200%;
+      -webkit-background-clip: text;
+      background-clip: text;
+      -webkit-text-fill-color: transparent;
+      animation: gradient-shift 4s ease infinite;
+    }
+    
+    /* Hero Section */
     .hero {
       display: grid;
       grid-template-columns: minmax(0, 3fr) minmax(0, 2fr);
-      gap: 24px;
+      gap: 40px;
       align-items: center;
+      margin-bottom: 60px;
     }
+    
     @media (max-width: 768px) {
-      .hero { grid-template-columns: minmax(0, 1fr); }
+      .hero { 
+        grid-template-columns: minmax(0, 1fr);
+        gap: 30px;
+      }
     }
+    
+    /* Badge with glow */
     .badge {
       display: inline-flex;
       align-items: center;
-      gap: 8px;
-      padding: 4px 10px;
+      gap: 10px;
+      padding: 8px 16px;
       border-radius: 999px;
-      border: 1px solid rgba(148, 163, 184, 0.4);
-      font-size: 12px;
-      color: #cbd5f5;
-      background: rgba(15, 23, 42, 0.75);
-      backdrop-filter: blur(14px);
+      border: 1px solid rgba(16, 185, 129, 0.5);
+      font-size: 13px;
+      color: #6ee7b7;
+      background: rgba(16, 185, 129, 0.1);
+      backdrop-filter: blur(20px);
+      box-shadow: 0 0 20px rgba(16, 185, 129, 0.3);
+      animation: pulse-glow 3s ease-in-out infinite;
     }
+    
+    @keyframes pulse-glow {
+      0%, 100% { box-shadow: 0 0 20px rgba(16, 185, 129, 0.3); }
+      50% { box-shadow: 0 0 30px rgba(16, 185, 129, 0.5); }
+    }
+    
+    .badge::before {
+      content: "●";
+      color: #10b981;
+      animation: blink 2s ease-in-out infinite;
+    }
+    
+    @keyframes blink {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.3; }
+    }
+    
+    /* Title */
     .title {
-      font-size: clamp(26px, 4vw, 34px);
-      font-weight: 700;
-      margin: 18px 0 8px;
+      font-size: clamp(32px, 5vw, 48px);
+      font-weight: 800;
+      margin: 24px 0 16px;
       color: #f9fafb;
+      line-height: 1.2;
+      text-shadow: 0 0 30px rgba(16, 185, 129, 0.3);
     }
+    
     .subtitle {
-      font-size: 16px;
-      line-height: 1.7;
-      color: #cbd5f5;
-      margin-bottom: 20px;
+      font-size: 18px;
+      line-height: 1.8;
+      color: #d1d5db;
+      margin-bottom: 28px;
     }
+    
+    /* Pills */
     .pill-row {
       display: flex;
       flex-wrap: wrap;
-      gap: 8px;
-      font-size: 13px;
-      margin-bottom: 18px;
+      gap: 10px;
+      font-size: 14px;
+      margin-bottom: 28px;
     }
+    
     .pill {
-      padding: 4px 10px;
+      padding: 8px 16px;
       border-radius: 999px;
-      background: rgba(30, 64, 175, 0.25);
-      border: 1px solid rgba(129, 140, 248, 0.35);
-      color: #e0e7ff;
+      background: rgba(16, 185, 129, 0.15);
+      border: 1px solid rgba(16, 185, 129, 0.4);
+      color: #a7f3d0;
+      transition: all 0.3s ease;
+      cursor: default;
     }
+    
+    .pill:hover {
+      background: rgba(16, 185, 129, 0.25);
+      transform: translateY(-2px);
+      box-shadow: 0 5px 15px rgba(16, 185, 129, 0.3);
+    }
+    
+    /* Buttons */
     .cta-main {
       display: flex;
       flex-wrap: wrap;
-      gap: 10px;
-      margin-bottom: 14px;
+      gap: 14px;
+      margin-bottom: 16px;
     }
+    
     .btn-primary {
-      padding: 10px 16px;
+      padding: 14px 32px;
       border-radius: 999px;
       border: none;
       cursor: pointer;
-      font-weight: 600;
-      font-size: 14px;
-      background: linear-gradient(135deg, #22c55e, #16a34a);
-      color: #022c22;
-      box-shadow: 0 10px 30px rgba(34, 197, 94, 0.45);
-    }
-    .btn-secondary {
-      padding: 9px 14px;
-      border-radius: 999px;
-      border: 1px solid rgba(148, 163, 184, 0.5);
-      background: transparent;
-      color: #e5e7eb;
-      font-size: 14px;
-      cursor: pointer;
-    }
-    .mini-note {
-      font-size: 12px;
-      color: #9ca3af;
-    }
-    .card {
-      border-radius: 18px;
-      padding: 16px 18px;
-      background: radial-gradient(circle at top, rgba(15, 23, 42, 0.95) 0, rgba(15, 23, 42, 0.9) 40%, rgba(15, 23, 42, 0.92) 100%);
-      border: 1px solid rgba(148, 163, 184, 0.4);
-      box-shadow: 0 12px 40px rgba(15, 23, 42, 0.65);
-    }
-    .card h3 {
-      margin: 0 0 8px;
+      font-weight: 700;
       font-size: 16px;
-      color: #e5e7eb;
+      background: linear-gradient(135deg, #10b981, #22c55e);
+      color: #022c22;
+      box-shadow: 0 10px 40px rgba(16, 185, 129, 0.5);
+      transition: all 0.3s ease;
+      position: relative;
+      overflow: hidden;
     }
-    .card p {
-      margin: 0 0 10px;
-      font-size: 13px;
-      color: #cbd5f5;
-      line-height: 1.6;
+    
+    .btn-primary::before {
+      content: "";
+      position: absolute;
+      top: 0;
+      left: -100%;
+      width: 100%;
+      height: 100%;
+      background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.3), transparent);
+      transition: left 0.5s ease;
     }
-    .card ul {
-      margin: 0;
-      padding-inline-start: 18px;
-      font-size: 13px;
-      color: #e5e7eb;
+    
+    .btn-primary:hover::before {
+      left: 100%;
     }
-    .section-title {
-      margin: 32px 0 8px;
-      font-size: 18px;
+    
+    .btn-primary:hover {
+      transform: translateY(-3px);
+      box-shadow: 0 15px 50px rgba(16, 185, 129, 0.6);
+    }
+    
+    .btn-secondary {
+      padding: 13px 28px;
+      border-radius: 999px;
+      border: 1px solid rgba(16, 185, 129, 0.5);
+      background: rgba(16, 185, 129, 0.1);
+      backdrop-filter: blur(10px);
+      color: #a7f3d0;
+      font-size: 15px;
       font-weight: 600;
+      cursor: pointer;
+      transition: all 0.3s ease;
     }
-    .section-sub {
-      margin: 0 0 18px;
+    
+    .btn-secondary:hover {
+      background: rgba(16, 185, 129, 0.2);
+      border-color: rgba(16, 185, 129, 0.7);
+      transform: translateY(-3px);
+      box-shadow: 0 10px 30px rgba(16, 185, 129, 0.3);
+    }
+    
+    .mini-note {
       font-size: 13px;
       color: #9ca3af;
+      margin-top: 8px;
     }
+    
+    /* Cards with advanced glassmorphism */
+    .card {
+      border-radius: 24px;
+      padding: 28px;
+      background: linear-gradient(135deg, rgba(16, 185, 129, 0.08) 0%, rgba(0, 0, 0, 0.6) 100%);
+      border: 1px solid rgba(16, 185, 129, 0.3);
+      backdrop-filter: blur(20px);
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.05);
+      transition: all 0.4s ease;
+      position: relative;
+      overflow: hidden;
+    }
+    
+    .card::before {
+      content: "";
+      position: absolute;
+      top: -50%;
+      right: -50%;
+      width: 200%;
+      height: 200%;
+      background: radial-gradient(circle, rgba(16, 185, 129, 0.1) 0%, transparent 70%);
+      opacity: 0;
+      transition: opacity 0.4s ease;
+    }
+    
+    .card:hover::before {
+      opacity: 1;
+    }
+    
+    .card:hover {
+      transform: translateY(-5px);
+      border-color: rgba(16, 185, 129, 0.5);
+      box-shadow: 0 25px 70px rgba(16, 185, 129, 0.3);
+    }
+    
+    .card h3 {
+      margin: 0 0 12px;
+      font-size: 20px;
+      font-weight: 700;
+      color: #f9fafb;
+    }
+    
+    .card p {
+      margin: 0 0 12px;
+      font-size: 15px;
+      color: #d1d5db;
+      line-height: 1.7;
+    }
+    
+    .card ul {
+      margin: 12px 0;
+      padding-inline-start: 24px;
+      font-size: 15px;
+      color: #e5e7eb;
+      line-height: 1.8;
+    }
+    
+    .card ul li {
+      margin-bottom: 8px;
+    }
+    
+    .card code {
+      background: rgba(16, 185, 129, 0.15);
+      padding: 4px 8px;
+      border-radius: 6px;
+      font-size: 12px;
+      color: #6ee7b7;
+      border: 1px solid rgba(16, 185, 129, 0.3);
+    }
+    
+    /* Investor card with special styling */
+    .investor-card {
+      margin-top: 20px;
+      border-radius: 20px;
+      padding: 20px 24px;
+      background: linear-gradient(135deg, rgba(250, 204, 21, 0.1) 0%, rgba(0, 0, 0, 0.7) 100%);
+      border: 2px dashed rgba(250, 204, 21, 0.6);
+      font-size: 14px;
+      color: #fef9c3;
+      box-shadow: 0 0 40px rgba(250, 204, 21, 0.2);
+      animation: glow-gold 3s ease-in-out infinite;
+    }
+    
+    @keyframes glow-gold {
+      0%, 100% { box-shadow: 0 0 40px rgba(250, 204, 21, 0.2); }
+      50% { box-shadow: 0 0 60px rgba(250, 204, 21, 0.4); }
+    }
+    
+    .investor-card strong {
+      color: #fde68a;
+      font-size: 16px;
+    }
+    
+    .investor-card a {
+      color: #fbbf24;
+      text-decoration: underline;
+    }
+    
+    /* Section titles */
+    .section-title {
+      margin: 60px 0 12px;
+      font-size: 32px;
+      font-weight: 800;
+      text-align: center;
+      color: #f9fafb;
+    }
+    
+    .section-sub {
+      margin: 0 0 32px;
+      font-size: 16px;
+      color: #9ca3af;
+      text-align: center;
+    }
+    
+    /* Grid */
     .grid-3 {
       display: grid;
       grid-template-columns: repeat(3, minmax(0, 1fr));
-      gap: 16px;
+      gap: 24px;
     }
+    
     @media (max-width: 900px) {
       .grid-3 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
     }
+    
     @media (max-width: 640px) {
       .grid-3 { grid-template-columns: minmax(0, 1fr); }
     }
+    
+    /* Stacked list */
     .stacked {
       display: flex;
       flex-direction: column;
-      gap: 10px;
-      font-size: 13px;
-      color: #cbd5f5;
-    }
-    .investor-card {
-      margin-top: 12px;
+      gap: 16px;
+      font-size: 16px;
+      color: #d1d5db;
+      background: rgba(16, 185, 129, 0.05);
+      padding: 24px;
       border-radius: 16px;
-      padding: 12px 14px;
-      background: rgba(15, 23, 42, 0.9);
-      border: 1px dashed rgba(250, 204, 21, 0.7);
-      font-size: 13px;
-      color: #fef9c3;
+      border: 1px solid rgba(16, 185, 129, 0.2);
     }
-    .investor-card strong {
-      color: #fde68a;
+    
+    .stacked div {
+      padding: 12px 16px;
+      background: rgba(0, 0, 0, 0.4);
+      border-radius: 12px;
+      border-right: 3px solid #10b981;
     }
+    
+    /* Footer */
     footer {
-      margin-top: 32px;
-      font-size: 11px;
+      margin-top: 80px;
+      padding: 24px;
+      font-size: 13px;
       color: #6b7280;
       text-align: center;
+      border-top: 1px solid rgba(16, 185, 129, 0.2);
+    }
+    
+    /* Scroll reveal animation */
+    @keyframes fadeInUp {
+      from {
+        opacity: 0;
+        transform: translateY(30px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+    
+    .reveal {
+      animation: fadeInUp 0.8s ease-out;
     }
   </style>
 </head>
 <body>
+  <canvas id="matrix-canvas"></canvas>
+  <div class="glass-overlay"></div>
+  
   <div class="page">
-    <section class="hero" id="top">
+    <section class="hero reveal" id="top">
       <div>
         <div class="badge">
           <span>SLHNET</span>
-          <span></span>
+          <span>●</span>
           <span>נכס דיגיטלי לכל אחד</span>
         </div>
-        <h1 class="title">שלם 39  פעם אחת  וקבל נכס דיגיטלי שיכול לעבוד בשבילך כל החיים.</h1>
+        <h1 class="title">
+          שלם <span class="gradient-text">39₪</span> פעם אחת — וקבל נכס דיגיטלי שיכול לעבוד בשבילך כל החיים.
+        </h1>
         <p class="subtitle">
           SLHNET מחברת בין בעלי עסקים, יוצרים ומשווקים לרשת ריפרל חכמה סביב טוקן
-          <strong>SLH</strong>, חנויות דיגיטליות וקהילת עסקים פעילה. כל מי שנכנס דרך הלינק שלך
-          מתועד בעץ הפניות שקוף  ואתה הראשון ליהנות.
+          <strong class="gradient-text">SLH</strong>, חנויות דיגיטליות וקהילת עסקים פעילה. כל מי שנכנס דרך הלינק שלך
+          מתועד בעץ הפניות שקוף — ואתה הראשון ליהנות.
         </p>
         <div class="pill-row">
-          <div class="pill">גישה לקבוצת עסקים פרטית</div>
-          <div class="pill">חנות דיגיטלית אישית</div>
-          <div class="pill">לינק ריפרל ייחודי</div>
-          <div class="pill">איירדרופים וסטייקינג עתידי</div>
+          <div class="pill">🔐 גישה לקבוצת עסקים פרטית</div>
+          <div class="pill">🛍️ חנות דיגיטלית אישית</div>
+          <div class="pill">🔗 לינק ריפרל ייחודי</div>
+          <div class="pill">💎 איירדרופים וסטייקינג עתידי</div>
         </div>
         <div class="cta-main" id="join39">
           <a href="https://links.payboxapp.com/1SNfaJ6XcYb" target="_blank" rel="noopener">
-            <button class="btn-primary"> תשלום חדפעמי 39  וגישה מלאה</button>
+            <button class="btn-primary">💳 תשלום חדפעמי 39₪ וגישה מלאה</button>
           </a>
           <a href="https://t.me/Buy_My_Shop_bot" target="_blank" rel="noopener">
-            <button class="btn-secondary"> כניסה לבוט SLHNET</button>
+            <button class="btn-secondary">🤖 כניסה לבוט SLHNET</button>
           </a>
         </div>
         <div class="mini-note">
-          אפשר לשלם גם בביט / PayPal  כל הפרטים בבוט ובקבוצת העסקים אחרי ההצטרפות.
+          אפשר לשלם גם בביט / PayPal — כל הפרטים בבוט ובקבוצת העסקים אחרי ההצטרפות.
         </div>
       </div>
+      
       <div>
         <div class="card">
-          <h3>מה קורה אחרי שאתה משלים תשלום 39 ?</h3>
+          <h3>⚡ מה קורה אחרי שאתה משלים תשלום 39₪?</h3>
           <p>זו לא עוד "קבוצת וואטסאפ". אתה מקבל <strong>נכס דיגיטלי</strong> שממשיך לעבוד בשבילך:</p>
           <ul>
             <li>גישה לקבוצת עסקים סגורה עם הדרכות, שיתופי פעולה ותוכן איכותי.</li>
             <li>פתיחת חנות דיגיטלית אישית שתוכל למכור דרכה מוצרים/שירותים.</li>
-            <li>לינק ריפרל אישי  כל מי שנכנס דרכך מתועד ברשת SLHNET.</li>
+            <li>לינק ריפרל אישי — כל מי שנכנס דרכך מתועד ברשת SLHNET.</li>
             <li>השתתפות עתידית בסטייקינג, איירדרופים ותגמולים נוספים בטוקני SLH.</li>
           </ul>
-          <p class="small">
-            📊 <strong>49% מכל תשלום</strong> נכנס אוטומטית לרזרבות המערכת – קרן ביטחון שמטרתה להגדיל את היציבות והרווחיות לטווח הארוך עבור כל המצטרפים.
+          <p>
+            📊 <strong>49% מכל תשלום</strong> נכנס אוטומטית לרזרבות המערכת — קרן ביטחון שמטרתה להגדיל את היציבות והרווחיות לטווח הארוך עבור כל המצטרפים.
           </p>
 
           <div class="investor-card">
-            <strong>משקיעים / שותפים אסטרטגיים</strong><br/>
-            יוצרים מודל ריפרל שקוף וסטייקינג חכם סביב אקו-סיסטם אמיתי של עסקים  לא סביב "אוויר".<br/>
-            קשר ישיר: טלפון 058-420-3384  טלגרם <a href="https://t.me/Osif83" target="_blank">@Osif83</a>
+            <strong>💼 משקיעים / שותפים אסטרטגיים</strong><br/>
+            יוצרים מודל ריפרל שקוף וסטייקינג חכם סביב אקו-סיסטם אמיתי של עסקים — לא סביב "אוויר".<br/>
+            קשר ישיר: טלפון 058-420-3384 • טלגרם <a href="https://t.me/Osif83" target="_blank">@Osif83</a>
           </div>
         </div>
       </div>
     </section>
 
-    <section>
-      <h2 class="section-title">איך מרוויחים ב-SLHNET בפועל?</h2>
+    <section class="reveal">
+      <h2 class="section-title">💰 איך מרוויחים ב-SLHNET בפועל?</h2>
       <p class="section-sub">מודל ריפרל מדורג + נכסים דיגיטליים אמיתיים + טוקן SLH על Binance Smart Chain.</p>
       <div class="grid-3">
         <div class="card">
-          <h3>1. מצטרפים ומשלימים 39 </h3>
-          <p>פותחים לעצמכם "שער כניסה" אישי לרשת  כולל קישור שיתוף, חנות ופרופיל עסקי.</p>
+          <h3>1️⃣ מצטרפים ומשלימים 39₪</h3>
+          <p>פותחים לעצמכם "שער כניסה" אישי לרשת — כולל קישור שיתוף, חנות ופרופיל עסקי.</p>
         </div>
         <div class="card">
-          <h3>2. בונים עץ הפניות</h3>
-          <p>כל מי שנכנס דרך הקישור שלך מתועד. אנחנו בונים עץ קשרים שקוף  מי הביא את מי, ומתי.</p>
+          <h3>2️⃣ בונים עץ הפניות</h3>
+          <p>כל מי שנכנס דרך הקישור שלך מתועד. אנחנו בונים עץ קשרים שקוף — מי הביא את מי, ומתי.</p>
         </div>
         <div class="card">
-          <h3>3. נהנים מחשיפה ותגמולים</h3>
-          <p>הקהילה, הפוסטים, החנויות והסטייקינג מייצרים עבורך ערך מתמשך  גם כשאתה לא "רודף" אחרי לידים.</p>
+          <h3>3️⃣ נהנים מחשיפה ותגמולים</h3>
+          <p>הקהילה, הפוסטים, החנויות והסטייקינג מייצרים עבורך ערך מתמשך — גם כשאתה לא "רודף" אחרי לידים.</p>
         </div>
       </div>
     </section>
 
-    <section>
-      <h2 class="section-title">SLHNET + SLH Token</h2>
+    <section class="reveal">
+      <h2 class="section-title">🪙 SLHNET + SLH Token</h2>
       <p class="section-sub">השילוב בין טוקן על BSC לבין רשת חברתית-עסקית מייצר מודל חדש של Social-Fi.</p>
       <div class="grid-3">
         <div class="card">
-          <h3>טוקן SLH על BSC</h3>
+          <h3>💎 טוקן SLH על BSC</h3>
           <p>Contract: <code>0xACb0A09414CEA1C879c67bB7A877E4e19480f022</code></p>
-          <p>ניתן להחזקה בכל ארנק שתומך ב-BSC. בהמשך  סטייקינג, תגמולים והצבעות קהילה.</p>
+          <p>ניתן להחזקה בכל ארנק שתומך ב-BSC. בהמשך — סטייקינג, תגמולים והצבעות קהילה.</p>
         </div>
         <div class="card">
-          <h3>סטייקינג (פאזה 1)</h3>
-          <p>מתחילים ממודל נקודות פנימי על בסיס פעילות, שיתופים והפניות. בהמשך  קישור ישיר לסטייקינג ב-SLH.</p>
+          <h3>🔒 סטייקינג (פאזה 1)</h3>
+          <p>מתחילים ממודל נקודות פנימי על בסיס פעילות, שיתופים והפניות. בהמשך — קישור ישיר לסטייקינג ב-SLH.</p>
         </div>
         <div class="card">
-          <h3>DAO קהילתי</h3>
+          <h3>🗳️ DAO קהילתי</h3>
           <p>שקיפות מלאה: מי הרוויח, כמה, ועל בסיס מה. כל זה נבנה בהדרגה לתוך לוגיקת המערכת.</p>
         </div>
       </div>
     </section>
 
-    <section>
-      <h2 class="section-title">מוכן להתחיל?</h2>
+    <section class="reveal">
+      <h2 class="section-title">🚀 מוכן להתחיל?</h2>
       <div class="stacked">
-        <div>1. לוחצים על כפתור <strong>תשלום 39 </strong> ומבצעים רכישה מאובטחת.</div>
-        <div>2. נכנסים לבוט: <a href="https://t.me/Buy_My_Shop_bot" target="_blank">@Buy_My_Shop_bot</a> ומבצעים /start.</div>
+        <div>1. לוחצים על כפתור <strong>תשלום 39₪</strong> ומבצעים רכישה מאובטחת.</div>
+        <div>2. נכנסים לבוט: <a href="https://t.me/Buy_My_Shop_bot" target="_blank" style="color:#10b981;">@Buy_My_Shop_bot</a> ומבצעים /start.</div>
         <div>3. מצטרפים לקבוצת העסקים, מקבלים קישורים ייחודיים ומתחילים להפיץ את הנכס הדיגיטלי שלכם.</div>
       </div>
-      <div style="margin-top:16px;">
-        <a href="#top"><span style="font-size:12px;color:#9ca3af;"> חזרה למעלה</span></a>
+      <div style="margin-top:24px; text-align:center;">
+        <a href="#top"><span style="font-size:14px;color:#10b981;text-decoration:underline;">⬆️ חזרה למעלה</span></a>
       </div>
     </section>
 
     <footer>
-      SLHNET  Social-Fi for real-world businesses  Powered by SLH token on BSC
+      SLHNET — Social-Fi for real-world businesses — Powered by SLH token on BSC
     </footer>
   </div>
+
+  <script>
+    // Matrix Rain Effect
+    const canvas = document.getElementById('matrix-canvas');
+    const ctx = canvas.getContext('2d');
+
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+
+    // Hebrew and code characters for matrix effect
+    const chars = 'אבגדהוזחטיכלמנסעפצקרשת01function{}const=>return';
+    const fontSize = 14;
+    const columns = canvas.width / fontSize;
+    const drops = [];
+
+    for (let i = 0; i < columns; i++) {
+      drops[i] = Math.random() * -100;
+    }
+
+    function drawMatrix() {
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.05)';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+      ctx.fillStyle = '#10b981';
+      ctx.font = `${fontSize}px monospace`;
+
+      for (let i = 0; i < drops.length; i++) {
+        const char = chars[Math.floor(Math.random() * chars.length)];
+        const x = i * fontSize;
+        const y = drops[i] * fontSize;
+
+        ctx.fillText(char, x, y);
+
+        if (y > canvas.height && Math.random() > 0.975) {
+          drops[i] = 0;
+        }
+        drops[i]++;
+      }
+    }
+
+    setInterval(drawMatrix, 50);
+
+    // Resize canvas on window resize
+    window.addEventListener('resize', () => {
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight;
+    });
+
+    // Scroll reveal animation
+    const observer = new IntersectionObserver((entries) => {
+      entries.forEach(entry => {
+        if (entry.isIntersecting) {
+          entry.target.classList.add('reveal');
+        }
+      });
+    });
+
+    document.querySelectorAll('section').forEach(section => {
+      observer.observe(section);
+    });
+  </script>
 </body>
 </html>
-
